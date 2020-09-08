@@ -1,0 +1,22 @@
+[package]
+name = "rust-app"
+version = "0.2.0"
+authors = ["yhql"]
+edition = "2018"
+
+[dependencies]
+nanos_sdk = { git = "https://github.com/LedgerHQ/ledger-nanos-sdk.git" } 
+nanos_ui = { git = "https://github.com/LedgerHQ/ledger-nanos-ui.git" } 
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+opt-level = 'z' 
+lto = true
+
+[package.metadata.nanos]
+curve = "secp256k1"
+flags = "0"
+icon = "crab.gif"

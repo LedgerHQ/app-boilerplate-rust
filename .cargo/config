@@ -1,0 +1,13 @@
+[target.thumbv6m-none-eabi]
+rustflags = [ 
+  "-C", "relocation-model=ropi-rwpi",
+  "-C", "link-arg=-Tscript.ld",
+]
+runner = "speculos.py --display text -k 1.6"
+
+[build]
+target = "thumbv6m-none-eabi"
+
+[alias]
+br = "build --release"
+stackcheck = "stack-sizes --release --bin rust-app --target=thumbv6m-none-eabi"

@@ -12,7 +12,7 @@ use crypto_helpers::*;
 
 nanos_sdk::set_panic!(nanos_sdk::exiting_panic);
 
-fn handle_apdus(comm: &mut io::Comm) -> Result<(), io::StatusWords> {
+fn handle_apdu(comm: &mut io::Comm) -> Result<(), io::StatusWords> {
     if comm.rx == 0 {
         return Err(io::StatusWords::NothingReceived)
     }
@@ -30,7 +30,7 @@ fn handle_apdus(comm: &mut io::Comm) -> Result<(), io::StatusWords> {
                             .map_err(|_| io::StatusWords::UserCancelled)?;
             if let Some(o) = out { comm.append(&o) }
         }
-        0x04 => comm.append(&[menu_ui()]),
+        0x04 => menu_example(),
         0xfe => comm.append(&bip32_derive_secp256k1(&BIP32_PATH)),
         0xff => nanos_sdk::exit_app(0),
         _ => return Err(io::StatusWords::Unknown),
@@ -38,17 +38,42 @@ fn handle_apdus(comm: &mut io::Comm) -> Result<(), io::StatusWords> {
     Ok(())
 }
 
-fn menu_ui() -> u8 {
-    let list = [
-                "First",
-                "Second",
-                "Third",
-                "Fourth",
-                "Fifth",
-                "Sixth",
-                "Seventh"
-    ];
-    ui::Menu::new(&list).show() as u8
+/// Display public key in two separate
+/// message scrollers
+fn show_pubkey() {
+    let pubkey = get_pubkey();
+    {
+        let hex0 = utils::to_hex(&pubkey.W[1..33]).unwrap();
+        let m = from_utf8(&hex0).unwrap();
+        ui::MessageScroller::new(&m).event_loop();
+    }
+    {
+        let hex1 = utils::to_hex(&pubkey.W[33..65]).unwrap();
+        let m = from_utf8(&hex1).unwrap();
+        ui::MessageScroller::new(&m).event_loop();
+    }
+}
+
+/// Basic nested menu. Will be subject
+/// to simplifications in the future.
+fn menu_example() {
+    let top = ["PubKey", "Infos", "Exit App"];
+    let infos = ["Copyright", "Authors", "Back"];
+
+    loop {
+        match ui::Menu::new(&top).show() {
+            0 => show_pubkey(),
+            1 => loop {
+                match ui::Menu::new(&infos).show() {
+                    0 => ui::popup("2020 Ledger"),
+                    1 => ui::popup("???"),
+                    _ => break 
+                }
+            }
+            2 => nanos_sdk::exit_app(0),
+            _ => () 
+        }
+    } 
 }
 
 /// This is the UI flow for signing, composed of a scroller
@@ -58,7 +83,7 @@ fn sign_ui(message: &[u8]) -> Result<Option<DEREncodedECDSASignature>, ()> {
     let hex = utils::to_hex(&message)?;
     let m = from_utf8(&hex).map_err(|_| ())?;
 
-    ui::SingleMessage::new("Message review").show_and_wait();
+    ui::popup("Message review");
     ui::MessageScroller::new(&m).event_loop();
 
     match ui::Validator::new("Sign ?").ask() {
@@ -69,15 +94,15 @@ fn sign_ui(message: &[u8]) -> Result<Option<DEREncodedECDSASignature>, ()> {
             // Signature verification so we're sure the bindings are OK !
             let pubkey = nanos_sdk::ecc::ec_get_pubkey(CurvesId::Secp256k1, &mut k);
             if !detecdsa_verify(&message, &sig[..sig_len as usize], &pubkey) {
-                ui::SingleMessage::new("Invalid :(").show_and_wait();
+                ui::popup("Invalid :(");
                 return Err(())
             }
 
-            ui::SingleMessage::new("Done !").show_and_wait();
+            ui::popup("Done !");
             Ok(Some(sig))
         },
         false => {
-            ui::SingleMessage::new("Cancelled").show_and_wait();
+            ui::popup("Cancelled");
             Ok(None)
         }
     }
@@ -90,9 +115,9 @@ extern "C" fn sample_main() {
     loop {
         ui::SingleMessage::new("W e l c o m e").show();
 
-        comm.io_exch(0);
+        comm.io_exch(0x80);
 
-        match handle_apdus(&mut comm) {
+        match handle_apdu(&mut comm) {
             Ok(()) => comm.set_status_word(io::StatusWords::OK),
             Err(sw) => comm.set_status_word(sw),
         }

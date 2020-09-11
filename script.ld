@@ -32,13 +32,14 @@ SECTIONS
     
     /* all code placed */
     _etext = .;
+  } > FLASH = 0x00
 
+  .nvm_data :
+  {
     . = ALIGN(PAGE_SIZE);
-
     _nvram_data = .;
-    
-    /* NVM data (ex-filesystem) */
-    *(.bss.N_* .rodata.N_*)
+
+    *(.nvm_data*)
 
     . = ALIGN(PAGE_SIZE);
     _envram_data = .;
@@ -46,9 +47,7 @@ SECTIONS
     _install_parameters = .;
     PROVIDE(N_install_parameters = .);
     PROVIDE(_envram = .);
-    _nvram_data_size = _envram_data - _nvram_data;
-    
-  } > FLASH = 0x00
+  } > FLASH
 
   .data (INFO):
   {

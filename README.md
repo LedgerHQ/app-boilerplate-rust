@@ -1,6 +1,6 @@
 # Rust Nano S Application 
 
-A simple application that receives a message, displays it, and requests user approval to sign.
+A simple application that receives a message, displays it, and requests user approval to sign. Can also display an example menu.
 
 ## Building
 

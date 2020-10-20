@@ -1,15 +1,41 @@
 use nanos_sdk::bindings::*;
 use nanos_sdk::ecc::{CurvesId, DEREncodedECDSASignature};
 
-// TODO: make a macro that derives the path by itself
-// ex: make_bip32_path!(b"44'/535348'/0'/0/0";
-// =>
-pub const BIP32_PATH: [u32; 5] = [
-        0x8000002cu32,
-        0x80082b34, 
-        0x80000000, 
-        0x00000000, 
-        0x00000000];
+/// ASCII value of the character 0.
+const ZERO: u8 = 48;
+/// ASCII value of the character 9.
+const NINE: u8 = 57;
+
+/// Helper macro that creates an array from the ASCII values of a correctly formatted derivation path.
+/// Format expected: `b"44'/coin_type'/account'/change/address"`.
+///
+/// # Panics
+///
+/// Panics if the parameter does not follow the correct format.
+macro_rules! make_bip32_path {
+    ($e:expr) => {{
+        let mut a = [0x80000000, 0x80000000, 0x80000000, 0, 0];
+        let mut i = 0;
+        let mut j = 0;
+        let mut res = 0u32;
+
+        while (j < a.len()) {
+            while (i < $e.len() && $e[i] >= ZERO && $e[i] <= NINE) {
+                res = res * 10 + $e[i] as u32 - ZERO as u32;
+                i += 1;
+            }
+            a[j] += res;
+            res = 0;
+            j += 1;
+            while (i < $e.len() && ($e[i] <= ZERO || $e[i] >= NINE)) {
+                i += 1;
+            }
+        }
+        a
+    }};
+}
+
+pub const BIP32_PATH: [u32; 5] = make_bip32_path!(b"44'/535348'/0'/0/0");
 
 /// Helper function that derives the seed over secp256k1
 pub fn bip32_derive_secp256k1(path: &[u32]) -> [u8; 32] {

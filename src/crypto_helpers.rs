@@ -13,25 +13,38 @@ const NINE: u8 = 57;
 ///
 /// Panics if the parameter does not follow the correct format.
 macro_rules! make_bip32_path {
-    ($e:expr) => {{
-        let mut a = [0x80000000, 0x80000000, 0x80000000, 0, 0];
+    ($bytes:expr) => {{
+        // The three first elements must start with `0x800000`.
+        let mut path = [0x80000000, 0x80000000, 0x80000000, 0, 0];
         let mut i = 0;
         let mut j = 0;
-        let mut res = 0u32;
+        let mut acc = 0u32;
 
-        while (j < a.len()) {
-            while (i < $e.len() && $e[i] >= ZERO && $e[i] <= NINE) {
-                res = res * 10 + $e[i] as u32 - ZERO as u32;
+        // We are looking for 5 numbers, separated by `/`.
+        // Those numbers are represented in ASCII bytes (e.g `[49, 48, 51]` represents the number `103`).
+        // We are going to parse the string once, summing the bytes when we encounter them to create a number
+        // and resetting our counter everytime we get to a separator (i.e. not a byte that represent an ASCII number).
+        while (j < path.len()) {
+            // Check if this byte represents a number in ASCII.
+            while (i < $bytes.len() && $bytes[i] >= ZERO && $bytes[i] <= NINE) {
+                // It does: add it to the accumulator (taking care to substract the ASCII value of 0).
+                acc = acc * 10 + $bytes[i] as u32 - ZERO as u32;
                 i += 1;
             }
-            a[j] += res;
-            res = 0;
+            // We've effectively parsed a number: add it to `path`.
+            path[j] += acc;
+            // Reset the accumulator.
+            acc = 0;
+            // Keep going until we either:
+            // 1. Find a new number.
+            // 2. Reach the end of the bytes.
+            while (i < $bytes.len() && ($bytes[i] <= ZERO || $bytes[i] >= NINE)) {
+                i += 1;
+            }
+            // Repeat that for the next element in `path`.
             j += 1;
-            while (i < $e.len() && ($e[i] <= ZERO || $e[i] >= NINE)) {
-                i += 1;
-            }
         }
-        a
+        path 
     }};
 }
 

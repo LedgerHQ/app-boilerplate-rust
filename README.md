@@ -4,6 +4,19 @@ A simple application that receives a message, displays it, and requests user app
 
 ## Building
 
+### Prerequisites
+
+This project will try to build [nanos-secure-sdk](https://github.com/LedgerHQ/nanos-secure-sdk), so you will need:
+1. A standard ARM gcc (`sudo apt-get install gcc-arm-none-eabi binutils-arm-none-eabi openocd`)
+2. Cross compilation headers (`sudo apt-get install gcc-multilib`)
+2. Python3 (`sudo apt-get install python3`)
+3. Pip3 (`sudo apt-get install python3-pip`)
+
+Other things you will need:
+- [Cargo-ledger](https://github.com/LedgerHQ/cargo-ledger.git)
+- [Speculos](https://github.com/LedgerHQ/speculos)(make sure you add speculos.py to your PATH by running `export PATH=/path/to/speculos:$PATH)
+- The correct target for rustc: `rustup target add thumbv6m-none-eabi`
+
 You can build on either Windows or Linux with a simple `cargo build` or `cargo build --release`.
 It currently builds on stable.
 

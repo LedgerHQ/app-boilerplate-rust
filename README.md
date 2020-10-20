@@ -14,7 +14,7 @@ This project will try to build [nanos-secure-sdk](https://github.com/LedgerHQ/na
 
 Other things you will need:
 - [Cargo-ledger](https://github.com/LedgerHQ/cargo-ledger.git)
-- [Speculos](https://github.com/LedgerHQ/speculos)(make sure you add speculos.py to your PATH by running `export PATH=/path/to/speculos:$PATH)
+- [Speculos](https://github.com/LedgerHQ/speculos) (make sure you add speculos.py to your PATH by running `export PATH=/path/to/speculos:$PATH`)
 - The correct target for rustc: `rustup target add thumbv6m-none-eabi`
 
 You can build on either Windows or Linux with a simple `cargo build` or `cargo build --release`.

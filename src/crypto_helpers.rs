@@ -23,7 +23,7 @@ macro_rules! make_bip32_path {
         // We are looking for 5 numbers, separated by `/`.
         // Those numbers are represented in ASCII bytes (e.g `[49, 48, 51]` represents the number `103`).
         // We are going to parse the string once, summing the bytes when we encounter them to create a number
-        // and resetting our counter everytime we get to a separator (i.e. not a byte that represent an ASCII number).
+        // and resetting our counter everytime we get to a separator (i.e. a byte that does not represent an ASCII number).
         while (j < path.len()) {
             // Check if this byte represents a number in ASCII.
             while (i < $bytes.len() && $bytes[i] >= ZERO && $bytes[i] <= NINE) {

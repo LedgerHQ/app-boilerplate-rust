@@ -33,7 +33,7 @@ macro_rules! make_bip32_path {
             // Keep going until we either:
             // 1. Find a new number.
             // 2. Reach the end of the bytes.
-            while (i < $bytes.len() && $bytes[i].is_ascii_digit()) {
+            while (i < $bytes.len() && !$bytes[i].is_ascii_digit()) {
                 i += 1;
             }
             // Repeat that for the next element in `path`.

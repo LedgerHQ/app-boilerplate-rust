@@ -1,11 +1,6 @@
 use nanos_sdk::bindings::*;
 use nanos_sdk::ecc::{CurvesId, DEREncodedECDSASignature};
 
-/// ASCII value of the character 0.
-const ZERO: u8 = 48;
-/// ASCII value of the character 9.
-const NINE: u8 = 57;
-
 /// Helper macro that creates an array from the ASCII values of a correctly formatted derivation path.
 /// Format expected: `b"44'/coin_type'/account'/change/address"`.
 ///
@@ -26,9 +21,9 @@ macro_rules! make_bip32_path {
         // and resetting our counter everytime we get to a separator (i.e. a byte that does not represent an ASCII number).
         while (j < path.len()) {
             // Check if this byte represents a number in ASCII.
-            while (i < $bytes.len() && $bytes[i] >= ZERO && $bytes[i] <= NINE) {
+            while (i < $bytes.len() && $bytes[i].is_ascii_digit()) {
                 // It does: add it to the accumulator (taking care to substract the ASCII value of 0).
-                acc = acc * 10 + $bytes[i] as u32 - ZERO as u32;
+                acc = acc * 10 + $bytes[i] as u32 - b'0' as u32;
                 i += 1;
             }
             // We've effectively parsed a number: add it to `path`.
@@ -38,7 +33,7 @@ macro_rules! make_bip32_path {
             // Keep going until we either:
             // 1. Find a new number.
             // 2. Reach the end of the bytes.
-            while (i < $bytes.len() && ($bytes[i] <= ZERO || $bytes[i] >= NINE)) {
+            while (i < $bytes.len() && $bytes[i].is_ascii_digit()) {
                 i += 1;
             }
             // Repeat that for the next element in `path`.

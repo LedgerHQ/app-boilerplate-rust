@@ -4,6 +4,7 @@
 mod crypto_helpers;
 mod utils;
 
+use nanos_sdk::buttons::ButtonEvent;
 use nanos_sdk::io;
 use nanos_sdk::ecc::{CurvesId, DEREncodedECDSASignature};
 use nanos_ui::ui;
@@ -113,13 +114,20 @@ extern "C" fn sample_main() {
     let mut comm = io::Comm::new();
 
     loop {
+        // Draw some 'welcome' screen
         ui::SingleMessage::new("W e l c o m e").show();
 
-        comm.io_exch(0x80);
-
-        match handle_apdu(&mut comm) {
-            Ok(()) => comm.set_status_word(io::StatusWords::OK),
-            Err(sw) => comm.set_status_word(sw),
+        // Wait for either a specific button push to exit the app
+        // or an APDU command
+        match comm.next_event() {
+            io::Event::Button(ButtonEvent::RightButtonRelease) => nanos_sdk::exit_app(0),
+            io::Event::Command(_) => {
+                match handle_apdu(&mut comm) {
+                    Ok(()) => comm.reply_ok(),
+                    Err(sw) => comm.reply(sw)
+                }
+            }
+            _ => ()
         }
     }
 }

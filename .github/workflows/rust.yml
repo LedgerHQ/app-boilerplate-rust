@@ -16,5 +16,13 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: Build
-      run: cargo build --target=thumbv6m-none-eabi --verbose
+    - name: Install thumbv6 target
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+        override: true
+        target: thumbv6m-none-eabi 
+    - name: Cargo build
+      uses: actions-rs/cargo@v1
+      with:
+        command: build 

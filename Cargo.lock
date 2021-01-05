@@ -15,7 +15,7 @@ checksum = "7313c0d620d0cb4dbd9d019e461a4beb501071ff46ec0ab933efb4daa76d73e3"
 [[package]]
 name = "nanos_sdk"
 version = "0.1.0"
-source = "git+https://github.com/LedgerHQ/ledger-nanos-sdk.git#94e6f4f076a49fad2a2101ee3eb3d42f697de7d5"
+source = "git+https://github.com/LedgerHQ/ledger-nanos-sdk.git#b384dcfe41ffa1b9a7c72e236a69cd76172fb544"
 dependencies = [
  "cc",
  "cty",

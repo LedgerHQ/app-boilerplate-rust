@@ -13,32 +13,6 @@ use crypto_helpers::*;
 
 nanos_sdk::set_panic!(nanos_sdk::exiting_panic);
 
-fn handle_apdu(comm: &mut io::Comm) -> Result<(), io::StatusWords> {
-    if comm.rx == 0 {
-        return Err(io::StatusWords::NothingReceived)
-    }
-
-    let (cla, ins) = comm.get_cla_ins();
-
-    if cla != 0x80 {
-        return Err(io::StatusWords::BadCLA)
-    }
-
-    match ins {
-        0x02 => comm.append(&get_pubkey().W), 
-        0x03 => {
-            let out = sign_ui(comm.get_data()?)
-                            .map_err(|_| io::StatusWords::UserCancelled)?;
-            if let Some(o) = out { comm.append(&o) }
-        }
-        0x04 => menu_example(),
-        0xfe => comm.append(&bip32_derive_secp256k1(&BIP32_PATH)),
-        0xff => nanos_sdk::exit_app(0),
-        _ => return Err(io::StatusWords::Unknown),
-    }
-    Ok(())
-}
-
 /// Display public key in two separate
 /// message scrollers
 fn show_pubkey() {
@@ -58,20 +32,18 @@ fn show_pubkey() {
 /// Basic nested menu. Will be subject
 /// to simplifications in the future.
 fn menu_example() {
-    let top = ["PubKey", "Infos", "Exit App"];
-    let infos = ["Copyright", "Authors", "Back"];
-
     loop {
-        match ui::Menu::new(&top).show() {
+        match ui::Menu::new(&[&"PubKey", &"Infos", &"Back", &"Exit App"]).show() {
             0 => show_pubkey(),
             1 => loop {
-                match ui::Menu::new(&infos).show() {
+                match ui::Menu::new(&[&"Copyright", &"Authors", &"Back"]).show() {
                     0 => ui::popup("2020 Ledger"),
                     1 => ui::popup("???"),
                     _ => break 
                 }
             }
-            2 => nanos_sdk::exit_app(0),
+            2 => return,
+            3 => nanos_sdk::exit_app(0),
             _ => () 
         }
     } 
@@ -81,31 +53,31 @@ fn menu_example() {
 /// to read the incoming message, a panel that requests user
 /// validation, and an exit message.
 fn sign_ui(message: &[u8]) -> Result<Option<DEREncodedECDSASignature>, ()> {
-    let hex = utils::to_hex(&message)?;
-    let m = from_utf8(&hex).map_err(|_| ())?;
-
     ui::popup("Message review");
-    ui::MessageScroller::new(&m).event_loop();
 
-    match ui::Validator::new("Sign ?").ask() {
-        true => {
-            let mut k = get_private_key();
-            let (sig, sig_len) = detecdsa_sign(&message, &k).unwrap();
+    {
+        let hex = utils::to_hex(&message)?;
+        let m = from_utf8(&hex).map_err(|_| ())?;
 
-            // Signature verification so we're sure the bindings are OK !
-            let pubkey = nanos_sdk::ecc::ec_get_pubkey(CurvesId::Secp256k1, &mut k);
-            if !detecdsa_verify(&message, &sig[..sig_len as usize], &pubkey) {
-                ui::popup("Invalid :(");
-                return Err(())
-            }
+        ui::MessageScroller::new(&m).event_loop();
+    }
 
-            ui::popup("Done !");
-            Ok(Some(sig))
-        },
-        false => {
-            ui::popup("Cancelled");
-            Ok(None)
+    if ui::Validator::new("Sign ?").ask() {
+        let mut k = get_private_key();
+        let (sig, sig_len) = detecdsa_sign(&message, &k).unwrap();
+
+        // Signature verification so we're sure the bindings are OK !
+        let pubkey = nanos_sdk::ecc::ec_get_pubkey(CurvesId::Secp256k1, &mut k);
+        if !detecdsa_verify(&message, &sig[..sig_len as usize], &pubkey) {
+            ui::popup("Invalid :(");
+            return Err(())
         }
+
+        ui::popup("Done !");
+        Ok(Some(sig))
+    } else {
+        ui::popup("Cancelled");
+        Ok(None)
     }
 }
 
@@ -121,8 +93,8 @@ extern "C" fn sample_main() {
         // or an APDU command
         match comm.next_event() {
             io::Event::Button(ButtonEvent::RightButtonRelease) => nanos_sdk::exit_app(0),
-            io::Event::Command(_) => {
-                match handle_apdu(&mut comm) {
+            io::Event::Command(ins) => {
+                match handle_apdu(&mut comm, ins) {
                     Ok(()) => comm.reply_ok(),
                     Err(sw) => comm.reply(sw)
                 }
@@ -130,4 +102,52 @@ extern "C" fn sample_main() {
             _ => ()
         }
     }
+}
+
+#[repr(u8)]
+enum Ins {
+    GetPubkey,
+    Sign,
+    Menu,
+    SingleMessage,
+    DoubleMessage,
+    ShowPrivateKey,
+    Exit,
+}
+
+impl From<u8> for Ins {
+    fn from(ins: u8) -> Ins {
+        match ins {
+            2 => Ins::GetPubkey,
+            3 => Ins::Sign,
+            4 => Ins::Menu,
+            0x10 => Ins::SingleMessage,
+            0x20 => Ins::DoubleMessage,
+            0xfe => Ins::ShowPrivateKey,
+            0xff => Ins::Exit,
+            _ => panic!()
+        }
+    }
+}
+
+
+fn handle_apdu(comm: &mut io::Comm, ins: Ins) -> Result<(), io::StatusWords> {
+    if comm.rx == 0 {
+        return Err(io::StatusWords::NothingReceived)
+    }
+
+    match ins {
+        Ins::GetPubkey => comm.append(&get_pubkey().W), 
+        Ins::Sign => {
+            let out = sign_ui(comm.get_data()?)
+                            .map_err(|_| io::StatusWords::UserCancelled)?;
+            if let Some(o) = out { comm.append(&o) }
+        }
+        Ins::Menu => menu_example(),
+        Ins::ShowPrivateKey => comm.append(&bip32_derive_secp256k1(&BIP32_PATH)),
+        Ins::SingleMessage => comm.append(&[0xb8; 32]),
+        Ins::DoubleMessage => comm.append(&[0xf7; 64]),
+        Ins::Exit => nanos_sdk::exit_app(0),
+    }
+    Ok(())
 }

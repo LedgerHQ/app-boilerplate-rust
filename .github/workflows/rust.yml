@@ -10,25 +10,8 @@ env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: "-D warnings"
 
-jobs:
-  fmt:
-    name: Rustfmt
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly
-          override: true
-      - run: rustup component add rustfmt
-      - uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
-
-  check:
-    name: Check
+  build_fmt_lint:
+    name: Build, check format and apply linter
     runs-on: ubuntu-latest
     steps:
       - name: arm-none-eabi-gcc
@@ -47,20 +30,15 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: check
-
-  clippy:
-    name: Clippy
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly
-          target: thumbv6m-none-eabi
-          override: true
-      - run: rustup component add clippy
+      - name: Rustfmt
+      - run: rustup component add rustfmt
       - uses: actions-rs/cargo@v1
         with:
+          command: fmt
+          args: --all -- --check
+      - name: Clippy
+      - run: rustup component add clippy
+        uses: actions-rs/cargo@v1
+        with:
           command: clippy
-          args: -- -D warnings
+          args: -- -D clippy::all

@@ -11,35 +11,56 @@ env:
   RUSTFLAGS: "-D warnings"
 
 jobs:
-  build_fmt_lint:
-    name: Build, check format and apply linter
+  fmt:
+    name: Rustfmt
     runs-on: ubuntu-latest
     steps:
-      - name: arm-none-eabi-gcc
-      - uses: fiam/arm-none-eabi-gcc@v1.0.3
-        with:
-          release: '9-2019-q4'
       - uses: actions/checkout@v2
-      - run: python3 -m pip install pillow
-      - name: Install thumbv6 target
       - uses: actions-rs/toolchain@v1
         with:
+          profile: minimal
           toolchain: nightly
           override: true
-          target: thumbv6m-none-eabi 
-      - name: Cargo check
-      - uses: actions-rs/cargo@v1
-        with:
-          command: check
-      - name: Rustfmt
       - run: rustup component add rustfmt
       - uses: actions-rs/cargo@v1
         with:
           command: fmt
           args: --all -- --check
-      - name: Clippy
+
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: arm-none-eabi-gcc
+        uses: fiam/arm-none-eabi-gcc@v1.0.3
+        with:
+          release: '9-2019-q4'
+      - uses: actions/checkout@v2
+      - run: python3 -m pip install pillow
+      - name: Install thumbv6 target
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+          target: thumbv6m-none-eabi 
+      - name: Cargo build
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          target: thumbv6m-none-eabi
+          override: true
       - run: rustup component add clippy
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: -- -D clippy::all
+          args: -- -D warnings

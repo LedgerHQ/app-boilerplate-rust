@@ -39,7 +39,7 @@ jobs:
           args: --all -- --check
       - name: Clippy
       - run: rustup component add clippy
-        uses: actions-rs/cargo@v1
+      - uses: actions-rs/cargo@v1
         with:
           command: clippy
           args: -- -D clippy::all

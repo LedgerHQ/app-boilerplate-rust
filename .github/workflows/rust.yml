@@ -47,6 +47,11 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: check
+      - run: rustup component add clippy
+      - name: Cargo clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
 
   clippy:
     name: Clippy

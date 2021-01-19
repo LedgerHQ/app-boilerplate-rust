@@ -28,5 +28,5 @@ pub fn get_pubkey() -> Result<nanos_sdk::bindings::cx_ecfp_public_key_t, Syscall
 
 pub fn get_private_key() -> Result<nanos_sdk::bindings::cx_ecfp_private_key_t, SyscallError> {
     let raw_key = bip32_derive_secp256k1(&BIP32_PATH)?;
-    Ok(nanos_sdk::ecc::ec_init_key(CurvesId::Secp256k1, &raw_key)?)
+    nanos_sdk::ecc::ec_init_key(CurvesId::Secp256k1, &raw_key)
 }

@@ -29,7 +29,6 @@ jobs:
 
   check:
     name: Check
-    needs: fmt
     runs-on: ubuntu-latest
     steps:
       - name: arm-none-eabi-gcc
@@ -51,7 +50,6 @@ jobs:
 
   clippy:
     name: Clippy
-    needs: check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2

@@ -16,19 +16,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: arm-none-eabi-gcc
-        uses: fiam/arm-none-eabi-gcc@v1.0.3
+      - uses: fiam/arm-none-eabi-gcc@v1.0.3
         with:
           release: '9-2019-q4'
       - uses: actions/checkout@v2
       - run: python3 -m pip install pillow
       - name: Install thumbv6 target
-        uses: actions-rs/toolchain@v1
+      - uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
           override: true
           target: thumbv6m-none-eabi 
       - name: Cargo check
-        uses: actions-rs/cargo@v1
+      - uses: actions-rs/cargo@v1
         with:
           command: check
       - name: Rustfmt

@@ -28,11 +28,11 @@ jobs:
           override: true
           target: thumbv6m-none-eabi 
       - name: Cargo fmt
-        uses: actions-rs/cargo@v1
+        uses: actions/checkout@v2
         with:
           command: fmt
       - name: Cargo clippy
-        uses: actions-rs/cargo@v1
+        uses: actions/checkout@v2
         with:
           command: clippy
           args: -- -D clippy::all

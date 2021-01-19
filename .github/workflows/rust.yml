@@ -27,8 +27,8 @@ jobs:
           command: fmt
           args: --all -- --check
 
-  check:
-    name: Check
+  check_and_clippy:
+    name: Check and clippy
     runs-on: ubuntu-latest
     steps:
       - name: arm-none-eabi-gcc
@@ -50,22 +50,6 @@ jobs:
       - run: rustup component add clippy
       - name: Cargo clippy
         uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-
-  clippy:
-    name: Clippy
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly
-          target: thumbv6m-none-eabi
-          override: true
-      - run: rustup component add clippy
-      - uses: actions-rs/cargo@v1
         with:
           command: clippy
           args: -- -D warnings

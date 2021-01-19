@@ -27,6 +27,15 @@ jobs:
           toolchain: nightly
           override: true
           target: thumbv6m-none-eabi 
+      - name: Cargo fmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+      - name: Cargo clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: -- -D clippy::all
       - name: Cargo build
         uses: actions-rs/cargo@v1
         with:

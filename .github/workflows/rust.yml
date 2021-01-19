@@ -8,12 +8,29 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
 
 jobs:
-  build:
-
+  fmt:
+    name: Rustfmt
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+      - run: rustup component add rustfmt
+      - uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
 
+  check:
+    name: Check
+    needs: fmt
+    runs-on: ubuntu-latest
     steps:
       - name: arm-none-eabi-gcc
         uses: fiam/arm-none-eabi-gcc@v1.0.3
@@ -27,16 +44,25 @@ jobs:
           toolchain: nightly
           override: true
           target: thumbv6m-none-eabi 
-      - name: Cargo fmt
-        uses: actions/checkout@v2
-        with:
-          command: fmt
-      - name: Cargo clippy
-        uses: actions/checkout@v2
-        with:
-          command: clippy
-          args: -- -D clippy::all
       - name: Cargo build
         uses: actions-rs/cargo@v1
         with:
-          command: build 
+          command: check
+
+  clippy:
+    name: Clippy
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          target: thumbv6m-none-eabi
+          override: true
+      - run: rustup component add clippy
+      - uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: -- -D warnings

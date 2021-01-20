@@ -12,7 +12,7 @@ env:
 
 jobs:
   general:
-    name: Build, clippy and rustfmt
+    name: Build clippy and rustfmt
     runs-on: ubuntu-latest
     steps:
       - name: arm-none-eabi-gcc

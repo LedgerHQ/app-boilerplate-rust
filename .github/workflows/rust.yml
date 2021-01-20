@@ -11,24 +11,8 @@ env:
   RUSTFLAGS: "-D warnings"
 
 jobs:
-  fmt:
-    name: Rustfmt
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly
-          override: true
-      - run: rustup component add rustfmt
-      - uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
-
-  check_and_clippy:
-    name: Check and clippy
+  general:
+    name: Build, clippy and rustfmt
     runs-on: ubuntu-latest
     steps:
       - name: arm-none-eabi-gcc
@@ -53,3 +37,8 @@ jobs:
         with:
           command: clippy
           args: -- -D warnings
+      - run: rustup component add rustfmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check

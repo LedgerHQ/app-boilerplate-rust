@@ -7,6 +7,7 @@ on:
     branches: [ master ]
 
 env:
+  RUSTFLAGS: -D warnings
   CARGO_TERM_COLOR: always
 
 jobs:

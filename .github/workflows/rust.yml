@@ -32,15 +32,3 @@ jobs:
         with:
           command: build
           args: --release
-      - run: rustup component add clippy
-      - name: Cargo clippy
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: -- -D warnings
-      - run: rustup component add rustfmt
-      - name: Cargo fmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check

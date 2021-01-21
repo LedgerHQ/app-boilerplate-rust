@@ -9,15 +9,15 @@ pub fn bip32_derive_secp256k1(path: &[u32]) -> Result<[u8; 32], SyscallError> {
     let mut raw_key = [0u8; 32];
     nanos_sdk::ecc::bip32_derive(CurvesId::Secp256k1, path, &mut raw_key)?;
     Ok(raw_key)
-} 
+}
 
 /// Helper function that signs with ECDSA in deterministic nonce,
 /// using SHA256
-pub fn detecdsa_sign(m: &[u8], ec_k: &cx_ecfp_private_key_t) -> Result<(DEREncodedECDSASignature, i32), ()> {
-    nanos_sdk::ecc::ecdsa_sign(ec_k,
-        (CX_RND_RFC6979 | CX_LAST) as i32,
-        CX_SHA256,
-        m)
+pub fn detecdsa_sign(
+    m: &[u8],
+    ec_k: &cx_ecfp_private_key_t,
+) -> Result<(DEREncodedECDSASignature, i32), ()> {
+    nanos_sdk::ecc::ecdsa_sign(ec_k, (CX_RND_RFC6979 | CX_LAST) as i32, CX_SHA256, m)
 }
 
 pub fn get_pubkey() -> Result<nanos_sdk::bindings::cx_ecfp_public_key_t, SyscallError> {

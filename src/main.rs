@@ -93,7 +93,7 @@ extern "C" fn sample_main() {
             io::Event::Button(ButtonEvent::RightButtonRelease) => nanos_sdk::exit_app(0),
             io::Event::Command(ins) => match handle_apdu(&mut comm, ins) {
                 Ok(()) => comm.reply_ok(),
-                Err(sw) => comm.reply(sw.into()),
+                Err(sw) => comm.reply(sw),
             },
             _ => (),
         }

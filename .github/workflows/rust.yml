@@ -7,12 +7,13 @@ on:
     branches: [ master ]
 
 env:
-  RUSTFLAGS: -D warnings
   CARGO_TERM_COLOR: always
 
 jobs:
   build_clippy_fmt:
     runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: -D warnings
     steps:
       - name: arm-none-eabi-gcc
         uses: fiam/arm-none-eabi-gcc@v1.0.3

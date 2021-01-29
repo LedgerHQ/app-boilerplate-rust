@@ -105,8 +105,6 @@ enum Ins {
     GetPubkey,
     Sign,
     Menu,
-    SingleMessage,
-    DoubleMessage,
     ShowPrivateKey,
     Exit,
 }
@@ -117,8 +115,6 @@ impl From<u8> for Ins {
             2 => Ins::GetPubkey,
             3 => Ins::Sign,
             4 => Ins::Menu,
-            0x10 => Ins::SingleMessage,
-            0x20 => Ins::DoubleMessage,
             0xfe => Ins::ShowPrivateKey,
             0xff => Ins::Exit,
             _ => panic!(),
@@ -143,8 +139,6 @@ fn handle_apdu(comm: &mut io::Comm, ins: Ins) -> Result<(), Reply> {
         }
         Ins::Menu => menu_example(),
         Ins::ShowPrivateKey => comm.append(&bip32_derive_secp256k1(&BIP32_PATH)?),
-        Ins::SingleMessage => comm.append(&[0xb8; 32]),
-        Ins::DoubleMessage => comm.append(&[0xf7; 64]),
         Ins::Exit => nanos_sdk::exit_app(0),
     }
     Ok(())

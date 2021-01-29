@@ -4,13 +4,13 @@
 mod crypto_helpers;
 mod utils;
 
-use nanos_sdk::buttons::ButtonEvent;
-use nanos_sdk::io;
-use nanos_sdk::io::SyscallError;
-use nanos_sdk::ecc::DEREncodedECDSASignature;
-use nanos_ui::ui;
 use core::str::from_utf8;
 use crypto_helpers::*;
+use nanos_sdk::buttons::ButtonEvent;
+use nanos_sdk::ecc::DEREncodedECDSASignature;
+use nanos_sdk::io;
+use nanos_sdk::io::SyscallError;
+use nanos_ui::ui;
 
 nanos_sdk::set_panic!(nanos_sdk::exiting_panic);
 
@@ -30,8 +30,8 @@ fn show_pubkey() {
                 let m = from_utf8(&hex1).unwrap();
                 ui::MessageScroller::new(&m).event_loop();
             }
-        },
-        Err(_) => ui::popup("Error")
+        }
+        Err(_) => ui::popup("Error"),
     }
 }
 
@@ -45,14 +45,14 @@ fn menu_example() {
                 match ui::Menu::new(&[&"Copyright", &"Authors", &"Back"]).show() {
                     0 => ui::popup("2020 Ledger"),
                     1 => ui::popup("???"),
-                    _ => break 
+                    _ => break,
                 }
-            }
+            },
             2 => return,
             3 => nanos_sdk::exit_app(0),
-            _ => () 
+            _ => (),
         }
-    } 
+    }
 }
 
 /// This is the UI flow for signing, composed of a scroller
@@ -91,13 +91,11 @@ extern "C" fn sample_main() {
         // or an APDU command
         match comm.next_event() {
             io::Event::Button(ButtonEvent::RightButtonRelease) => nanos_sdk::exit_app(0),
-            io::Event::Command(ins) => {
-                match handle_apdu(&mut comm, ins) {
-                    Ok(()) => comm.reply_ok(),
-                    Err(sw) => comm.reply(sw.into())
-                }
-            }
-            _ => ()
+            io::Event::Command(ins) => match handle_apdu(&mut comm, ins) {
+                Ok(()) => comm.reply_ok(),
+                Err(sw) => comm.reply(sw),
+            },
+            _ => (),
         }
     }
 }
@@ -123,7 +121,7 @@ impl From<u8> for Ins {
             0x20 => Ins::DoubleMessage,
             0xfe => Ins::ShowPrivateKey,
             0xff => Ins::Exit,
-            _ => panic!()
+            _ => panic!(),
         }
     }
 }
@@ -132,14 +130,16 @@ use nanos_sdk::io::Reply;
 
 fn handle_apdu(comm: &mut io::Comm, ins: Ins) -> Result<(), Reply> {
     if comm.rx == 0 {
-        return Err(io::StatusWords::NothingReceived.into())
+        return Err(io::StatusWords::NothingReceived.into());
     }
 
     match ins {
         Ins::GetPubkey => comm.append(&get_pubkey()?.W),
         Ins::Sign => {
             let out = sign_ui(comm.get_data()?)?;
-            if let Some(o) = out { comm.append(&o) }
+            if let Some(o) = out {
+                comm.append(&o)
+            }
         }
         Ins::Menu => menu_example(),
         Ins::ShowPrivateKey => comm.append(&bip32_derive_secp256k1(&BIP32_PATH)?),

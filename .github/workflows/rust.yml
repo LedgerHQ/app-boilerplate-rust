@@ -10,10 +10,8 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
-
+  build_clippy_fmt:
     runs-on: ubuntu-latest
-
     steps:
       - name: arm-none-eabi-gcc
         uses: fiam/arm-none-eabi-gcc@v1.0.3
@@ -30,4 +28,16 @@ jobs:
       - name: Cargo build
         uses: actions-rs/cargo@v1
         with:
-          command: build 
+          command: build
+      - run: rustup component add clippy
+      - name: Cargo clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: -- -D warnings
+      - run: rustup component add rustfmt
+      - name: Cargo fmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check

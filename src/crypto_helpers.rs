@@ -1,5 +1,5 @@
 use nanos_sdk::bindings::*;
-use nanos_sdk::ecc::{CurvesId, DEREncodedECDSASignature};
+use nanos_sdk::ecc::{CurvesId, DerEncodedEcdsaSignature};
 use nanos_sdk::io::SyscallError;
 
 pub const BIP32_PATH: [u32; 5] = nanos_sdk::ecc::make_bip32_path(b"m/44'/535348'/0'/0/0");
@@ -16,8 +16,8 @@ pub fn bip32_derive_secp256k1(path: &[u32]) -> Result<[u8; 32], SyscallError> {
 pub fn detecdsa_sign(
     m: &[u8],
     ec_k: &cx_ecfp_private_key_t,
-) -> Result<(DEREncodedECDSASignature, i32), ()> {
-    nanos_sdk::ecc::ecdsa_sign(ec_k, (CX_RND_RFC6979 | CX_LAST) as i32, CX_SHA256, m)
+) -> Option<(DerEncodedEcdsaSignature, u32)> {
+    nanos_sdk::ecc::ecdsa_sign(ec_k, CX_RND_RFC6979 | CX_LAST, CX_SHA256, m)
 }
 
 pub fn get_pubkey() -> Result<nanos_sdk::bindings::cx_ecfp_public_key_t, SyscallError> {

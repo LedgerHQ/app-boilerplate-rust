@@ -23,12 +23,12 @@ fn show_pubkey() {
             {
                 let hex0 = utils::to_hex(&pk.W[1..33]).unwrap();
                 let m = from_utf8(&hex0).unwrap();
-                ui::MessageScroller::new(&m).event_loop();
+                ui::MessageScroller::new(m).event_loop();
             }
             {
                 let hex1 = utils::to_hex(&pk.W[33..65]).unwrap();
                 let m = from_utf8(&hex1).unwrap();
-                ui::MessageScroller::new(&m).event_loop();
+                ui::MessageScroller::new(m).event_loop();
             }
         }
         Err(_) => ui::popup("Error"),
@@ -37,6 +37,7 @@ fn show_pubkey() {
 
 /// Basic nested menu. Will be subject
 /// to simplifications in the future.
+#[allow(clippy::needless_borrow)]
 fn menu_example() {
     loop {
         match ui::Menu::new(&[&"PubKey", &"Infos", &"Back", &"Exit App"]).show() {
@@ -62,15 +63,15 @@ fn sign_ui(message: &[u8]) -> Result<Option<DerEncodedEcdsaSignature>, SyscallEr
     ui::popup("Message review");
 
     {
-        let hex = utils::to_hex(&message).map_err(|_| SyscallError::Overflow)?;
+        let hex = utils::to_hex(message).map_err(|_| SyscallError::Overflow)?;
         let m = from_utf8(&hex).map_err(|_| SyscallError::InvalidParameter)?;
 
-        ui::MessageScroller::new(&m).event_loop();
+        ui::MessageScroller::new(m).event_loop();
     }
 
     if ui::Validator::new("Sign ?").ask() {
         let k = get_private_key()?;
-        let (sig, _sig_len) = detecdsa_sign(&message, &k).unwrap();
+        let (sig, _sig_len) = detecdsa_sign(message, &k).unwrap();
         ui::popup("Done !");
         Ok(Some(sig))
     } else {

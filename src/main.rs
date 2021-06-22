@@ -84,11 +84,8 @@ fn sign_ui(message: &[u8]) -> Result<Option<DerEncodedEcdsaSignature>, SyscallEr
 extern "C" fn sample_main() {
     let mut comm = io::Comm::new();
 
-    unsafe {
-        screen::bagl_hal_draw_rect(0, 0, 0, 50, 20);
-        screen::bagl_hal_draw_rect(0, 0, 30, 50, 20);
-        screen::screen_update();
-    }
+    screen::sdk_bagl_hal_draw_rect(0, 0, 10, 10, 10);
+    screen::sdk_screen_update();
 
     loop {
         // Draw some 'welcome' screen

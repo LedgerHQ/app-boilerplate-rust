@@ -10,6 +10,7 @@ use nanos_sdk::buttons::ButtonEvent;
 use nanos_sdk::ecc::DerEncodedEcdsaSignature;
 use nanos_sdk::io;
 use nanos_sdk::io::SyscallError;
+use nanos_sdk::screen;
 use nanos_ui::ui;
 
 nanos_sdk::set_panic!(nanos_sdk::exiting_panic);
@@ -83,9 +84,15 @@ fn sign_ui(message: &[u8]) -> Result<Option<DerEncodedEcdsaSignature>, SyscallEr
 extern "C" fn sample_main() {
     let mut comm = io::Comm::new();
 
+    unsafe {
+        screen::bagl_hal_draw_rect(0, 0, 0, 50, 20);
+        screen::bagl_hal_draw_rect(0, 0, 30, 50, 20);
+        screen::screen_update();
+    }
+
     loop {
         // Draw some 'welcome' screen
-        ui::SingleMessage::new("W e l c o m e").show();
+        // ui::SingleMessage::new("W e l c o m e").show();
 
         // Wait for either a specific button push to exit the app
         // or an APDU command

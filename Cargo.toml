@@ -5,8 +5,8 @@ authors = ["yhql"]
 edition = "2018"
 
 [dependencies]
-nanos_sdk = { git = "https://github.com/LedgerHQ/ledger-nanos-sdk.git" } 
-nanos_ui = { git = "https://github.com/LedgerHQ/ledger-nanos-ui.git" } 
+nanos_sdk = { git = "https://github.com/LedgerHQ/rustx-sdk" }
+nanos_ui = { git = "https://github.com/pscott/rustx-ui" }
 
 [profile.dev]
 panic = "abort"

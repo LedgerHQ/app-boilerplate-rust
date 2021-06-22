@@ -7,7 +7,7 @@ mod utils;
 use core::str::from_utf8;
 use crypto_helpers::*;
 use nanos_sdk::buttons::ButtonEvent;
-use nanos_sdk::ecc::DEREncodedECDSASignature;
+use nanos_sdk::ecc::DerEncodedEcdsaSignature;
 use nanos_sdk::io;
 use nanos_sdk::io::SyscallError;
 use nanos_ui::ui;
@@ -58,7 +58,7 @@ fn menu_example() {
 /// This is the UI flow for signing, composed of a scroller
 /// to read the incoming message, a panel that requests user
 /// validation, and an exit message.
-fn sign_ui(message: &[u8]) -> Result<Option<DEREncodedECDSASignature>, SyscallError> {
+fn sign_ui(message: &[u8]) -> Result<Option<DerEncodedEcdsaSignature>, SyscallError> {
     ui::popup("Message review");
 
     {

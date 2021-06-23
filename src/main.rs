@@ -67,7 +67,7 @@ extern "C" fn sample_main() {
                 grid.select_next();
             }
             io::Event::Button(ButtonEvent::BothButtonsRelease) => {
-                if (grid.is_finished()) {
+                if grid.is_finished() {
                     exit_app(0);
                 }
                 grid.add_mark();

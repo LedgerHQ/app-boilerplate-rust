@@ -66,7 +66,7 @@ impl Grid {
         }
     }
 
-    fn draw(&self) {
+    fn init_draw(&self) {
         screen::sdk_bagl_hal_draw_rect(BLACK, 0, 0, 128, 64);
 
         // TOOD: draw borders ?
@@ -78,6 +78,8 @@ impl Grid {
         // draw lines
         screen::sdk_bagl_hal_draw_rect(WHITE, 32, 20, 64, 1);
         screen::sdk_bagl_hal_draw_rect(WHITE, 32, 40, 64, 1);
+
+        self.cells[0].draw(0, true);
         screen::sdk_screen_update();
     }
 
@@ -197,18 +199,17 @@ extern "C" fn sample_main() {
     let mut comm = io::Comm::new();
 
     let mut grid = Grid::new();
-    grid.draw();
+    grid.init_draw();
 
     loop {
         match comm.next_event() {
-            io::Event::Button(ButtonEvent::LeftButtonPress) => {
+            io::Event::Button(ButtonEvent::LeftButtonRelease) => {
                 grid.select_prev();
             }
-            io::Event::Button(ButtonEvent::RightButtonPress) => {
+            io::Event::Button(ButtonEvent::RightButtonRelease) => {
                 grid.select_next();
             }
             io::Event::Button(ButtonEvent::BothButtonsRelease) => {
-                grid.select_next();
                 grid.add_mark();
                 if grid.player_has_won() || grid.is_full() {
                     nanos_sdk::exit_app(0);

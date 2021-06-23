@@ -1,4 +1,4 @@
-use nanos_sdk::{screen, exit_app};
+use nanos_sdk::{exit_app, screen};
 
 const GRID_SIZE: u8 = 9;
 
@@ -80,10 +80,6 @@ impl Grid {
 
     /// Draw the mark (`Cross` or `Nought`). Does nothing if select cell is `Empty`.
     pub fn add_mark(&mut self) {
-        if self.finished {
-            exit_app(0);
-        }
-
         let cell = &mut self.cells[self.selected as usize];
         if *cell == Cell::Empty {
             if self.turn % 2 == 0 {
@@ -103,7 +99,7 @@ impl Grid {
 
     pub fn select_next(&mut self) {
         if self.finished {
-            return 
+            return;
         }
         // Remove the highlight of currently selected cell.
         let cell = self.cells[self.selected as usize];
@@ -123,7 +119,7 @@ impl Grid {
 
     pub fn select_prev(&mut self) {
         if self.finished {
-            return 
+            return;
         }
         // Remove the highlight of currently selected cell.
         let cell = self.cells[self.selected as usize];
@@ -198,5 +194,9 @@ impl Grid {
 
     fn is_full(&self) -> bool {
         self.turn == GRID_SIZE
+    }
+
+    pub fn is_finished(&self) -> bool {
+        self.finished
     }
 }

@@ -2,6 +2,7 @@
 #![no_main]
 
 use nanos_sdk::buttons::ButtonEvent;
+use nanos_sdk::exit_app;
 use nanos_sdk::io;
 use nanos_sdk::screen;
 
@@ -54,6 +55,7 @@ struct Grid {
     cells: [Cell; 9],
     turn: u8,
     selected: u8,
+    finished: bool,
     // could use refs to bitmaps for noughts and crosses
 }
 
@@ -63,6 +65,7 @@ impl Grid {
             cells: [Cell::Empty; GRID_SIZE as usize],
             turn: 0,
             selected: 0,
+            finished: false,
         }
     }
 
@@ -85,7 +88,9 @@ impl Grid {
 
     /// Draw the mark (`Cross` or `Nought`). Does nothing if select cell is `Empty`.
     fn add_mark(&mut self) {
-        // Increase selected due to weird behaviour with BothButtonRelease when a LeftButtonPress comes before...
+        if self.finished {
+            exit_app(0);
+        }
 
         let cell = &mut self.cells[self.selected as usize];
         if *cell == Cell::Empty {
@@ -98,9 +103,16 @@ impl Grid {
         }
         cell.draw(self.selected, true);
         screen::sdk_screen_update();
+
+        if self.player_has_won() || self.is_full() {
+            self.finished = true
+        }
     }
 
     fn select_next(&mut self) {
+        if self.finished {
+            return 
+        }
         // Remove the highlight of currently selected cell.
         let cell = self.cells[self.selected as usize];
         cell.draw(self.selected, false);
@@ -118,6 +130,9 @@ impl Grid {
     }
 
     fn select_prev(&mut self) {
+        if self.finished {
+            return 
+        }
         // Remove the highlight of currently selected cell.
         let cell = self.cells[self.selected as usize];
         cell.draw(self.selected, false);
@@ -211,9 +226,6 @@ extern "C" fn sample_main() {
             }
             io::Event::Button(ButtonEvent::BothButtonsRelease) => {
                 grid.add_mark();
-                if grid.player_has_won() || grid.is_full() {
-                    nanos_sdk::exit_app(0);
-                }
             }
             io::Event::Command::<u8>(_) => (),
             _ => (),

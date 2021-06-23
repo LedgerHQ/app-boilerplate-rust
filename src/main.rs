@@ -2,6 +2,7 @@
 #![no_main]
 
 use nanos_sdk::buttons::ButtonEvent;
+use nanos_sdk::exit_app;
 use nanos_sdk::io;
 use nanos_sdk::screen;
 mod grid;
@@ -66,7 +67,11 @@ extern "C" fn sample_main() {
                 grid.select_next();
             }
             io::Event::Button(ButtonEvent::BothButtonsRelease) => {
+                if (grid.is_finished()) {
+                    exit_app(0);
+                }
                 grid.add_mark();
+
             }
             io::Event::Ticker => {
                 if grid.is_finished() {

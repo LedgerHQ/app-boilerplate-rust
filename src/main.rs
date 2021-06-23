@@ -27,7 +27,7 @@ fn screen_clear_and_draw(x_pos: i32, y_pos: i32, width: u32, height: u32, bmp: &
 fn get_next_bmp(cnt: u32) -> &'static Logo {
     let max = 60;
     if cnt < 5 * max / 10 {
-        &LOGO_PASCAL
+        &LOGO_PASCAL_INVERTED
     } else if cnt < 6 * max / 10 {
         &LOGO_RUSTX_0
     } else if cnt < 7 * max / 10 {
@@ -70,7 +70,6 @@ extern "C" fn sample_main() {
                     exit_app(0);
                 }
                 grid.add_mark();
-
             }
             io::Event::Ticker => {
                 if grid.is_finished() {

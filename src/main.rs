@@ -150,6 +150,10 @@ extern "C" fn sample_main() {
                 Ok(()) => comm.reply_ok(),
                 Err(sw) => comm.reply(sw),
             },
+            io::Event::Ticker => {
+                calculate_new_position(&mut x_pos, &mut y_pos, ButtonEvent::RightButtonPress);
+                screen_clear_and_draw(x_pos, y_pos, &bitmap);
+            }
 
             _ => (),
         }

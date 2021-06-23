@@ -3,7 +3,7 @@ rustflags = [
   "-C", "relocation-model=ropi",
   "-C", "link-arg=-Tscript.ld",
 ]
-runner = "speculos.py --model nanox"
+runner = "speculos.py --model nanox --display=qt --zoom 8"
 
 [build]
 target = "thumbv6m-none-eabi"

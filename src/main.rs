@@ -1,9 +1,6 @@
 #![no_std]
 #![no_main]
 
-mod crypto_helpers;
-mod utils;
-
 use nanos_sdk::buttons::ButtonEvent;
 use nanos_sdk::io;
 use nanos_sdk::screen;

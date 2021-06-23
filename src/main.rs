@@ -24,22 +24,20 @@ fn screen_clear_and_draw(x_pos: i32, y_pos: i32, width: u32, height: u32, bmp: &
 }
 
 #[allow(clippy::manual_range_contains)]
-fn get_next_bmp(mut cnt: u8) -> [u8; 1024] {
-    cnt %= 50;
-    if cnt < 20 {
-        LOGO_PASCAL
-    } else if cnt >= 20 && cnt < 25 {
-        LOGO_RUSTX_0
-    } else if cnt >= 25 && cnt < 30 {
-        LOGO_RUSTX_1
-    } else if cnt >= 30 && cnt < 35 {
-        LOGO_RUSTX_0
-    } else if cnt >= 35 && cnt < 40 {
-        LOGO_RUSTX_1
-    } else if cnt >= 40 && cnt < 45 {
-        LOGO_RUSTX_0
+fn get_next_bmp(cnt: u32) -> &'static Logo {
+    let max = 60;
+    if cnt < 5 * max / 10 {
+        &LOGO_PASCAL
+    } else if cnt < 6 * max / 10 {
+        &LOGO_RUSTX_0
+    } else if cnt < 7 * max / 10 {
+        &LOGO_RUSTX_1
+    } else if cnt < 8 * max / 10 {
+        &LOGO_RUSTX_0
+    } else if cnt < 9 * max / 10 {
+        &LOGO_RUSTX_1
     } else {
-        LOGO_RUSTX_1
+        &LOGO_RUSTX_0
     }
 }
 
@@ -56,7 +54,8 @@ extern "C" fn sample_main() {
     let width: u32 = 128;
     let height: u32 = 64;
 
-    let mut cnt: u8 = 0;
+    let mut cnt = 0;
+    let mut current: &'static Logo = &LOGO_RUSTX_1;
 
     loop {
         match comm.next_event() {
@@ -75,9 +74,15 @@ extern "C" fn sample_main() {
             }
             io::Event::Ticker => {
                 if grid.is_finished() {
+                    if cnt == 60 {
+                        cnt = 0;
+                    }
                     cnt += 1;
                     let bmp = get_next_bmp(cnt);
-                    screen_clear_and_draw(x_pos, y_pos, width, height, &bmp);
+                    if bmp != current {
+                        current = bmp;
+                        screen_clear_and_draw(x_pos, y_pos, width, height, bmp);
+                    }
                 }
             }
             io::Event::Command::<u8>(_) => (),

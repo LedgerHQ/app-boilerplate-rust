@@ -8,6 +8,9 @@ edition = "2018"
 nanos_sdk = { git = "https://github.com/LedgerHQ/rustx-sdk" }
 nanos_ui = { git = "https://github.com/pscott/rustx-ui" }
 
+[features]
+speculos = []
+
 [profile.dev]
 panic = "abort"
 

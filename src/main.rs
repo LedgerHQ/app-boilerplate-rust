@@ -1,6 +1,8 @@
 #![no_std]
 #![no_main]
 
+use core::f32::MAX;
+
 use nanos_sdk::buttons::ButtonEvent;
 use nanos_sdk::exit_app;
 use nanos_sdk::io;
@@ -11,6 +13,8 @@ use grid::Grid;
 use logos::*;
 
 nanos_sdk::set_panic!(nanos_sdk::exiting_panic);
+
+const MAX_TICKER: u16 = 60;
 
 fn screen_clear() {
     screen::sdk_bagl_hal_draw_rect(0, 0, 0, 128, 64);
@@ -24,17 +28,16 @@ fn screen_clear_and_draw(x_pos: i32, y_pos: i32, width: u32, height: u32, bmp: &
 }
 
 #[allow(clippy::manual_range_contains)]
-fn get_next_bmp(cnt: u32) -> &'static Logo {
-    let max = 60;
-    if cnt < 5 * max / 10 {
-        &LOGO_PASCAL_INVERTED
-    } else if cnt < 6 * max / 10 {
+fn get_next_bmp(cnt: u16) -> &'static Logo {
+    if cnt < MAX_TICKER / 2 {
+        &LOGO_PASCAL
+    } else if cnt < 6 * MAX_TICKER / 10 {
         &LOGO_RUSTX_0
-    } else if cnt < 7 * max / 10 {
+    } else if cnt < 7 * MAX_TICKER / 10 {
         &LOGO_RUSTX_1
-    } else if cnt < 8 * max / 10 {
+    } else if cnt < 8 * MAX_TICKER / 10 {
         &LOGO_RUSTX_0
-    } else if cnt < 9 * max / 10 {
+    } else if cnt < 9 * MAX_TICKER / 10 {
         &LOGO_RUSTX_1
     } else {
         &LOGO_RUSTX_0
@@ -72,12 +75,14 @@ extern "C" fn sample_main() {
                 grid.add_mark();
             }
             io::Event::Ticker => {
+                // Only display message if game is finished.
                 if grid.is_finished() {
-                    if cnt == 60 {
+                    if cnt == MAX_TICKER {
                         cnt = 0;
                     }
                     cnt += 1;
                     let bmp = get_next_bmp(cnt);
+                    // Only display screen if it has changed.
                     if bmp != current {
                         current = bmp;
                         screen_clear_and_draw(x_pos, y_pos, width, height, bmp);

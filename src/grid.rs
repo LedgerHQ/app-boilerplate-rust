@@ -1,4 +1,4 @@
-use nanos_sdk::{exit_app, screen};
+use nanos_sdk::{screen};
 
 const GRID_SIZE: u8 = 9;
 

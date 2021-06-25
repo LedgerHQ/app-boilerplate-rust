@@ -9,5 +9,5 @@ runner = "speculos.py --model nanox"
 target = "thumbv6m-none-eabi"
 
 [alias]
-br = "build --release"
+br = "build --release --features speculos"
 stackcheck = "stack-sizes --release --bin rust-app --target=thumbv6m-none-eabi"

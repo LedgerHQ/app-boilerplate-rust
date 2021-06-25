@@ -1,205 +1,135 @@
 #![no_std]
 #![no_main]
 
-mod crypto_helpers;
-mod utils;
-
-use core::str::from_utf8;
-use crypto_helpers::*;
 use nanos_sdk::buttons::ButtonEvent;
-use nanos_sdk::ecc::DerEncodedEcdsaSignature;
 use nanos_sdk::io;
-use nanos_sdk::io::SyscallError;
 use nanos_sdk::screen;
-use nanos_ui::ui;
 
 nanos_sdk::set_panic!(nanos_sdk::exiting_panic);
 
-/// Display public key in two separate
-/// message scrollers
-fn show_pubkey() {
-    let pubkey = get_pubkey();
-    match pubkey {
-        Ok(pk) => {
-            {
-                let hex0 = utils::to_hex(&pk.W[1..33]).unwrap();
-                let m = from_utf8(&hex0).unwrap();
-                ui::MessageScroller::new(&m).event_loop();
-            }
-            {
-                let hex1 = utils::to_hex(&pk.W[33..65]).unwrap();
-                let m = from_utf8(&hex1).unwrap();
-                ui::MessageScroller::new(&m).event_loop();
-            }
-        }
-        Err(_) => ui::popup("Error"),
-    }
-}
-
-/// Basic nested menu. Will be subject
-/// to simplifications in the future.
-fn menu_example() {
-    loop {
-        match ui::Menu::new(&[&"PubKey", &"Infos", &"Back", &"Exit App"]).show() {
-            0 => show_pubkey(),
-            1 => loop {
-                match ui::Menu::new(&[&"Copyright", &"Authors", &"Back"]).show() {
-                    0 => ui::popup("2020 Ledger"),
-                    1 => ui::popup("???"),
-                    _ => break,
-                }
-            },
-            2 => return,
-            3 => nanos_sdk::exit_app(0),
-            _ => (),
-        }
-    }
-}
-
-/// This is the UI flow for signing, composed of a scroller
-/// to read the incoming message, a panel that requests user
-/// validation, and an exit message.
-fn sign_ui(message: &[u8]) -> Result<Option<DerEncodedEcdsaSignature>, SyscallError> {
-    ui::popup("Message review");
-
-    {
-        let hex = utils::to_hex(&message).map_err(|_| SyscallError::Overflow)?;
-        let m = from_utf8(&hex).map_err(|_| SyscallError::InvalidParameter)?;
-
-        ui::MessageScroller::new(&m).event_loop();
-    }
-
-    if ui::Validator::new("Sign ?").ask() {
-        let k = get_private_key()?;
-        let (sig, _sig_len) = detecdsa_sign(&message, &k).unwrap();
-        ui::popup("Done !");
-        Ok(Some(sig))
-    } else {
-        ui::popup("Cancelled");
-        Ok(None)
-    }
-}
-
-fn screen_clear() {
-    screen::sdk_bagl_hal_draw_rect(0, 0, 0, 128, 64);
-    screen::sdk_screen_update();
-}
+// fn screen_clear() {
+//     screen::sdk_bagl_hal_draw_rect(0, 0, 0, 128, 64);
+//     screen::sdk_screen_update();
+// }
 
 fn screen_clear_and_draw(x_pos: i32, y_pos: i32, bmp: &[u8]) {
-    screen_clear();
     screen::sdk_bagl_hal_draw_bitmap_within_rect(x_pos, y_pos, 128, 64, false, bmp);
     screen::sdk_screen_update();
 }
 
-fn calculate_new_position(x_pos: &mut i32, y_pos: &mut i32, ev: ButtonEvent) {
+use core::f32::consts::PI;
+use libm::{cosf, sinf, sqrtf};
 
-    match ev {
-        ButtonEvent::RightButtonPress => {
-            *x_pos += 1;
-            *y_pos += 1;
-        },
-        ButtonEvent::LeftButtonPress => {
-            *x_pos -= 1;
-            *y_pos -= 1;
-        }
-        _ => ()
-    };
+#[allow(dead_code)]
+fn seph_setup_ticker(interval_ms: u16) {
+    let ms = interval_ms.to_be_bytes();
+    nanos_sdk::seph::seph_send(&[0x4e, 0, 2, ms[0], ms[1]]);
+}
 
-   if *x_pos > 127 {
-       *x_pos = 0;
-   } else if *x_pos < 0 {
-       *x_pos = 127;
-   }
+// t is the frame index. increment it for each tick.
+// x is a value from 0 to 128
+// y is a value from 0 to 64
+fn get_pixel_color(t: u32, x: u32, y: u32) -> bool {
+    jumping_blob(t as f32 / 30.0, (x as f32 / 64. - 0.5, y as f32 / 64.))
+}
 
-   if *y_pos > 63 {
-       *y_pos = 0;
-   } else if *y_pos < 0 {
-       *y_pos = 63
-   }
+fn jumping_blob(t: f32, o: (f32, f32)) -> bool {
+    let mut p = o;
+    let radius = 0.18;
+    let smoothing = 0.15;
+    let dist = 0.26;
+    p.0 -= 0.5;
+    p.1 -= 0.5;
+    p.1 *= -1.0;
+    p = p_r(p, PI / 2.0);
+    let q = p;
+    p = p_r(p, -t);
+    let s = f_op_difference_round(
+        f_op_union_round(
+            q.0,
+            length((p.0 + dist, p.1)) - radius,
+            smoothing,
+        ),
+        length((p.0 - dist, p.1)) - radius,
+        smoothing,
+    );
+    return s >= 0.0;
+}
+fn p_r(p: (f32, f32), a: f32) -> (f32, f32) {
+    (
+        cosf(a) * p.0 + sinf(a) * p.1,
+        cosf(a) * p.1 - sinf(a) * p.0,
+    )
+}
+fn length(l: (f32, f32)) -> f32 {
+    sqrtf(l.0 * l.0 + l.1 * l.1)
+}
+fn f_op_union_round(a: f32, b: f32, r: f32) -> f32 {
+    r.max(a.min(b))
+        - length(((r - a).max(0.), (r - b).max(0.)))
+}
+fn f_op_intersection_round(a: f32, b: f32, r: f32) -> f32 {
+    (-r).min(a.max(b))
+        + length(((r + a).max(0.), (r + b).max(0.)))
+}
+fn f_op_difference_round(a: f32, b: f32, r: f32) -> f32 {
+    f_op_intersection_round(a, -b, r)
 }
 
 #[no_mangle]
 extern "C" fn sample_main() {
     let mut comm = io::Comm::new();
+    let mut b = [0u8; 128*8];
+    let mut frame_n = 0;
+    let mut c = 0;
 
-    let mut x_pos: i32 = 0;
-    let mut y_pos = 0;
-    let bitmap = [0xFF, 0xFF, 0x00, 0x00, 0xFF, 0x00, 0x00, 0xFF, 0xA5, 0xA5];
 
+    #[cfg(not(feature = "speculos"))]
+    // seph_setup_ticker(16); // 60 fps
+    // seph_setup_ticker(32); // 30 fps
+    // seph_setup_ticker(64); // 15 fps
+    seph_setup_ticker(64); // 15 fps
+
+    for i in 0..512 {
+        b[i] = 0xff;
+    }
+    screen_clear_and_draw(0, 0, &b);
+
+    // bitmap[event_count] = 0;
+    // event_count += 1;
     loop {
-        // Draw some 'welcome' screen
-        // ui::SingleMessage::new("W e l c o m e").show();
+        // screen::sdk_screen_update();
 
-        // Wait for either a specific button push to exit the app
-        // or an APDU command
-        match comm.next_event() {
-            // io::Event::Button(ButtonEvent::RightButtonRelease) => nanos_sdk::exit_app(0),
-            // io::Event::Command(ins) => match handle_apdu(&mut comm, ins) {
-            //     Ok(()) => comm.reply_ok(),
-            //     Err(sw) => comm.reply(sw),
-            // },
-            io::Event::Button(ButtonEvent::LeftButtonPress) => {
-                calculate_new_position(&mut x_pos, &mut y_pos, ButtonEvent::LeftButtonPress);
-                screen_clear_and_draw(x_pos, y_pos, &bitmap);
-            }
-            io::Event::Button(ButtonEvent::RightButtonPress) => {
-                calculate_new_position(&mut x_pos, &mut y_pos, ButtonEvent::RightButtonPress);
-                screen_clear_and_draw(x_pos, y_pos, &bitmap);
-            }
-            io::Event::Command(ins) => match handle_apdu(&mut comm, ins) {
-                Ok(()) => comm.reply_ok(),
-                Err(sw) => comm.reply(sw),
-            },
+        // Screen is:
+
+        //    b[0]  |  b[1]  |  b[2]  | ...
+        //   b[128] | b[129] |
+        //   ...
+
+        // (x, y) = (128*y + x/8) & (1<<(x&7))
+
+        match comm.next_event::<u8>() {
+            io::Event::Button(ButtonEvent::RightButtonRelease) => nanos_sdk::exit_app(0),
             io::Event::Ticker => {
-                calculate_new_position(&mut x_pos, &mut y_pos, ButtonEvent::RightButtonPress);
-                screen_clear_and_draw(x_pos, y_pos, &bitmap);
-            }
-
+                c += 1;
+                // if c % 10 == 0 
+                {
+                    screen_clear_and_draw(0, 0, &b);
+                    frame_n += 1;
+                    for y in 0..64 {
+                        for x in 0..128/8 {
+                            let i = (16 * y + x) as usize; 
+                            let mut t = 0u8;
+                            for z in 0..8 {
+                                let p = get_pixel_color(frame_n, 8*x + z, y) as u8;
+                                t |= p << z;
+                            }
+                            b[i] = t;
+                        }
+                    }
+                }
+            },
             _ => (),
         }
     }
-}
-
-#[repr(u8)]
-enum Ins {
-    GetPubkey,
-    Sign,
-    Menu,
-    ShowPrivateKey,
-    Exit,
-}
-
-impl From<u8> for Ins {
-    fn from(ins: u8) -> Ins {
-        match ins {
-            2 => Ins::GetPubkey,
-            3 => Ins::Sign,
-            4 => Ins::Menu,
-            0xfe => Ins::ShowPrivateKey,
-            0xff => Ins::Exit,
-            _ => panic!(),
-        }
-    }
-}
-
-use nanos_sdk::io::Reply;
-
-fn handle_apdu(comm: &mut io::Comm, ins: Ins) -> Result<(), Reply> {
-    if comm.rx == 0 {
-        return Err(io::StatusWords::NothingReceived.into());
-    }
-
-    match ins {
-        Ins::GetPubkey => comm.append(&get_pubkey()?.W),
-        Ins::Sign => {
-            let out = sign_ui(comm.get_data()?)?;
-            if let Some(o) = out {
-                comm.append(&o)
-            }
-        }
-        Ins::Menu => menu_example(),
-        Ins::ShowPrivateKey => comm.append(&bip32_derive_secp256k1(&BIP32_PATH)?),
-        Ins::Exit => nanos_sdk::exit_app(0),
-    }
-    Ok(())
 }

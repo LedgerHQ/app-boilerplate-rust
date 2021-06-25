@@ -5,7 +5,8 @@ authors = ["yhql"]
 edition = "2018"
 
 [dependencies]
-nanos_sdk = { git = "https://github.com/LedgerHQ/rustx-sdk" }
+libm = "0.2.1"
+nanos_sdk = { git = "https://github.com/LedgerHQ/rustx-sdk", features = ["speculos"] }
 nanos_ui = { git = "https://github.com/pscott/rustx-ui" }
 
 [profile.dev]
@@ -13,8 +14,11 @@ panic = "abort"
 
 [profile.release]
 panic = "abort"
-opt-level = 'z' 
+opt-level = 3 
 lto = true
+
+[features]
+speculos = []
 
 [package.metadata.nanos]
 curve = "secp256k1"

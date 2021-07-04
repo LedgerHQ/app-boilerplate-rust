@@ -2,6 +2,7 @@
 #![no_main]
 
 use nanos_sdk::buttons::ButtonEvent;
+use nanos_sdk::exit_app;
 use nanos_sdk::io;
 use nanos_sdk::screen;
 
@@ -26,7 +27,7 @@ extern "C" fn sample_main() {
         match comm.next_event() {
             io::Event::Button(ButtonEvent::LeftButtonRelease) => game.turn_left(),
             io::Event::Button(ButtonEvent::RightButtonRelease) => game.turn_right(),
-            io::Event::Button(ButtonEvent::BothButtonsRelease) => {}
+            io::Event::Button(ButtonEvent::BothButtonsRelease) => exit_app(0),
             io::Event::Ticker => game.step(),
             io::Event::Command::<u8>(_) => (),
             _ => (),

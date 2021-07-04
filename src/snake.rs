@@ -6,7 +6,7 @@ const BLACK: u32 = 0;
 const WHITE: u32 = 1;
 
 const SCREEN_WIDTH: i32 = 127;
-const SCREEN_HEIGHT: i32 = 64;
+const SCREEN_HEIGHT: i32 = 63;
 
 const SNAKE_MAX_SIZE: u8 = 200;
 

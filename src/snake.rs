@@ -8,7 +8,11 @@ const WHITE: u32 = 1;
 const SCREEN_WIDTH: i32 = 127;
 const SCREEN_HEIGHT: i32 = 63;
 
-const SNAKE_MAX_SIZE: u8 = 200;
+// Maximum size the snake can reach. Will exit if snake is bigge than this value.
+const SNAKE_MAX_SIZE: u16 = 200;
+
+// Size of the snake when the game starts.
+const SNAKE_STARTING_SIZE: u8 = 3;
 
 /// Game representation.
 pub struct Game {
@@ -95,6 +99,12 @@ impl Point {
         Self { x: 0, y: 0 }
     }
 
+    fn new(x: i32, y: i32) -> Self {
+	    Self {
+		    x, y
+	    }
+    }
+
     /// Generates a random point. This point will be WITHIN the screen.
     fn random() -> Self {
         let mut x = nanos_sdk::random::rand_u8() as i32;
@@ -135,12 +145,24 @@ pub struct Snake {
 impl Snake {
     /// Creates a new snake. The snake starts at a random position, and will go towards the right.
     fn new() -> Self {
+	// Create the body. Fill it with SNAKE_STARTING_SIZE points.
         let mut body = [Point::zero(); SNAKE_MAX_SIZE as usize];
-        body[0] = Point::random();
+
+	// Start by generating a random the last point.
+	body[SNAKE_STARTING_SIZE as usize - 1] = Point::random();
+	
+	// Start the range at SNAKE_STARTING_SIZE - 1 because we already initiated the last point.
+	let range = 0..(SNAKE_STARTING_SIZE - 1) as usize;
+
+	// Fill in the rest of the body, starting from the last point to the first one.
+	// Only modify x value, y will stay the same so that the snake starts on a horizontal line.
+	for i in range.rev() {
+		body[i] = Point::new(body[i + 1].x + 1, body[i + 1].y);
+	}
 
         Self {
             body,
-            size: 1,
+            size: SNAKE_STARTING_SIZE as usize,
             direction: Direction::Right,
             eaten: false,
         }

@@ -3,7 +3,7 @@ rustflags = [
   "-C", "relocation-model=ropi",
   "-C", "link-arg=-Tscript.ld",
 ]
-runner = "speculos.py --display text -k 1.6"
+runner = "speculos.py --display text -k 2.0"
 
 [build]
 target = "thumbv6m-none-eabi"

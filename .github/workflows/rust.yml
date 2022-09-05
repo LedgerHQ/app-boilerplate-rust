@@ -5,6 +5,10 @@ on:
     branches: [ master ]
   pull_request:
     branches: [ master ]
+  workflow_dispatch:
+    inputs: 
+      name: 
+        description: 'Manually triggered'
 
 env:
   CARGO_TERM_COLOR: always
@@ -17,23 +21,31 @@ jobs:
         uses: fiam/arm-none-eabi-gcc@v1.0.3
         with:
           release: '9-2019-q4'
-      - uses: actions/checkout@v2
-      - name: Install thumbv6 target
-        uses: actions-rs/toolchain@v1
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Checkout SDK (targets)
+        uses: actions/checkout@v3
+        with:
+          repository: 'LedgerHQ/ledger-nanos-sdk'
+          path: rsdk
+      - name: Install clang
+        run: sudo apt-get update && sudo apt install -y clang
+      - uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
           override: true
-          target: thumbv6m-none-eabi 
+          components: rust-src, rustfmt, clippy
       - name: Cargo build
         uses: actions-rs/cargo@v1
         with:
           command: build
+          args: -Z build-std=core -Z build-std-features=compiler-builtins-mem --target ./rsdk/nanos.json
       - run: rustup component add clippy
       - name: Cargo clippy
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: -- -D warnings
+          args: -Z build-std=core -Z build-std-features=compiler-builtins-mem --target ./rsdk/nanos.json
       - run: rustup component add rustfmt
       - name: Cargo fmt
         uses: actions-rs/cargo@v1

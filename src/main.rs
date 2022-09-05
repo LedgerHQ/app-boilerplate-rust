@@ -1,32 +1,32 @@
 #![no_std]
 #![no_main]
 
-mod crypto_helpers;
 mod utils;
 
 use core::str::from_utf8;
-use crypto_helpers::*;
 use nanos_sdk::buttons::ButtonEvent;
-use nanos_sdk::ecc::DerEncodedEcdsaSignature;
+use nanos_sdk::ecc::Secp256k1;
 use nanos_sdk::io;
 use nanos_sdk::io::SyscallError;
 use nanos_ui::ui;
 
 nanos_sdk::set_panic!(nanos_sdk::exiting_panic);
 
+pub const BIP32_PATH: [u32; 5] = nanos_sdk::ecc::make_bip32_path(b"m/44'/535348'/0'/0/0");
+
 /// Display public key in two separate
 /// message scrollers
 fn show_pubkey() {
-    let pubkey = get_pubkey();
+    let pubkey = Secp256k1::from_bip32(&BIP32_PATH).public_key();
     match pubkey {
         Ok(pk) => {
             {
-                let hex0 = utils::to_hex(&pk.W[1..33]).unwrap();
+                let hex0 = utils::to_hex(&pk.as_ref()[1..33]).unwrap();
                 let m = from_utf8(&hex0).unwrap();
                 ui::MessageScroller::new(m).event_loop();
             }
             {
-                let hex1 = utils::to_hex(&pk.W[33..65]).unwrap();
+                let hex1 = utils::to_hex(&pk.as_ref()[33..65]).unwrap();
                 let m = from_utf8(&hex1).unwrap();
                 ui::MessageScroller::new(m).event_loop();
             }
@@ -59,7 +59,7 @@ fn menu_example() {
 /// This is the UI flow for signing, composed of a scroller
 /// to read the incoming message, a panel that requests user
 /// validation, and an exit message.
-fn sign_ui(message: &[u8]) -> Result<Option<DerEncodedEcdsaSignature>, SyscallError> {
+fn sign_ui(message: &[u8]) -> Result<Option<([u8; 72], u32)>, SyscallError> {
     ui::popup("Message review");
 
     {
@@ -70,10 +70,11 @@ fn sign_ui(message: &[u8]) -> Result<Option<DerEncodedEcdsaSignature>, SyscallEr
     }
 
     if ui::Validator::new("Sign ?").ask() {
-        let k = get_private_key()?;
-        let (sig, _sig_len) = detecdsa_sign(message, &k).unwrap();
+        let signature = Secp256k1::from_bip32(&BIP32_PATH)
+            .deterministic_sign(message)
+            .map_err(|_| SyscallError::Unspecified)?;
         ui::popup("Done !");
-        Ok(Some(sig))
+        Ok(Some(signature))
     } else {
         ui::popup("Cancelled");
         Ok(None)
@@ -106,7 +107,6 @@ enum Ins {
     GetPubkey,
     Sign,
     Menu,
-    ShowPrivateKey,
     Exit,
 }
 
@@ -116,7 +116,6 @@ impl From<u8> for Ins {
             2 => Ins::GetPubkey,
             3 => Ins::Sign,
             4 => Ins::Menu,
-            0xfe => Ins::ShowPrivateKey,
             0xff => Ins::Exit,
             _ => panic!(),
         }
@@ -131,15 +130,19 @@ fn handle_apdu(comm: &mut io::Comm, ins: Ins) -> Result<(), Reply> {
     }
 
     match ins {
-        Ins::GetPubkey => comm.append(&get_pubkey()?.W),
+        Ins::GetPubkey => {
+            let pk = Secp256k1::from_bip32(&BIP32_PATH)
+                .public_key()
+                .map_err(|x| Reply(0x6eu16 | (x as u16 & 0xff)))?;
+            comm.append(pk.as_ref());
+        }
         Ins::Sign => {
             let out = sign_ui(comm.get_data()?)?;
-            if let Some(o) = out {
-                comm.append(&o)
+            if let Some((signature_buf, length)) = out {
+                comm.append(&signature_buf[..length as usize])
             }
         }
         Ins::Menu => menu_example(),
-        Ins::ShowPrivateKey => comm.append(&bip32_derive_secp256k1(&BIP32_PATH)?),
         Ins::Exit => nanos_sdk::exit_app(0),
     }
     Ok(())

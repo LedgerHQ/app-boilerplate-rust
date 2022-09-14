@@ -8,8 +8,8 @@ rand_msg = hexlify(rnd(256).to_bytes(32, 'big')).decode()
 
 CMDS = [
     "8002",
-    "80032000" + "00112233445566778899aabbccddeeff0123456789abcdeffedcba9876543210",
-    "80032000" + rand_msg,
+    "8003000020" + "00112233445566778899aabbccddeeff0123456789abcdeffedcba9876543210",
+    "8003000020" + rand_msg,
     "8004",
     "80050008",
     "80FE",

@@ -10,24 +10,51 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
 name = "cc"
-version = "1.0.73"
+version = "1.0.74"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2fff2a6927b3bb87f9595d67196a70493f627687a71d87a0d692242c33f58c11"
+checksum = "581f5dba903aac52ea3feb5ec4810848460ee833876f1f9b0fdeab1f19091574"
+
+[[package]]
+name = "color_quant"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3d7b894f5411737b7867f4827955924d7c254fc9f4d91a6aad6b097804b1018b"
+
+[[package]]
+name = "gif"
+version = "0.11.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3edd93c6756b4dfaf2709eafcc345ba2636565295c198a9cfbf75fa5e3e00b06"
+dependencies = [
+ "color_quant",
+ "weezl",
+]
+
+[[package]]
+name = "include_gif"
+version = "0.1.0"
+source = "git+https://github.com/LedgerHQ/sdk_include_gif#699d28c6157518c4493899e2eeaa8af08346e5e7"
+dependencies = [
+ "gif",
+ "syn",
+]
 
 [[package]]
 name = "nanos_sdk"
 version = "0.2.0"
-source = "git+https://github.com/LedgerHQ/ledger-nanos-sdk.git#38a40c2ea95ae9eb22bb00b3400fd08b02f847b2"
+source = "git+https://github.com/LedgerHQ/ledger-nanos-sdk.git#950d8f7c59a9e4d2365c78efc6509013d95b9bbc"
 dependencies = [
  "cc",
  "num-traits",
+ "rand_core",
 ]
 
 [[package]]
 name = "nanos_ui"
-version = "0.1.0"
-source = "git+https://github.com/LedgerHQ/ledger-nanos-ui.git#bab7dc5a40d2988f682e0ca9c04eb631d50934ca"
+version = "0.2.0"
+source = "git+https://github.com/LedgerHQ/ledger-nanos-ui.git#176800f4013dc03e3c7ad8cb991a607de322f1be"
 dependencies = [
+ "include_gif",
  "nanos_sdk",
 ]
 
@@ -41,9 +68,56 @@ dependencies = [
 ]
 
 [[package]]
+name = "proc-macro2"
+version = "1.0.47"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5ea3d908b0e36316caf9e9e2c4625cdde190a7e6f440d794667ed17a1855e725"
+dependencies = [
+ "unicode-ident",
+]
+
+[[package]]
+name = "quote"
+version = "1.0.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbe448f377a7d6961e30f5955f9b8d106c3f5e449d493ee1b125c1d43c2b5179"
+dependencies = [
+ "proc-macro2",
+]
+
+[[package]]
+name = "rand_core"
+version = "0.6.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
+
+[[package]]
 name = "rust-app"
 version = "0.2.1"
 dependencies = [
  "nanos_sdk",
  "nanos_ui",
 ]
+
+[[package]]
+name = "syn"
+version = "1.0.103"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a864042229133ada95abf3b54fdc62ef5ccabe9515b64717bcb9a1919e59445d"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "unicode-ident",
+]
+
+[[package]]
+name = "unicode-ident"
+version = "1.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6ceab39d59e4c9499d4e5a8ee0e2735b891bb7308ac83dfb4e80cad195c9f6f3"
+
+[[package]]
+name = "weezl"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9193164d4de03a926d909d3bc7c30543cecb35400c02114792c2cae20d5e2dbb"

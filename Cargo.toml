@@ -16,4 +16,5 @@ lto = true
 curve = "secp256k1"
 flags = "0"
 icon = "crab.gif"
+icon_small = "crab_14x14.gif"
 path = ""

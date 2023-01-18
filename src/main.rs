@@ -82,6 +82,19 @@ fn sign_ui(message: &[u8]) -> Result<Option<([u8; 72], u32)>, SyscallError> {
 }
 
 #[no_mangle]
+extern "C" fn sample_pending() {
+    let mut buttons = nanos_sdk::buttons::ButtonsState::new();
+
+    loop {
+        ui::SingleMessage::new("P e n d i n g").show();
+        match ui::get_event(&mut buttons) {
+            Some(ButtonEvent::BothButtonsRelease) => return,
+            _ => (),
+        }
+    }
+}
+
+#[no_mangle]
 extern "C" fn sample_main() {
     let mut comm = io::Comm::new();
 

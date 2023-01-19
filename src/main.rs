@@ -84,12 +84,19 @@ fn sign_ui(message: &[u8]) -> Result<Option<([u8; 72], u32)>, SyscallError> {
 
 #[no_mangle]
 extern "C" fn sample_pending() {
-    let mut buttons = nanos_sdk::buttons::ButtonsState::new();
+    let mut comm = io::Comm::new();
 
     loop {
-        ui::SingleMessage::new("P e n d i n g").show();
-        match ui::get_event(&mut buttons) {
-            Some(ButtonEvent::BothButtonsRelease) => return,
+        ui::SingleMessage::new("Pending").show();
+        match comm.next_event::<Ins>() {
+            io::Event::Button(ButtonEvent::RightButtonRelease) => break,
+            _ => (),
+        }
+    }
+    loop {
+        ui::SingleMessage::new("Ledger review").show();
+        match comm.next_event::<Ins>() {
+            io::Event::Button(ButtonEvent::BothButtonsRelease) => break,
             _ => (),
         }
     }

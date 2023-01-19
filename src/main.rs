@@ -6,6 +6,7 @@ mod utils;
 use core::str::from_utf8;
 use nanos_sdk::buttons::ButtonEvent;
 use nanos_sdk::ecc::Secp256k1;
+use nanos_sdk::ecc::SeedDerive;
 use nanos_sdk::io;
 use nanos_sdk::io::SyscallError;
 use nanos_ui::ui;
@@ -17,7 +18,7 @@ pub const BIP32_PATH: [u32; 5] = nanos_sdk::ecc::make_bip32_path(b"m/44'/535348'
 /// Display public key in two separate
 /// message scrollers
 fn show_pubkey() {
-    let pubkey = Secp256k1::from_bip32(&BIP32_PATH).public_key();
+    let pubkey = Secp256k1::derive_from_path(&BIP32_PATH).public_key();
     match pubkey {
         Ok(pk) => {
             {
@@ -70,7 +71,7 @@ fn sign_ui(message: &[u8]) -> Result<Option<([u8; 72], u32)>, SyscallError> {
     }
 
     if ui::Validator::new("Sign ?").ask() {
-        let signature = Secp256k1::from_bip32(&BIP32_PATH)
+        let signature = Secp256k1::derive_from_path(&BIP32_PATH)
             .deterministic_sign(message)
             .map_err(|_| SyscallError::Unspecified)?;
         ui::popup("Done !");
@@ -144,7 +145,7 @@ fn handle_apdu(comm: &mut io::Comm, ins: Ins) -> Result<(), Reply> {
 
     match ins {
         Ins::GetPubkey => {
-            let pk = Secp256k1::from_bip32(&BIP32_PATH)
+            let pk = Secp256k1::derive_from_path(&BIP32_PATH)
                 .public_key()
                 .map_err(|x| Reply(0x6eu16 | (x as u16 & 0xff)))?;
             comm.append(pk.as_ref());

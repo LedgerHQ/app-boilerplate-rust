@@ -82,6 +82,26 @@ fn sign_ui(message: &[u8]) -> Result<Option<([u8; 72], u32, u32)>, SyscallError>
 }
 
 #[no_mangle]
+extern "C" fn sample_pending() {
+    let mut comm = io::Comm::new();
+
+    loop {
+        ui::SingleMessage::new("Pending").show();
+        match comm.next_event::<Ins>() {
+            io::Event::Button(ButtonEvent::RightButtonRelease) => break,
+            _ => (),
+        }
+    }
+    loop {
+        ui::SingleMessage::new("Ledger review").show();
+        match comm.next_event::<Ins>() {
+            io::Event::Button(ButtonEvent::BothButtonsRelease) => break,
+            _ => (),
+        }
+    }
+}
+
+#[no_mangle]
 extern "C" fn sample_main() {
     let mut comm = io::Comm::new();
 

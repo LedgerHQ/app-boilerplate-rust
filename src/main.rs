@@ -5,8 +5,7 @@ mod utils;
 
 use core::str::from_utf8;
 use nanos_sdk::buttons::ButtonEvent;
-use nanos_sdk::ecc::Secp256k1;
-use nanos_sdk::ecc::SeedDerive;
+use nanos_sdk::ecc::{Secp256k1, SeedDerive};
 use nanos_sdk::io;
 use nanos_sdk::io::SyscallError;
 use nanos_ui::ui;
@@ -60,7 +59,7 @@ fn menu_example() {
 /// This is the UI flow for signing, composed of a scroller
 /// to read the incoming message, a panel that requests user
 /// validation, and an exit message.
-fn sign_ui(message: &[u8]) -> Result<Option<([u8; 72], u32)>, SyscallError> {
+fn sign_ui(message: &[u8]) -> Result<Option<([u8; 72], u32, u32)>, SyscallError> {
     ui::popup("Message review");
 
     {
@@ -159,7 +158,7 @@ fn handle_apdu(comm: &mut io::Comm, ins: Ins) -> Result<(), Reply> {
         }
         Ins::Sign => {
             let out = sign_ui(comm.get_data()?)?;
-            if let Some((signature_buf, length)) = out {
+            if let Some((signature_buf, length, _)) = out {
                 comm.append(&signature_buf[..length as usize])
             }
         }

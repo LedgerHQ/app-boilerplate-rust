@@ -16,6 +16,7 @@ lto = true
 pending_review_screen = ["nanos_sdk/pending_review_screen"]
 
 [package.metadata.nanos]
+api_level = "1"
 curve = ["secp256k1"]
 flags = "0"
 icon = "crab.gif"

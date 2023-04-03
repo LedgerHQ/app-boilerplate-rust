@@ -22,11 +22,6 @@ jobs:
           release: '9-2019-q4'
       - name: Checkout
         uses: actions/checkout@v3
-      - name: Checkout SDK (targets)
-        uses: actions/checkout@v3
-        with:
-          repository: 'LedgerHQ/ledger-nanos-sdk'
-          path: rsdk
       - name: Install clang
         run: sudo apt-get update && sudo apt install -y clang
       - uses: actions-rs/toolchain@v1
@@ -34,20 +29,19 @@ jobs:
           toolchain: nightly
           override: true
           components: rust-src, rustfmt, clippy
-      - name: Cargo build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: -Z build-std=core -Z build-std-features=compiler-builtins-mem --target ./rsdk/nanos.json
-      - run: rustup component add clippy
+      - name: Install cargo-ledger
+        run: cargo install --git=https://github.com/LedgerHQ/cargo-ledger
+      - name: Setup cargo-ledger
+        run: cargo ledger setup
       - name: Cargo clippy
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: -Z build-std=core -Z build-std-features=compiler-builtins-mem --target ./rsdk/nanos.json
-      - run: rustup component add rustfmt
       - name: Cargo fmt
         uses: actions-rs/cargo@v1
         with:
           command: fmt
           args: --all -- --check
+      - name: Build app
+        run: cargo ledger build nanosplus
+

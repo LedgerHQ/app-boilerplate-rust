@@ -1,0 +1,9 @@
+[target.nanosplus]
+runner = "speculos --display text -k 2.0"
+
+[build]
+target = "nanosplus"
+
+[unstable]
+build-std = ["core"]
+build-std-features = ["compiler-builtins-mem"]

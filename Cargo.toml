@@ -5,18 +5,17 @@ authors = ["yhql"]
 edition = "2021"
 
 [dependencies]
-nanos_sdk = { git = "https://github.com/LedgerHQ/ledger-nanos-sdk.git" } 
-nanos_ui = { git = "https://github.com/LedgerHQ/ledger-nanos-ui.git" } 
+nanos_sdk = { git = "https://github.com/LedgerHQ/ledger-nanos-sdk.git" }
+nanos_ui = { git = "https://github.com/LedgerHQ/ledger-nanos-ui.git" }
 
 [profile.release]
-opt-level = 'z' 
+opt-level = 'z'
 lto = true
 
 [features]
 pending_review_screen = ["nanos_sdk/pending_review_screen"]
 
 [package.metadata.nanos]
-api_level = "1"
 curve = ["secp256k1"]
 flags = "0"
 icon = "crab.gif"

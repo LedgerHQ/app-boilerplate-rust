@@ -130,9 +130,9 @@ enum Ins {
     Exit,
 }
 
-impl From<u8> for Ins {
-    fn from(ins: u8) -> Ins {
-        match ins {
+impl From<io::ApduHeader> for Ins {
+    fn from(header: io::ApduHeader) -> Ins {
+        match header.ins {
             2 => Ins::GetPubkey,
             3 => Ins::Sign,
             4 => Ins::Menu,

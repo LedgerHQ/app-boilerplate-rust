@@ -1,5 +1,5 @@
 [target.nanosplus]
-runner = "speculos --display text -k 2.0"
+runner = "speculos -a=1 --model=nanosp"
 
 [build]
 target = "nanosplus"

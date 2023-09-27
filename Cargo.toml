@@ -15,9 +15,16 @@ lto = true
 [features]
 pending_review_screen = ["nanos_sdk/pending_review_screen"]
 
-[package.metadata.nanos]
+[package.metadata.ledger]
 curve = ["secp256k1"]
 flags = "0"
-icon = "crab.gif"
-icon_small = "crab_14x14.gif"
 path = [""]
+
+[package.metadata.ledger.nanos]
+icon = "crab.gif"
+
+[package.metadata.ledger.nanox]
+icon = "crab_14x14.gif"
+
+[package.metadata.ledger.nanosplus]
+icon = "crab_14x14.gif"

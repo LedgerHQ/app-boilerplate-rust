@@ -2,6 +2,9 @@
 #![no_main]
 
 mod utils;
+mod app_ui {
+    pub mod menu;
+}
 
 use core::str::from_utf8;
 use nanos_sdk::buttons::ButtonEvent;
@@ -9,6 +12,8 @@ use nanos_sdk::ecc::{Secp256k1, SeedDerive};
 use nanos_sdk::io;
 use nanos_sdk::io::SyscallError;
 use nanos_ui::ui;
+
+use app_ui::menu::ui_menu_main;
 
 nanos_sdk::set_panic!(nanos_sdk::exiting_panic);
 
@@ -106,14 +111,10 @@ extern "C" fn sample_main() {
     let mut comm = io::Comm::new();
 
     loop {
-        // Draw some 'welcome' screen
-        ui::SingleMessage::new("W e l c o m e").show();
-
         // Wait for either a specific button push to exit the app
         // or an APDU command
-        match comm.next_event() {
-            io::Event::Button(ButtonEvent::RightButtonRelease) => nanos_sdk::exit_app(0),
-            io::Event::Command(ins) => match handle_apdu(&mut comm, ins) {
+        match ui_menu_main(&mut comm) {
+            io::Event::Command(ins) => match handle_apdu(&mut comm, ins.into()) {
                 Ok(()) => comm.reply_ok(),
                 Err(sw) => comm.reply(sw),
             },

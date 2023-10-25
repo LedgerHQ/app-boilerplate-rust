@@ -7,6 +7,10 @@ edition = "2021"
 [dependencies]
 nanos_sdk = { git = "https://github.com/LedgerHQ/ledger-nanos-sdk.git" }
 nanos_ui = { git = "https://github.com/LedgerHQ/ledger-nanos-ui.git" }
+include_gif = { git = "https://github.com/LedgerHQ/sdk_include_gif" }
+
+[patch."https://github.com/LedgerHQ/ledger-nanos-ui"]
+nanos_ui = { path = "ledger-nanos-ui" }
 
 [profile.release]
 opt-level = 'z'

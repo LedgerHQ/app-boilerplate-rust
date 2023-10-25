@@ -3,7 +3,3 @@ runner = "speculos -a=1 --model=nanosp"
 
 [build]
 target = "nanosplus"
-
-[unstable]
-build-std = ["core"]
-build-std-features = ["compiler-builtins-mem"]

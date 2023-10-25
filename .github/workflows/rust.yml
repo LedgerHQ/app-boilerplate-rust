@@ -5,8 +5,8 @@ on:
     branches: [ main ]
   pull_request:
   workflow_dispatch:
-    inputs: 
-      name: 
+    inputs:
+      name:
         description: 'Manually triggered'
 
 env:
@@ -30,7 +30,7 @@ jobs:
           override: true
           components: rust-src, rustfmt, clippy
       - name: Install cargo-ledger
-        run: cargo install --git=https://github.com/LedgerHQ/cargo-ledger
+        run: cargo install --git=https://github.com/LedgerHQ/cargo-ledger cargo-ledger
       - name: Setup cargo-ledger
         run: cargo ledger setup
       - name: Cargo clippy

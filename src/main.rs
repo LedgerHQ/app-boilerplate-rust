@@ -13,6 +13,8 @@ use nanos_sdk::io;
 use nanos_sdk::io::SyscallError;
 use nanos_ui::ui;
 
+use nanos_ui::bitmaps::{EYE, VALIDATE_14, CROSSMARK};
+
 use app_ui::menu::ui_menu_main;
 
 nanos_sdk::set_panic!(nanos_sdk::exiting_panic);
@@ -65,16 +67,24 @@ fn menu_example() {
 /// to read the incoming message, a panel that requests user
 /// validation, and an exit message.
 fn sign_ui(message: &[u8]) -> Result<Option<([u8; 72], u32, u32)>, SyscallError> {
-    ui::popup("Message review");
+    let hex = utils::to_hex(message).map_err(|_| SyscallError::Overflow)?;
+    let m = from_utf8(&hex).map_err(|_| SyscallError::InvalidParameter)?;
+    let my_field = [ui::Field {
+        name: "Data",
+        value: m,
+    }];
 
-    {
-        let hex = utils::to_hex(message).map_err(|_| SyscallError::Overflow)?;
-        let m = from_utf8(&hex).map_err(|_| SyscallError::InvalidParameter)?;
+    let my_review = ui::MultiFieldReview::new(
+        &my_field,
+        &["Review ","Transaction"],
+        Some(&EYE),
+        "Approve",
+        Some(&VALIDATE_14),
+        "Reject",
+        Some(&CROSSMARK),
+    );
 
-        ui::MessageScroller::new(m).event_loop();
-    }
-
-    if ui::Validator::new("Sign ?").ask() {
+    if my_review.show() {
         let signature = Secp256k1::derive_from_path(&BIP32_PATH)
             .deterministic_sign(message)
             .map_err(|_| SyscallError::Unspecified)?;

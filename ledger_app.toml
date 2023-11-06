@@ -1,2 +1,4 @@
-[rust-app]
-manifest-path = "./Cargo.toml"
+[app]
+build_directory = "./"
+sdk = "Rust"
+devices = ["nanos", "nanox", "nanos+"]

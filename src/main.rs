@@ -3,7 +3,12 @@
 
 mod utils;
 mod app_ui {
+    pub mod address;
     pub mod menu;
+}
+mod handlers {
+    pub mod get_public_key;
+    pub mod get_version;
 }
 
 use core::str::from_utf8;
@@ -13,55 +18,19 @@ use nanos_sdk::io;
 use nanos_sdk::io::SyscallError;
 use nanos_ui::ui;
 
-use nanos_ui::bitmaps::{EYE, VALIDATE_14, CROSSMARK};
+use nanos_ui::bitmaps::{CROSSMARK, EYE, VALIDATE_14};
 
 use app_ui::menu::ui_menu_main;
+use handlers::{get_public_key::handler_get_public_key, get_version::handler_get_version};
 
 nanos_sdk::set_panic!(nanos_sdk::exiting_panic);
 
 pub const BIP32_PATH: [u32; 5] = nanos_sdk::ecc::make_bip32_path(b"m/44'/535348'/0'/0/0");
 
-/// Display public key in two separate
-/// message scrollers
-fn show_pubkey() {
-    let pubkey = Secp256k1::derive_from_path(&BIP32_PATH).public_key();
-    match pubkey {
-        Ok(pk) => {
-            {
-                let hex0 = utils::to_hex(&pk.as_ref()[1..33]).unwrap();
-                let m = from_utf8(&hex0).unwrap();
-                ui::MessageScroller::new(m).event_loop();
-            }
-            {
-                let hex1 = utils::to_hex(&pk.as_ref()[33..65]).unwrap();
-                let m = from_utf8(&hex1).unwrap();
-                ui::MessageScroller::new(m).event_loop();
-            }
-        }
-        Err(_) => ui::popup("Error"),
-    }
-}
-
-/// Basic nested menu. Will be subject
-/// to simplifications in the future.
-#[allow(clippy::needless_borrow)]
-fn menu_example() {
-    loop {
-        match ui::Menu::new(&[&"PubKey", &"Infos", &"Back", &"Exit App"]).show() {
-            0 => show_pubkey(),
-            1 => loop {
-                match ui::Menu::new(&[&"Copyright", &"Authors", &"Back"]).show() {
-                    0 => ui::popup("2020 Ledger"),
-                    1 => ui::popup("???"),
-                    _ => break,
-                }
-            },
-            2 => return,
-            3 => nanos_sdk::exit_app(0),
-            _ => (),
-        }
-    }
-}
+pub const SW_INS_NOT_SUPPORTED: u16 = 0x6D00;
+pub const SW_DENY: u16 = 0x6985;
+pub const SW_WRONG_P1P2: u16 = 0x6A86;
+pub const SW_WRONG_DATA_LENGTH: u16 = 0x6A87;
 
 /// This is the UI flow for signing, composed of a scroller
 /// to read the incoming message, a panel that requests user
@@ -76,7 +45,7 @@ fn sign_ui(message: &[u8]) -> Result<Option<([u8; 72], u32, u32)>, SyscallError>
 
     let my_review = ui::MultiFieldReview::new(
         &my_field,
-        &["Review ","Transaction"],
+        &["Review ", "Transaction"],
         Some(&EYE),
         "Approve",
         Some(&VALIDATE_14),
@@ -134,21 +103,25 @@ extern "C" fn sample_main() {
 }
 
 #[repr(u8)]
+
 enum Ins {
+    GetVersion,
+    GetAppName,
     GetPubkey,
-    Sign,
-    Menu,
-    Exit,
+    SignTx,
+    UnknownIns,
 }
+
+const CLA: u8 = 0xe0;
 
 impl From<io::ApduHeader> for Ins {
     fn from(header: io::ApduHeader) -> Ins {
         match header.ins {
-            2 => Ins::GetPubkey,
-            3 => Ins::Sign,
-            4 => Ins::Menu,
-            0xff => Ins::Exit,
-            _ => panic!(),
+            3 => Ins::GetVersion,
+            4 => Ins::GetAppName,
+            5 => Ins::GetPubkey,
+            6 => Ins::SignTx,
+            _ => Ins::UnknownIns,
         }
     }
 }
@@ -160,21 +133,45 @@ fn handle_apdu(comm: &mut io::Comm, ins: Ins) -> Result<(), Reply> {
         return Err(io::StatusWords::NothingReceived.into());
     }
 
+    let apdu_metadata = comm.get_apdu_metadata();
+
+    if apdu_metadata.cla != CLA {
+        return Err(io::StatusWords::BadCla.into());
+    }
+
     match ins {
-        Ins::GetPubkey => {
-            let pk = Secp256k1::derive_from_path(&BIP32_PATH)
-                .public_key()
-                .map_err(|x| Reply(0x6eu16 | (x as u16 & 0xff)))?;
-            comm.append(pk.as_ref());
+        Ins::GetAppName => {
+            if apdu_metadata.p1 != 0 || apdu_metadata.p2 != 0 {
+                return Err(io::Reply(SW_WRONG_P1P2));
+            }
+            comm.append(env!("CARGO_PKG_NAME").as_bytes());
         }
-        Ins::Sign => {
+        Ins::GetVersion => {
+            if apdu_metadata.p1 != 0 || apdu_metadata.p2 != 0 {
+                return Err(io::Reply(SW_WRONG_P1P2));
+            }
+            return handler_get_version(comm);
+        }
+        Ins::GetPubkey => {
+            if apdu_metadata.p1 > 1 || apdu_metadata.p2 != 0 {
+                return Err(io::Reply(SW_WRONG_P1P2));
+            }
+
+            if (comm.get_data()?.len()) == 0 {
+                return Err(io::Reply(SW_WRONG_DATA_LENGTH));
+            }
+
+            return handler_get_public_key(comm, apdu_metadata.p1 == 1);
+        }
+        Ins::SignTx => {
             let out = sign_ui(comm.get_data()?)?;
             if let Some((signature_buf, length, _)) = out {
                 comm.append(&signature_buf[..length as usize])
             }
         }
-        Ins::Menu => menu_example(),
-        Ins::Exit => nanos_sdk::exit_app(0),
+        Ins::UnknownIns => {
+            return Err(io::Reply(SW_INS_NOT_SUPPORTED));
+        }
     }
     Ok(())
 }

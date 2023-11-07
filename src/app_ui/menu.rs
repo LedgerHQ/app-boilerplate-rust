@@ -42,7 +42,7 @@ pub fn ui_menu_main(comm: &mut io::Comm) -> io::Event<io::ApduHeader> {
         // The from trait allows to create different styles of pages
         // without having to use the new() function.
         &Page::from((["Boilerplate", "is ready"], &APP_ICON)),
-        &Page::from((["Version", "2.0.0"], true)),
+        &Page::from((["Version", env!("CARGO_PKG_VERSION")], true)),
         &Page::from(("About", &CERTIFICATE)),
         &Page::from(("Quit", &DASHBOARD_X)),
     ];

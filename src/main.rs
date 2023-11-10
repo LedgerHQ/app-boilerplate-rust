@@ -5,65 +5,37 @@ mod utils;
 mod app_ui {
     pub mod address;
     pub mod menu;
+    pub mod sign;
 }
 mod handlers {
     pub mod get_public_key;
     pub mod get_version;
+    pub mod sign_tx;
 }
 
-use core::str::from_utf8;
 use nanos_sdk::buttons::ButtonEvent;
-use nanos_sdk::ecc::{Secp256k1, SeedDerive};
 use nanos_sdk::io;
-use nanos_sdk::io::SyscallError;
 use nanos_ui::ui;
 
-use nanos_ui::bitmaps::{CROSSMARK, EYE, VALIDATE_14};
-
 use app_ui::menu::ui_menu_main;
-use handlers::{get_public_key::handler_get_public_key, get_version::handler_get_version};
+use handlers::{
+    get_public_key::handler_get_public_key,
+    get_version::handler_get_version,
+    sign_tx::{handler_sign_tx, TxContext},
+};
 
 nanos_sdk::set_panic!(nanos_sdk::exiting_panic);
-
-pub const BIP32_PATH: [u32; 5] = nanos_sdk::ecc::make_bip32_path(b"m/44'/535348'/0'/0/0");
 
 pub const SW_INS_NOT_SUPPORTED: u16 = 0x6D00;
 pub const SW_DENY: u16 = 0x6985;
 pub const SW_WRONG_P1P2: u16 = 0x6A86;
 pub const SW_WRONG_DATA_LENGTH: u16 = 0x6A87;
-
-/// This is the UI flow for signing, composed of a scroller
-/// to read the incoming message, a panel that requests user
-/// validation, and an exit message.
-fn sign_ui(message: &[u8]) -> Result<Option<([u8; 72], u32, u32)>, SyscallError> {
-    let hex = utils::to_hex(message).map_err(|_| SyscallError::Overflow)?;
-    let m = from_utf8(&hex).map_err(|_| SyscallError::InvalidParameter)?;
-    let my_field = [ui::Field {
-        name: "Data",
-        value: m,
-    }];
-
-    let my_review = ui::MultiFieldReview::new(
-        &my_field,
-        &["Review ", "Transaction"],
-        Some(&EYE),
-        "Approve",
-        Some(&VALIDATE_14),
-        "Reject",
-        Some(&CROSSMARK),
-    );
-
-    if my_review.show() {
-        let signature = Secp256k1::derive_from_path(&BIP32_PATH)
-            .deterministic_sign(message)
-            .map_err(|_| SyscallError::Unspecified)?;
-        ui::popup("Done !");
-        Ok(Some(signature))
-    } else {
-        ui::popup("Cancelled");
-        Ok(None)
-    }
-}
+pub const SW_TX_DISPLAY_FAIL: u16 = 0xB001;
+pub const SW_DISPLAY_ADDRESS_FAIL: u16 = 0xB002;
+pub const SW_WRONG_TX_LENGTH: u16 = 0xB004;
+pub const SW_TX_PARSING_FAIL: u16 = 0xB005;
+pub const SW_TX_HASH_FAIL: u16 = 0xB006;
+pub const SW_TX_SIGN_FAIL: u16 = 0xB008;
 
 #[no_mangle]
 extern "C" fn sample_pending() {
@@ -88,12 +60,13 @@ extern "C" fn sample_pending() {
 #[no_mangle]
 extern "C" fn sample_main() {
     let mut comm = io::Comm::new();
+    let mut tx_ctx = TxContext::new();
 
     loop {
         // Wait for either a specific button push to exit the app
         // or an APDU command
         match ui_menu_main(&mut comm) {
-            io::Event::Command(ins) => match handle_apdu(&mut comm, ins.into()) {
+            io::Event::Command(ins) => match handle_apdu(&mut comm, ins.into(), &mut tx_ctx) {
                 Ok(()) => comm.reply_ok(),
                 Err(sw) => comm.reply(sw),
             },
@@ -104,6 +77,7 @@ extern "C" fn sample_main() {
 
 #[repr(u8)]
 
+// Instruction set for the app.
 enum Ins {
     GetVersion,
     GetAppName,
@@ -111,8 +85,16 @@ enum Ins {
     SignTx,
     UnknownIns,
 }
-
+// CLA (APDU class byte) for all APDUs.
 const CLA: u8 = 0xe0;
+// P2 for last APDU to receive.
+const P2_SIGN_TX_LAST: u8 = 0x00;
+// P2 for more APDU to receive.
+const P2_SIGN_TX_MORE: u8 = 0x80;
+// P1 for first APDU number.
+const P1_SIGN_TX_START: u8 = 0x00;
+// P1 for maximum APDU number.
+const P1_SIGN_TX_MAX: u8 = 0x03;
 
 impl From<io::ApduHeader> for Ins {
     fn from(header: io::ApduHeader) -> Ins {
@@ -128,7 +110,7 @@ impl From<io::ApduHeader> for Ins {
 
 use nanos_sdk::io::Reply;
 
-fn handle_apdu(comm: &mut io::Comm, ins: Ins) -> Result<(), Reply> {
+fn handle_apdu(comm: &mut io::Comm, ins: Ins, ctx: &mut TxContext) -> Result<(), Reply> {
     if comm.rx == 0 {
         return Err(io::StatusWords::NothingReceived.into());
     }
@@ -164,10 +146,23 @@ fn handle_apdu(comm: &mut io::Comm, ins: Ins) -> Result<(), Reply> {
             return handler_get_public_key(comm, apdu_metadata.p1 == 1);
         }
         Ins::SignTx => {
-            let out = sign_ui(comm.get_data()?)?;
-            if let Some((signature_buf, length, _)) = out {
-                comm.append(&signature_buf[..length as usize])
+            if (apdu_metadata.p1 == P1_SIGN_TX_START && apdu_metadata.p2 != P2_SIGN_TX_MORE)
+                || apdu_metadata.p1 > P1_SIGN_TX_MAX
+                || (apdu_metadata.p2 != P2_SIGN_TX_LAST && apdu_metadata.p2 != P2_SIGN_TX_MORE)
+            {
+                return Err(io::Reply(SW_WRONG_P1P2));
             }
+
+            if (comm.get_data()?.len()) == 0 {
+                return Err(io::Reply(SW_WRONG_DATA_LENGTH));
+            }
+
+            return handler_sign_tx(
+                comm,
+                apdu_metadata.p1,
+                apdu_metadata.p2 == P2_SIGN_TX_MORE,
+                ctx,
+            );
         }
         Ins::UnknownIns => {
             return Err(io::Reply(SW_INS_NOT_SUPPORTED));

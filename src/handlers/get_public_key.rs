@@ -16,15 +16,16 @@
  *****************************************************************************/
 
 use crate::app_ui::address::ui_display_pk;
-use crate::SW_DENY;
+use crate::utils::{read_bip32_path, MAX_ALLOWED_PATH_LEN};
+use crate::{SW_DENY, SW_DISPLAY_ADDRESS_FAIL};
+use nanos_sdk::bindings::{
+    cx_hash_no_throw, cx_hash_t, cx_keccak_init_no_throw, cx_sha3_t, CX_LAST, CX_OK,
+};
 use nanos_sdk::ecc::{Secp256k1, SeedDerive};
-use nanos_sdk::{io, testing};
+use nanos_sdk::io::{Comm, Reply};
+use nanos_sdk::testing;
 
-const MAX_ALLOWED_PATH_LEN: usize = 10;
-
-// const SW_DENY: u16 = 0x6985;
-
-pub fn handler_get_public_key(comm: &mut io::Comm, display: bool) -> Result<(), io::Reply> {
+pub fn handler_get_public_key(comm: &mut Comm, display: bool) -> Result<(), Reply> {
     let mut path = [0u32; MAX_ALLOWED_PATH_LEN];
     let data = comm.get_data()?;
 
@@ -32,14 +33,37 @@ pub fn handler_get_public_key(comm: &mut io::Comm, display: bool) -> Result<(), 
 
     let pk = Secp256k1::derive_from_path(&path[..path_len])
         .public_key()
-        .map_err(|x| io::Reply(0x6eu16 | (x as u16 & 0xff)))?;
+        .map_err(|x| Reply(0x6eu16 | (x as u16 & 0xff)))?;
 
-    // Display public key on device if requested
+    // Display address on device if requested
     if display {
+        let mut keccak256: cx_sha3_t = Default::default();
+        let mut address: [u8; 32] = [0u8; 32];
+
+        unsafe {
+            if cx_keccak_init_no_throw(&mut keccak256, 256) != CX_OK {
+                return Err(Reply(SW_DISPLAY_ADDRESS_FAIL));
+            }
+
+            let mut pk_mut = pk.pubkey;
+            let pk_ptr = pk_mut.as_mut_ptr().offset(1);
+            if cx_hash_no_throw(
+                &mut keccak256.header as *mut cx_hash_t,
+                CX_LAST,
+                pk_ptr,
+                64 as u32,
+                address.as_mut_ptr(),
+                address.len() as u32,
+            ) != CX_OK
+            {
+                return Err(Reply(SW_DISPLAY_ADDRESS_FAIL));
+            }
+        }
+
         testing::debug_print("showing public key\n");
-        if !ui_display_pk(&pk.pubkey)? {
+        if !ui_display_pk(&address)? {
             testing::debug_print("denied\n");
-            return Err(io::Reply(SW_DENY));
+            return Err(Reply(SW_DENY));
         }
     }
 
@@ -52,30 +76,4 @@ pub fn handler_get_public_key(comm: &mut io::Comm, display: bool) -> Result<(), 
     comm.append(&[0u8; CHAINCODE_LEN]); // Dummy chaincode
 
     Ok(())
-}
-
-fn read_bip32_path(data: &[u8], path: &mut [u32]) -> Result<usize, io::Reply> {
-    // Check input length and path buffer capacity
-    if data.len() < 1 || path.len() < data.len() / 4 {
-        return Err(io::StatusWords::BadLen.into());
-    }
-
-    let path_len = data[0] as usize; // First byte is the length of the path
-    let path_data = &data[1..];
-
-    // Check path data length and alignment
-    if path_data.len() != path_len * 4
-        || path_data.len() > MAX_ALLOWED_PATH_LEN * 4
-        || path_data.len() % 4 != 0
-    {
-        return Err(io::StatusWords::BadLen.into());
-    }
-
-    let mut idx = 0;
-    for (i, chunk) in path_data.chunks(4).enumerate() {
-        path[idx] = u32::from_be_bytes(chunk.try_into().unwrap());
-        idx = i + 1;
-    }
-
-    Ok(idx)
 }

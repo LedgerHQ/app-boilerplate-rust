@@ -4,15 +4,15 @@
 mod utils;
 
 use core::str::from_utf8;
-use nanos_sdk::buttons::ButtonEvent;
-use nanos_sdk::ecc::{Secp256k1, SeedDerive};
-use nanos_sdk::io;
-use nanos_sdk::io::SyscallError;
-use nanos_ui::ui;
+use ledger_device_sdk::buttons::ButtonEvent;
+use ledger_device_sdk::ecc::{Secp256k1, SeedDerive};
+use ledger_device_sdk::io;
+use ledger_device_sdk::io::SyscallError;
+use ledger_device_ui_sdk::ui;
 
-nanos_sdk::set_panic!(nanos_sdk::exiting_panic);
+ledger_device_sdk::set_panic!(ledger_device_sdk::exiting_panic);
 
-pub const BIP32_PATH: [u32; 5] = nanos_sdk::ecc::make_bip32_path(b"m/44'/535348'/0'/0/0");
+pub const BIP32_PATH: [u32; 5] = ledger_device_sdk::ecc::make_bip32_path(b"m/44'/535348'/0'/0/0");
 
 /// Display public key in two separate
 /// message scrollers
@@ -50,7 +50,7 @@ fn menu_example() {
                 }
             },
             2 => return,
-            3 => nanos_sdk::exit_app(0),
+            3 => ledger_device_sdk::exit_app(0),
             _ => (),
         }
     }
@@ -112,7 +112,7 @@ extern "C" fn sample_main() {
         // Wait for either a specific button push to exit the app
         // or an APDU command
         match comm.next_event() {
-            io::Event::Button(ButtonEvent::RightButtonRelease) => nanos_sdk::exit_app(0),
+            io::Event::Button(ButtonEvent::RightButtonRelease) => ledger_device_sdk::exit_app(0),
             io::Event::Command(ins) => match handle_apdu(&mut comm, ins) {
                 Ok(()) => comm.reply_ok(),
                 Err(sw) => comm.reply(sw),
@@ -142,7 +142,7 @@ impl From<io::ApduHeader> for Ins {
     }
 }
 
-use nanos_sdk::io::Reply;
+use ledger_device_sdk::io::Reply;
 
 fn handle_apdu(comm: &mut io::Comm, ins: Ins) -> Result<(), Reply> {
     if comm.rx == 0 {
@@ -163,7 +163,7 @@ fn handle_apdu(comm: &mut io::Comm, ins: Ins) -> Result<(), Reply> {
             }
         }
         Ins::Menu => menu_example(),
-        Ins::Exit => nanos_sdk::exit_app(0),
+        Ins::Exit => ledger_device_sdk::exit_app(0),
     }
     Ok(())
 }

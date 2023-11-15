@@ -15,7 +15,7 @@
  *  limitations under the License.
  *****************************************************************************/
 use crate::app_ui::sign::ui_display_tx;
-use crate::utils::{read_bip32_path, varint_read, slice_or_err, MAX_ALLOWED_PATH_LEN};
+use crate::utils::{read_bip32_path, slice_or_err, varint_read, MAX_ALLOWED_PATH_LEN};
 use crate::{SW_DENY, SW_TX_HASH_FAIL, SW_TX_PARSING_FAIL, SW_TX_SIGN_FAIL, SW_WRONG_TX_LENGTH};
 use nanos_sdk::bindings::{
     cx_hash_no_throw, cx_hash_t, cx_keccak_init_no_throw, cx_sha3_t, CX_LAST, CX_OK,
@@ -50,15 +50,15 @@ impl<'a> TryFrom<&'a [u8]> for Tx<'a> {
         let value = u64::from_be_bytes(slice_or_err(raw_tx, 28, 8)?.try_into().map_err(|_| ())?);
         // Memo length
         let (memo_len_u64, memo_len_size) = varint_read(&raw_tx[36..])?;
-        let memo_len =  memo_len_u64 as usize;
+        let memo_len = memo_len_u64 as usize;
         // Memo
         let memo = slice_or_err(raw_tx, 36 + memo_len_size, memo_len)?;
-        
+
         // Check memo ASCII encoding
         if !memo[..memo_len].iter().all(|&byte| byte.is_ascii()) {
             return Err(());
         }
-        
+
         Ok(Tx {
             nonce,
             value,
@@ -148,7 +148,7 @@ fn compute_signature_and_append(comm: &mut Comm, ctx: &mut TxContext) -> Result<
     let mut message_hash: [u8; 32] = [0u8; 32];
 
     unsafe {
-        if cx_keccak_init_no_throw(&mut keccak256, 256) != CX_OK {            
+        if cx_keccak_init_no_throw(&mut keccak256, 256) != CX_OK {
             return Err(Reply(SW_TX_HASH_FAIL));
         }
         if cx_hash_no_throw(

@@ -26,17 +26,13 @@ use nanos_ui::ui::{Field, MultiFieldReview};
 const DISPLAY_ADDR_BYTES_LEN: usize = 20;
 
 pub fn ui_display_pk(addr: &[u8]) -> Result<bool, Reply> {
-    let addr_hex_str_buf =
-        to_hex_all_caps(&addr[addr.len() - DISPLAY_ADDR_BYTES_LEN as usize..])
-            .map_err(|_| Reply(SW_DISPLAY_ADDRESS_FAIL))?;
+    let addr_hex_str_buf = to_hex_all_caps(&addr[addr.len() - DISPLAY_ADDR_BYTES_LEN as usize..])
+        .map_err(|_| Reply(SW_DISPLAY_ADDRESS_FAIL))?;
     let addr_hex_str = from_utf8(&addr_hex_str_buf[..DISPLAY_ADDR_BYTES_LEN * 2])
         .map_err(|_| Reply(SW_DISPLAY_ADDRESS_FAIL))?;
 
     let mut addr_hex_str_with_prefix_buf = [0u8; DISPLAY_ADDR_BYTES_LEN * 2 + 2];
-    concatenate(
-        &["0x", &addr_hex_str],
-        &mut addr_hex_str_with_prefix_buf,
-    );
+    concatenate(&["0x", &addr_hex_str], &mut addr_hex_str_with_prefix_buf);
     let addr_hex_str_with_prefix =
         from_utf8(&addr_hex_str_with_prefix_buf).map_err(|_| Reply(SW_DISPLAY_ADDRESS_FAIL))?;
 

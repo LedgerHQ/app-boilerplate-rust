@@ -96,14 +96,14 @@ pub fn slice_or_err(slice: &[u8], start: usize, len: usize) -> Result<&[u8], ()>
 }
 
 /// Read a varint from a slice
-pub fn varint_read(input: &[u8]) -> Result<(u64, usize), ()> {    
+pub fn varint_read(input: &[u8]) -> Result<(u64, usize), ()> {
     let mut bytes = [0u8; 8];
     let int_length: usize;
 
     if input.is_empty() {
         return Err(());
     }
-    
+
     let prefix = input[0];
 
     if prefix == 0xFD {
@@ -122,7 +122,7 @@ pub fn varint_read(input: &[u8]) -> Result<(u64, usize), ()> {
         }
         int_length = 8;
     } else {
-       return Ok((u64::from(prefix), 1));
+        return Ok((u64::from(prefix), 1));
     }
 
     let buf = slice_or_err(input, 1, int_length)?;

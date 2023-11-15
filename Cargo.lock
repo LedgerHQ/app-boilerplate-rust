@@ -224,11 +224,10 @@ dependencies = [
 [[package]]
 name = "nanos_ui"
 version = "0.2.0"
+source = "git+https://github.com/LedgerHQ/ledger-nanos-ui.git#18dc6694bf63d8229ceb4494ccb239a380435ece"
 dependencies = [
  "include_gif",
  "ledger-sdk-sys",
- "nanos_sdk",
- "numtoa",
 ]
 
 [[package]]

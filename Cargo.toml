@@ -10,9 +10,6 @@ nanos_ui = { git = "https://github.com/LedgerHQ/ledger-nanos-ui.git" }
 include_gif = { git = "https://github.com/LedgerHQ/sdk_include_gif" }
 numtoa = "0.2.4"
 
-[patch."https://github.com/LedgerHQ/ledger-nanos-ui"]
-nanos_ui = { path = "ledger-nanos-ui" }
-
 [profile.release]
 opt-level = 'z'
 lto = true

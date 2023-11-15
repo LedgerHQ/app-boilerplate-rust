@@ -15,29 +15,28 @@
  *  limitations under the License.
  *****************************************************************************/
 use crate::app_ui::sign::ui_display_tx;
-use crate::utils::{read_bip32_path, varint_read, slice_or_err, MAX_ALLOWED_PATH_LEN, to_hex_all_caps};
+use crate::utils::{read_bip32_path, varint_read, slice_or_err, MAX_ALLOWED_PATH_LEN};
 use crate::{SW_DENY, SW_TX_HASH_FAIL, SW_TX_PARSING_FAIL, SW_TX_SIGN_FAIL, SW_WRONG_TX_LENGTH};
 use nanos_sdk::bindings::{
     cx_hash_no_throw, cx_hash_t, cx_keccak_init_no_throw, cx_sha3_t, CX_LAST, CX_OK,
 };
 use nanos_sdk::ecc::{Secp256k1, SeedDerive};
 use nanos_sdk::io::{Comm, Reply};
-use nanos_sdk::testing;
 
 const MAX_TRANSACTION_LEN: usize = 510;
 
-pub struct Tx {
+pub struct Tx<'a> {
     nonce: u64,
     pub value: u64,
-    pub to: [u8; 20],
-    pub memo: [u8; 255],
+    pub to: &'a [u8],
+    pub memo: &'a [u8],
     pub memo_len: usize,
 }
 
 // Implement deserialize for Tx from a u8 array
-impl TryFrom<&[u8]> for Tx {
+impl<'a> TryFrom<&'a [u8]> for Tx<'a> {
     type Error = ();
-    fn try_from(raw_tx: &[u8]) -> Result<Self, Self::Error> {
+    fn try_from(raw_tx: &'a [u8]) -> Result<Self, Self::Error> {
         if raw_tx.len() > MAX_TRANSACTION_LEN {
             return Err(());
         }
@@ -46,23 +45,14 @@ impl TryFrom<&[u8]> for Tx {
         // Nonce
         let nonce = u64::from_be_bytes(slice_or_err(raw_tx, 0, 8)?.try_into().map_err(|_| ())?);
         // Destination address
-        let to = slice_or_err(raw_tx, 8, 20)?.try_into().map_err(|_| ())?;
+        let to = slice_or_err(raw_tx, 8, 20)?;
         // Amount value
         let value = u64::from_be_bytes(slice_or_err(raw_tx, 28, 8)?.try_into().map_err(|_| ())?);
         // Memo length
-        // Memo will be trimmed to 255 bytes if it is longer
         let (memo_len_u64, memo_len_size) = varint_read(&raw_tx[36..])?;
-        let memo_len = if memo_len_u64 < 255 {
-            memo_len_u64 as usize
-        } else {
-            255 as usize
-        };
-
+        let memo_len =  memo_len_u64 as usize;
         // Memo
-        let memo_slice = slice_or_err(raw_tx, 36 + memo_len_size, memo_len)?;
-        let mut memo = [0u8; 255];
-
-        memo[..memo_len].copy_from_slice(memo_slice);
+        let memo = slice_or_err(raw_tx, 36 + memo_len_size, memo_len)?;
         
         // Check memo ASCII encoding
         if !memo[..memo_len].iter().all(|&byte| byte.is_ascii()) {
@@ -112,8 +102,7 @@ pub fn handler_sign_tx(
     more: bool,
     ctx: &mut TxContext,
 ) -> Result<(), Reply> {
-    // Try to get data from comm. If there is no data,
-    // the '?' operator will propagate the error.
+    // Try to get data from comm
     let data = comm.get_data()?;
     // First chunk, try to parse the path
     if chunk == 0 {
@@ -137,15 +126,13 @@ pub fn handler_sign_tx(
             return Ok(());
         // Otherwise, try to parse the transaction
         } else {
-            testing::debug_print("Last chunk : parse transaction\n");
             let tx = match Tx::try_from(&ctx.raw_tx[..ctx.raw_tx_len]) {
                 Ok(tx) => tx,
                 Err(_) => return Err(Reply(SW_TX_PARSING_FAIL)),
             };
-            testing::debug_print("Transaction parsed\n");
             // Display transaction. If user approves
             // the transaction, sign it. Otherwise,
-            // return an error.
+            // return a "deny" status word.
             if ui_display_tx(&tx)? {
                 return compute_signature_and_append(comm, ctx);
             } else {
@@ -160,20 +147,10 @@ fn compute_signature_and_append(comm: &mut Comm, ctx: &mut TxContext) -> Result<
     let mut keccak256: cx_sha3_t = Default::default();
     let mut message_hash: [u8; 32] = [0u8; 32];
 
-    testing::debug_print("Signature is appended 1\n");
     unsafe {
-        let res = cx_keccak_init_no_throw(&mut keccak256, 256);
-        if res != CX_OK {
-            // Print error
-            let err_buf = to_hex_all_caps(&res.to_be_bytes()).unwrap();
-            let err_str = core::str::from_utf8(&err_buf).unwrap();
-            testing::debug_print("Hashing err : ");
-            testing::debug_print(err_str);
-            testing::debug_print("\n");
-            
+        if cx_keccak_init_no_throw(&mut keccak256, 256) != CX_OK {            
             return Err(Reply(SW_TX_HASH_FAIL));
         }
-        testing::debug_print("Signature is appended 1.1\n");
         if cx_hash_no_throw(
             &mut keccak256.header as *mut cx_hash_t,
             CX_LAST,
@@ -183,10 +160,8 @@ fn compute_signature_and_append(comm: &mut Comm, ctx: &mut TxContext) -> Result<
             message_hash.len() as u32,
         ) != CX_OK
         {
-            testing::debug_print("Hashing failed 2\n");
             return Err(Reply(SW_TX_HASH_FAIL));
         }
-        testing::debug_print("Signature is appended 1.2\n");
     }
 
     let (sig, siglen, parity) = Secp256k1::derive_from_path(&ctx.path[..ctx.path_len])
@@ -195,8 +170,5 @@ fn compute_signature_and_append(comm: &mut Comm, ctx: &mut TxContext) -> Result<
     comm.append(&[siglen as u8]);
     comm.append(&sig[..siglen as usize]);
     comm.append(&[parity as u8]);
-
-    testing::debug_print("Signature is appended 2\n");
-
     Ok(())
 }

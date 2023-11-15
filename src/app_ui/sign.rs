@@ -46,7 +46,7 @@ pub fn ui_display_tx(tx: &Tx) -> Result<bool, Reply> {
         from_utf8(&addr_with_prefix_buf).map_err(|_| Reply(SW_TX_DISPLAY_FAIL))?;
 
     // Format memo
-    let memo_str = from_utf8(&tx.memo[..tx.memo_len]).map_err(|_| Reply(SW_TX_DISPLAY_FAIL))?;
+    let memo_str = from_utf8(&tx.memo[..tx.memo_len as usize]).map_err(|_| Reply(SW_TX_DISPLAY_FAIL))?;
 
     // Define transaction review fields
     let my_fields = [

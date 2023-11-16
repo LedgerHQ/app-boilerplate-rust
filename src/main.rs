@@ -1,101 +1,121 @@
+/*****************************************************************************
+ *   Ledger App Boilerplate Rust.
+ *   (c) 2023 Ledger SAS.
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *****************************************************************************/
+
 #![no_std]
 #![no_main]
 
 mod utils;
+mod app_ui {
+    pub mod address;
+    pub mod menu;
+    pub mod sign;
+}
+mod handlers {
+    pub mod get_public_key;
+    pub mod get_version;
+    pub mod sign_tx;
+}
 
-use core::str::from_utf8;
-use nanos_sdk::buttons::ButtonEvent;
-use nanos_sdk::ecc::{Secp256k1, SeedDerive};
-use nanos_sdk::io;
-use nanos_sdk::io::SyscallError;
-use nanos_ui::ui;
+use ledger_device_sdk::buttons::ButtonEvent;
+use ledger_device_sdk::io::{ApduHeader, Comm, Event, Reply};
 
-nanos_sdk::set_panic!(nanos_sdk::exiting_panic);
+use ledger_device_ui_sdk::ui;
 
-pub const BIP32_PATH: [u32; 5] = nanos_sdk::ecc::make_bip32_path(b"m/44'/535348'/0'/0/0");
+use app_ui::menu::ui_menu_main;
+use handlers::{
+    get_public_key::handler_get_public_key,
+    get_version::handler_get_version,
+    sign_tx::{handler_sign_tx, TxContext},
+};
 
-/// Display public key in two separate
-/// message scrollers
-fn show_pubkey() {
-    let pubkey = Secp256k1::derive_from_path(&BIP32_PATH).public_key();
-    match pubkey {
-        Ok(pk) => {
-            {
-                let hex0 = utils::to_hex(&pk.as_ref()[1..33]).unwrap();
-                let m = from_utf8(&hex0).unwrap();
-                ui::MessageScroller::new(m).event_loop();
-            }
-            {
-                let hex1 = utils::to_hex(&pk.as_ref()[33..65]).unwrap();
-                let m = from_utf8(&hex1).unwrap();
-                ui::MessageScroller::new(m).event_loop();
-            }
-        }
-        Err(_) => ui::popup("Error"),
+ledger_device_sdk::set_panic!(ledger_device_sdk::exiting_panic);
+
+// CLA (APDU class byte) for all APDUs.
+const CLA: u8 = 0xe0;
+// P2 for last APDU to receive.
+const P2_SIGN_TX_LAST: u8 = 0x00;
+// P2 for more APDU to receive.
+const P2_SIGN_TX_MORE: u8 = 0x80;
+// P1 for first APDU number.
+const P1_SIGN_TX_START: u8 = 0x00;
+// P1 for maximum APDU number.
+const P1_SIGN_TX_MAX: u8 = 0x03;
+
+// Application status words.
+#[repr(u16)]
+pub enum AppSW {
+    Deny = 0x6985,
+    WrongP1P2 = 0x6A86,
+    WrongDataLength = 0x6A87,
+    InsNotSupported = 0x6D00,
+    ClaNotSupported = 0x6E00,
+    TxDisplayFail = 0xB001,
+    AddrDisplayFail = 0xB002,
+    TxWrongLength = 0xB004,
+    TxParsingFail = 0xB005,
+    TxHashFail = 0xB006,
+    TxSignFail = 0xB008,
+    KeyDeriveFail = 0xB009,
+    VersionParsingFail = 0xB00A,
+}
+
+impl From<AppSW> for Reply {
+    fn from(sw: AppSW) -> Reply {
+        Reply(sw as u16)
     }
 }
 
-/// Basic nested menu. Will be subject
-/// to simplifications in the future.
-#[allow(clippy::needless_borrow)]
-fn menu_example() {
-    loop {
-        match ui::Menu::new(&[&"PubKey", &"Infos", &"Back", &"Exit App"]).show() {
-            0 => show_pubkey(),
-            1 => loop {
-                match ui::Menu::new(&[&"Copyright", &"Authors", &"Back"]).show() {
-                    0 => ui::popup("2020 Ledger"),
-                    1 => ui::popup("???"),
-                    _ => break,
-                }
-            },
-            2 => return,
-            3 => nanos_sdk::exit_app(0),
-            _ => (),
-        }
-    }
+#[repr(u8)]
+// Instruction set for the app.
+enum Ins {
+    GetVersion,
+    GetAppName,
+    GetPubkey,
+    SignTx,
+    UnknownIns,
 }
 
-/// This is the UI flow for signing, composed of a scroller
-/// to read the incoming message, a panel that requests user
-/// validation, and an exit message.
-fn sign_ui(message: &[u8]) -> Result<Option<([u8; 72], u32, u32)>, SyscallError> {
-    ui::popup("Message review");
-
-    {
-        let hex = utils::to_hex(message).map_err(|_| SyscallError::Overflow)?;
-        let m = from_utf8(&hex).map_err(|_| SyscallError::InvalidParameter)?;
-
-        ui::MessageScroller::new(m).event_loop();
-    }
-
-    if ui::Validator::new("Sign ?").ask() {
-        let signature = Secp256k1::derive_from_path(&BIP32_PATH)
-            .deterministic_sign(message)
-            .map_err(|_| SyscallError::Unspecified)?;
-        ui::popup("Done !");
-        Ok(Some(signature))
-    } else {
-        ui::popup("Cancelled");
-        Ok(None)
+impl From<ApduHeader> for Ins {
+    fn from(header: ApduHeader) -> Ins {
+        match header.ins {
+            3 => Ins::GetVersion,
+            4 => Ins::GetAppName,
+            5 => Ins::GetPubkey,
+            6 => Ins::SignTx,
+            _ => Ins::UnknownIns,
+        }
     }
 }
 
 #[no_mangle]
 extern "C" fn sample_pending() {
-    let mut comm = io::Comm::new();
+    let mut comm = Comm::new();
 
     loop {
         ui::SingleMessage::new("Pending").show();
         match comm.next_event::<Ins>() {
-            io::Event::Button(ButtonEvent::RightButtonRelease) => break,
+            Event::Button(ButtonEvent::RightButtonRelease) => break,
             _ => (),
         }
     }
     loop {
         ui::SingleMessage::new("Ledger review").show();
         match comm.next_event::<Ins>() {
-            io::Event::Button(ButtonEvent::BothButtonsRelease) => break,
+            Event::Button(ButtonEvent::BothButtonsRelease) => break,
             _ => (),
         }
     }
@@ -103,67 +123,89 @@ extern "C" fn sample_pending() {
 
 #[no_mangle]
 extern "C" fn sample_main() {
-    let mut comm = io::Comm::new();
+    let mut comm = Comm::new();
+    let mut tx_ctx = TxContext::new();
 
     loop {
-        // Draw some 'welcome' screen
-        ui::SingleMessage::new("W e l c o m e").show();
-
         // Wait for either a specific button push to exit the app
         // or an APDU command
-        match comm.next_event() {
-            io::Event::Button(ButtonEvent::RightButtonRelease) => nanos_sdk::exit_app(0),
-            io::Event::Command(ins) => match handle_apdu(&mut comm, ins) {
+        match ui_menu_main(&mut comm) {
+            Event::Command(ins) => match handle_apdu(&mut comm, ins.into(), &mut tx_ctx) {
                 Ok(()) => comm.reply_ok(),
-                Err(sw) => comm.reply(sw),
+                Err(sw) => comm.reply(Reply::from(sw)),
             },
             _ => (),
         }
     }
 }
 
-#[repr(u8)]
-enum Ins {
-    GetPubkey,
-    Sign,
-    Menu,
-    Exit,
-}
-
-impl From<io::ApduHeader> for Ins {
-    fn from(header: io::ApduHeader) -> Ins {
-        match header.ins {
-            2 => Ins::GetPubkey,
-            3 => Ins::Sign,
-            4 => Ins::Menu,
-            0xff => Ins::Exit,
-            _ => panic!(),
-        }
-    }
-}
-
-use nanos_sdk::io::Reply;
-
-fn handle_apdu(comm: &mut io::Comm, ins: Ins) -> Result<(), Reply> {
+fn handle_apdu(comm: &mut Comm, ins: Ins, ctx: &mut TxContext) -> Result<(), AppSW> {
     if comm.rx == 0 {
-        return Err(io::StatusWords::NothingReceived.into());
+        return Err(AppSW::WrongDataLength);
+    }
+
+    let apdu_metadata = comm.get_apdu_metadata();
+
+    if apdu_metadata.cla != CLA {
+        return Err(AppSW::ClaNotSupported);
     }
 
     match ins {
-        Ins::GetPubkey => {
-            let pk = Secp256k1::derive_from_path(&BIP32_PATH)
-                .public_key()
-                .map_err(|x| Reply(0x6eu16 | (x as u16 & 0xff)))?;
-            comm.append(pk.as_ref());
-        }
-        Ins::Sign => {
-            let out = sign_ui(comm.get_data()?)?;
-            if let Some((signature_buf, length, _)) = out {
-                comm.append(&signature_buf[..length as usize])
+        Ins::GetAppName => {
+            if apdu_metadata.p1 != 0 || apdu_metadata.p2 != 0 {
+                return Err(AppSW::WrongP1P2);
             }
+            comm.append(env!("CARGO_PKG_NAME").as_bytes());
         }
-        Ins::Menu => menu_example(),
-        Ins::Exit => nanos_sdk::exit_app(0),
+        Ins::GetVersion => {
+            if apdu_metadata.p1 != 0 || apdu_metadata.p2 != 0 {
+                return Err(AppSW::WrongP1P2);
+            }
+            return handler_get_version(comm);
+        }
+        Ins::GetPubkey => {
+            if apdu_metadata.p1 > 1 || apdu_metadata.p2 != 0 {
+                return Err(AppSW::WrongP1P2);
+            }
+
+            match comm.get_data() {
+                Ok(data) => {
+                    if data.len() == 0 {
+                        return Err(AppSW::WrongDataLength);
+                    }
+                }
+                Err(_) => return Err(AppSW::WrongDataLength),
+            }
+
+            return handler_get_public_key(comm, apdu_metadata.p1 == 1);
+        }
+        Ins::SignTx => {
+            if (apdu_metadata.p1 == P1_SIGN_TX_START && apdu_metadata.p2 != P2_SIGN_TX_MORE)
+                || apdu_metadata.p1 > P1_SIGN_TX_MAX
+                || (apdu_metadata.p2 != P2_SIGN_TX_LAST && apdu_metadata.p2 != P2_SIGN_TX_MORE)
+            {
+                return Err(AppSW::WrongP1P2);
+            }
+
+            match comm.get_data() {
+                Ok(data) => {
+                    if data.len() == 0 {
+                        return Err(AppSW::WrongDataLength);
+                    }
+                }
+                Err(_) => return Err(AppSW::WrongDataLength),
+            }
+
+            return handler_sign_tx(
+                comm,
+                apdu_metadata.p1,
+                apdu_metadata.p2 == P2_SIGN_TX_MORE,
+                ctx,
+            );
+        }
+        Ins::UnknownIns => {
+            return Err(AppSW::InsNotSupported);
+        }
     }
     Ok(())
 }

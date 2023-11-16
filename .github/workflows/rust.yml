@@ -13,26 +13,28 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build_clippy_fmt:
+  build:
+    name : Build
     runs-on: ubuntu-latest
+    container:
+        image: ghcr.io/ledgerhq/ledger-app-builder/ledger-app-dev-tools:latest
+    strategy:
+      matrix:
+        target: ["nanos", "nanox", "nanosplus"]
     steps:
-      - name: arm-none-eabi-gcc
-        uses: fiam/arm-none-eabi-gcc@v1.0.3
-        with:
-          release: '9-2019-q4'
-      - name: Checkout
+    - name: Clone
+      uses: actions/checkout@v3
+    - name: Build app
+      run: cargo ledger build ${{ matrix.target }}
+  
+  clippy_fmt:
+    name: Run static analysis and formatting check
+    runs-on: ubuntu-latest
+    container:
+        image: ghcr.io/ledgerhq/ledger-app-builder/ledger-app-dev-tools:latest
+    steps:
+      - name: Clone
         uses: actions/checkout@v3
-      - name: Install clang
-        run: sudo apt-get update && sudo apt install -y clang
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
-          components: rust-src, rustfmt, clippy
-      - name: Install cargo-ledger
-        run: cargo install --git=https://github.com/LedgerHQ/cargo-ledger
-      - name: Setup cargo-ledger
-        run: cargo ledger setup
       - name: Cargo clippy
         uses: actions-rs/cargo@v1
         with:
@@ -42,6 +44,3 @@ jobs:
         with:
           command: fmt
           args: --all -- --check
-      - name: Build app
-        run: cargo ledger build nanosplus
-

@@ -18,12 +18,12 @@
 use crate::app_ui::address::ui_display_pk;
 use crate::utils::{read_bip32_path, MAX_ALLOWED_PATH_LEN};
 use crate::{SW_DENY, SW_DISPLAY_ADDRESS_FAIL};
-use nanos_sdk::bindings::{
+use ledger_device_sdk::ecc::{Secp256k1, SeedDerive};
+use ledger_device_sdk::io::{Comm, Reply};
+use ledger_device_sdk::testing;
+use ledger_secure_sdk_sys::{
     cx_hash_no_throw, cx_hash_t, cx_keccak_init_no_throw, cx_sha3_t, CX_LAST, CX_OK,
 };
-use nanos_sdk::ecc::{Secp256k1, SeedDerive};
-use nanos_sdk::io::{Comm, Reply};
-use nanos_sdk::testing;
 
 pub fn handler_get_public_key(comm: &mut Comm, display: bool) -> Result<(), Reply> {
     let mut path = [0u32; MAX_ALLOWED_PATH_LEN];
@@ -51,9 +51,9 @@ pub fn handler_get_public_key(comm: &mut Comm, display: bool) -> Result<(), Repl
                 &mut keccak256.header as *mut cx_hash_t,
                 CX_LAST,
                 pk_ptr,
-                64 as u32,
+                64 as usize,
                 address.as_mut_ptr(),
-                address.len() as u32,
+                address.len(),
             ) != CX_OK
             {
                 return Err(Reply(SW_DISPLAY_ADDRESS_FAIL));

@@ -5,9 +5,10 @@ authors = ["yhql", "agrojean-ledger"]
 edition = "2021"
 
 [dependencies]
-nanos_sdk = { git = "https://github.com/LedgerHQ/ledger-nanos-sdk.git" }
-nanos_ui = { git = "https://github.com/LedgerHQ/ledger-nanos-ui.git" }
-include_gif = { git = "https://github.com/LedgerHQ/sdk_include_gif" }
+ledger_device_sdk = "1.0.0"
+ledger_device_ui_sdk = "1.1.0"
+ledger_secure_sdk_sys = "1.0.0"
+include_gif = "1.0.0"
 numtoa = "0.2.4"
 
 [profile.release]
@@ -15,7 +16,7 @@ opt-level = 'z'
 lto = true
 
 [features]
-pending_review_screen = ["nanos_sdk/pending_review_screen"]
+pending_review_screen = ["ledger_device_sdk/pending_review_screen"]
 
 [package.metadata.ledger]
 curve = ["secp256k1"]

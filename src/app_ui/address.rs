@@ -18,9 +18,9 @@
 use crate::utils::{concatenate, to_hex_all_caps};
 use crate::SW_DISPLAY_ADDRESS_FAIL;
 use core::str::from_utf8;
-use nanos_sdk::io::Reply;
-use nanos_ui::bitmaps::{CROSSMARK, EYE, VALIDATE_14};
-use nanos_ui::ui::{Field, MultiFieldReview};
+use ledger_device_sdk::io::Reply;
+use ledger_device_ui_sdk::bitmaps::{CROSSMARK, EYE, VALIDATE_14};
+use ledger_device_ui_sdk::ui::{Field, MultiFieldReview};
 
 // Display only the last 20 bytes of the address
 const DISPLAY_ADDR_BYTES_LEN: usize = 20;

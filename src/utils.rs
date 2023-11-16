@@ -1,7 +1,6 @@
 use crate::SW_WRONG_DATA_LENGTH;
 use core::char;
-use nanos_sdk::io::Reply;
-use nanos_sdk::testing;
+use ledger_device_sdk::io::Reply;
 
 pub const MAX_ALLOWED_PATH_LEN: usize = 10;
 const MAX_HEX_LEN: usize = 64;
@@ -10,7 +9,6 @@ const MAX_HEX_LEN: usize = 64;
 #[inline]
 pub fn to_hex(m: &[u8]) -> Result<[u8; MAX_HEX_LEN], ()> {
     if 2 * m.len() > MAX_HEX_LEN {
-        testing::debug_print("to_hex: buffer too small\n");
         return Err(());
     }
     let mut hex = [0u8; MAX_HEX_LEN];
@@ -18,7 +16,6 @@ pub fn to_hex(m: &[u8]) -> Result<[u8; MAX_HEX_LEN], ()> {
     for c in m {
         let c0 = char::from_digit((c >> 4).into(), 16).unwrap();
         let c1 = char::from_digit((c & 0xf).into(), 16).unwrap();
-
         hex[i] = c0 as u8;
         hex[i + 1] = c1 as u8;
         i += 2;

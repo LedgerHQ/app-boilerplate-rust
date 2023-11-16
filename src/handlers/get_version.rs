@@ -16,7 +16,7 @@
  *****************************************************************************/
 
 use core::str::FromStr;
-use nanos_sdk::io;
+use ledger_device_sdk::io;
 
 pub fn handler_get_version(comm: &mut io::Comm) -> Result<(), io::Reply> {
     if let Some((major, minor, patch)) = parse_version_string(env!("CARGO_PKG_VERSION")) {

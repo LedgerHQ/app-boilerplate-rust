@@ -19,11 +19,10 @@ use crate::handlers::sign_tx::Tx;
 use crate::utils::{concatenate, to_hex_all_caps};
 use crate::SW_TX_DISPLAY_FAIL;
 use core::str::from_utf8;
-use nanos_sdk::io::Reply;
-use nanos_ui::bitmaps::{CROSSMARK, EYE, VALIDATE_14};
-use nanos_ui::ui::{Field, MultiFieldReview};
+use ledger_device_sdk::io::Reply;
+use ledger_device_ui_sdk::bitmaps::{CROSSMARK, EYE, VALIDATE_14};
+use ledger_device_ui_sdk::ui::{Field, MultiFieldReview};
 use numtoa::NumToA;
-// use nanos_sdk::testing;
 
 pub fn ui_display_tx(tx: &Tx) -> Result<bool, Reply> {
     // Format amount value

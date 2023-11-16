@@ -13,9 +13,10 @@ mod handlers {
     pub mod sign_tx;
 }
 
-use nanos_sdk::buttons::ButtonEvent;
-use nanos_sdk::io;
-use nanos_ui::ui;
+use ledger_device_sdk::buttons::ButtonEvent;
+use ledger_device_sdk::io::{ApduHeader, Comm, Event, Reply, StatusWords};
+
+use ledger_device_ui_sdk::ui;
 
 use app_ui::menu::ui_menu_main;
 use handlers::{
@@ -24,7 +25,7 @@ use handlers::{
     sign_tx::{handler_sign_tx, TxContext},
 };
 
-nanos_sdk::set_panic!(nanos_sdk::exiting_panic);
+ledger_device_sdk::set_panic!(ledger_device_sdk::exiting_panic);
 
 pub const SW_INS_NOT_SUPPORTED: u16 = 0x6D00;
 pub const SW_DENY: u16 = 0x6985;
@@ -39,19 +40,19 @@ pub const SW_TX_SIGN_FAIL: u16 = 0xB008;
 
 #[no_mangle]
 extern "C" fn sample_pending() {
-    let mut comm = io::Comm::new();
+    let mut comm = Comm::new();
 
     loop {
         ui::SingleMessage::new("Pending").show();
         match comm.next_event::<Ins>() {
-            io::Event::Button(ButtonEvent::RightButtonRelease) => break,
+            Event::Button(ButtonEvent::RightButtonRelease) => break,
             _ => (),
         }
     }
     loop {
         ui::SingleMessage::new("Ledger review").show();
         match comm.next_event::<Ins>() {
-            io::Event::Button(ButtonEvent::BothButtonsRelease) => break,
+            Event::Button(ButtonEvent::BothButtonsRelease) => break,
             _ => (),
         }
     }
@@ -59,14 +60,14 @@ extern "C" fn sample_pending() {
 
 #[no_mangle]
 extern "C" fn sample_main() {
-    let mut comm = io::Comm::new();
+    let mut comm = Comm::new();
     let mut tx_ctx = TxContext::new();
 
     loop {
         // Wait for either a specific button push to exit the app
         // or an APDU command
         match ui_menu_main(&mut comm) {
-            io::Event::Command(ins) => match handle_apdu(&mut comm, ins.into(), &mut tx_ctx) {
+            Event::Command(ins) => match handle_apdu(&mut comm, ins.into(), &mut tx_ctx) {
                 Ok(()) => comm.reply_ok(),
                 Err(sw) => comm.reply(sw),
             },
@@ -96,8 +97,8 @@ const P1_SIGN_TX_START: u8 = 0x00;
 // P1 for maximum APDU number.
 const P1_SIGN_TX_MAX: u8 = 0x03;
 
-impl From<io::ApduHeader> for Ins {
-    fn from(header: io::ApduHeader) -> Ins {
+impl From<ApduHeader> for Ins {
+    fn from(header: ApduHeader) -> Ins {
         match header.ins {
             3 => Ins::GetVersion,
             4 => Ins::GetAppName,
@@ -108,39 +109,37 @@ impl From<io::ApduHeader> for Ins {
     }
 }
 
-use nanos_sdk::io::Reply;
-
-fn handle_apdu(comm: &mut io::Comm, ins: Ins, ctx: &mut TxContext) -> Result<(), Reply> {
+fn handle_apdu(comm: &mut Comm, ins: Ins, ctx: &mut TxContext) -> Result<(), Reply> {
     if comm.rx == 0 {
-        return Err(io::StatusWords::NothingReceived.into());
+        return Err(StatusWords::NothingReceived.into());
     }
 
     let apdu_metadata = comm.get_apdu_metadata();
 
     if apdu_metadata.cla != CLA {
-        return Err(io::StatusWords::BadCla.into());
+        return Err(StatusWords::BadCla.into());
     }
 
     match ins {
         Ins::GetAppName => {
             if apdu_metadata.p1 != 0 || apdu_metadata.p2 != 0 {
-                return Err(io::Reply(SW_WRONG_P1P2));
+                return Err(Reply(SW_WRONG_P1P2));
             }
             comm.append(env!("CARGO_PKG_NAME").as_bytes());
         }
         Ins::GetVersion => {
             if apdu_metadata.p1 != 0 || apdu_metadata.p2 != 0 {
-                return Err(io::Reply(SW_WRONG_P1P2));
+                return Err(Reply(SW_WRONG_P1P2));
             }
             return handler_get_version(comm);
         }
         Ins::GetPubkey => {
             if apdu_metadata.p1 > 1 || apdu_metadata.p2 != 0 {
-                return Err(io::Reply(SW_WRONG_P1P2));
+                return Err(Reply(SW_WRONG_P1P2));
             }
 
             if (comm.get_data()?.len()) == 0 {
-                return Err(io::Reply(SW_WRONG_DATA_LENGTH));
+                return Err(Reply(SW_WRONG_DATA_LENGTH));
             }
 
             return handler_get_public_key(comm, apdu_metadata.p1 == 1);
@@ -150,11 +149,11 @@ fn handle_apdu(comm: &mut io::Comm, ins: Ins, ctx: &mut TxContext) -> Result<(),
                 || apdu_metadata.p1 > P1_SIGN_TX_MAX
                 || (apdu_metadata.p2 != P2_SIGN_TX_LAST && apdu_metadata.p2 != P2_SIGN_TX_MORE)
             {
-                return Err(io::Reply(SW_WRONG_P1P2));
+                return Err(Reply(SW_WRONG_P1P2));
             }
 
             if (comm.get_data()?.len()) == 0 {
-                return Err(io::Reply(SW_WRONG_DATA_LENGTH));
+                return Err(Reply(SW_WRONG_DATA_LENGTH));
             }
 
             return handler_sign_tx(
@@ -165,7 +164,7 @@ fn handle_apdu(comm: &mut io::Comm, ins: Ins, ctx: &mut TxContext) -> Result<(),
             );
         }
         Ins::UnknownIns => {
-            return Err(io::Reply(SW_INS_NOT_SUPPORTED));
+            return Err(Reply(SW_INS_NOT_SUPPORTED));
         }
     }
     Ok(())

@@ -16,11 +16,11 @@
  *****************************************************************************/
 
 use include_gif::include_gif;
-use nanos_sdk::io;
-use nanos_ui::bitmaps::{Glyph, BACK, CERTIFICATE, DASHBOARD_X};
-use nanos_ui::ui::{EventOrPageIndex, MultiPageMenu, Page};
+use ledger_device_sdk::io::{ApduHeader, Comm, Event};
+use ledger_device_ui_sdk::bitmaps::{Glyph, BACK, CERTIFICATE, DASHBOARD_X};
+use ledger_device_ui_sdk::ui::{EventOrPageIndex, MultiPageMenu, Page};
 
-fn ui_about_menu(comm: &mut io::Comm) -> io::Event<io::ApduHeader> {
+fn ui_about_menu(comm: &mut Comm) -> Event<ApduHeader> {
     let pages = [
         &Page::from((["Rust Boilerplate", "(c) 2023 Ledger"], true)),
         &Page::from(("Back", &BACK)),
@@ -36,7 +36,7 @@ fn ui_about_menu(comm: &mut io::Comm) -> io::Event<io::ApduHeader> {
     }
 }
 
-pub fn ui_menu_main(comm: &mut io::Comm) -> io::Event<io::ApduHeader> {
+pub fn ui_menu_main(comm: &mut Comm) -> Event<ApduHeader> {
     const APP_ICON: Glyph = Glyph::from_include(include_gif!("crab.gif"));
     let pages = [
         // The from trait allows to create different styles of pages
@@ -51,7 +51,7 @@ pub fn ui_menu_main(comm: &mut io::Comm) -> io::Event<io::ApduHeader> {
             EventOrPageIndex::Event(e) => return e,
             i => match i {
                 EventOrPageIndex::Index(2) => return ui_about_menu(comm),
-                EventOrPageIndex::Index(3) => nanos_sdk::exit_app(0),
+                EventOrPageIndex::Index(3) => ledger_device_sdk::exit_app(0),
                 _ => (),
             },
         }

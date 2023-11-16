@@ -17,11 +17,11 @@
 use crate::app_ui::sign::ui_display_tx;
 use crate::utils::{read_bip32_path, slice_or_err, varint_read, MAX_ALLOWED_PATH_LEN};
 use crate::{SW_DENY, SW_TX_HASH_FAIL, SW_TX_PARSING_FAIL, SW_TX_SIGN_FAIL, SW_WRONG_TX_LENGTH};
-use nanos_sdk::bindings::{
+use ledger_device_sdk::ecc::{Secp256k1, SeedDerive};
+use ledger_device_sdk::io::{Comm, Reply};
+use ledger_secure_sdk_sys::{
     cx_hash_no_throw, cx_hash_t, cx_keccak_init_no_throw, cx_sha3_t, CX_LAST, CX_OK,
 };
-use nanos_sdk::ecc::{Secp256k1, SeedDerive};
-use nanos_sdk::io::{Comm, Reply};
 
 const MAX_TRANSACTION_LEN: usize = 510;
 
@@ -155,9 +155,9 @@ fn compute_signature_and_append(comm: &mut Comm, ctx: &mut TxContext) -> Result<
             &mut keccak256.header as *mut cx_hash_t,
             CX_LAST,
             ctx.raw_tx.as_ptr(),
-            ctx.raw_tx_len as u32,
+            ctx.raw_tx_len,
             message_hash.as_mut_ptr(),
-            message_hash.len() as u32,
+            message_hash.len(),
         ) != CX_OK
         {
             return Err(Reply(SW_TX_HASH_FAIL));

@@ -16,9 +16,9 @@
  *****************************************************************************/
 use crate::app_ui::sign::ui_display_tx;
 use crate::utils::{read_bip32_path, slice_or_err, varint_read, MAX_ALLOWED_PATH_LEN};
-use crate::{SW_DENY, SW_TX_HASH_FAIL, SW_TX_PARSING_FAIL, SW_TX_SIGN_FAIL, SW_WRONG_TX_LENGTH};
+use crate::AppSW;
 use ledger_device_sdk::ecc::{Secp256k1, SeedDerive};
-use ledger_device_sdk::io::{Comm, Reply};
+use ledger_device_sdk::io::Comm;
 use ledger_secure_sdk_sys::{
     cx_hash_no_throw, cx_hash_t, cx_keccak_init_no_throw, cx_sha3_t, CX_LAST, CX_OK,
 };
@@ -101,9 +101,12 @@ pub fn handler_sign_tx(
     chunk: u8,
     more: bool,
     ctx: &mut TxContext,
-) -> Result<(), Reply> {
+) -> Result<(), AppSW> {
     // Try to get data from comm
-    let data = comm.get_data()?;
+    let data = match comm.get_data() {
+        Ok(data) => data,
+        Err(_) => return Err(AppSW::WrongDataLength),
+    };
     // First chunk, try to parse the path
     if chunk == 0 {
         // Reset transaction context
@@ -114,7 +117,7 @@ pub fn handler_sign_tx(
     // the transaction if it is the last chunk.
     } else {
         if ctx.raw_tx_len + data.len() > MAX_TRANSACTION_LEN {
-            return Err(Reply(SW_WRONG_TX_LENGTH));
+            return Err(AppSW::TxWrongLength);
         }
 
         // Append data to raw_tx
@@ -128,7 +131,7 @@ pub fn handler_sign_tx(
         } else {
             let tx = match Tx::try_from(&ctx.raw_tx[..ctx.raw_tx_len]) {
                 Ok(tx) => tx,
-                Err(_) => return Err(Reply(SW_TX_PARSING_FAIL)),
+                Err(_) => return Err(AppSW::TxParsingFail),
             };
             // Display transaction. If user approves
             // the transaction, sign it. Otherwise,
@@ -136,20 +139,20 @@ pub fn handler_sign_tx(
             if ui_display_tx(&tx)? {
                 return compute_signature_and_append(comm, ctx);
             } else {
-                return Err(Reply(SW_DENY));
+                return Err(AppSW::Deny);
             }
         }
     }
     Ok(())
 }
 
-fn compute_signature_and_append(comm: &mut Comm, ctx: &mut TxContext) -> Result<(), Reply> {
+fn compute_signature_and_append(comm: &mut Comm, ctx: &mut TxContext) -> Result<(), AppSW> {
     let mut keccak256: cx_sha3_t = Default::default();
     let mut message_hash: [u8; 32] = [0u8; 32];
 
     unsafe {
         if cx_keccak_init_no_throw(&mut keccak256, 256) != CX_OK {
-            return Err(Reply(SW_TX_HASH_FAIL));
+            return Err(AppSW::TxHashFail);
         }
         if cx_hash_no_throw(
             &mut keccak256.header as *mut cx_hash_t,
@@ -160,13 +163,13 @@ fn compute_signature_and_append(comm: &mut Comm, ctx: &mut TxContext) -> Result<
             message_hash.len(),
         ) != CX_OK
         {
-            return Err(Reply(SW_TX_HASH_FAIL));
+            return Err(AppSW::TxHashFail);
         }
     }
 
     let (sig, siglen, parity) = Secp256k1::derive_from_path(&ctx.path[..ctx.path_len])
         .deterministic_sign(&message_hash)
-        .map_err(|_| Reply(SW_TX_SIGN_FAIL))?;
+        .map_err(|_| AppSW::TxSignFail)?;
     comm.append(&[siglen as u8]);
     comm.append(&sig[..siglen as usize]);
     comm.append(&[parity as u8]);

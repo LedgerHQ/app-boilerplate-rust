@@ -17,23 +17,26 @@
 
 use crate::app_ui::address::ui_display_pk;
 use crate::utils::{read_bip32_path, MAX_ALLOWED_PATH_LEN};
-use crate::{SW_DENY, SW_DISPLAY_ADDRESS_FAIL};
+use crate::AppSW;
 use ledger_device_sdk::ecc::{Secp256k1, SeedDerive};
-use ledger_device_sdk::io::{Comm, Reply};
+use ledger_device_sdk::io::Comm;
 use ledger_device_sdk::testing;
 use ledger_secure_sdk_sys::{
     cx_hash_no_throw, cx_hash_t, cx_keccak_init_no_throw, cx_sha3_t, CX_LAST, CX_OK,
 };
 
-pub fn handler_get_public_key(comm: &mut Comm, display: bool) -> Result<(), Reply> {
+pub fn handler_get_public_key(comm: &mut Comm, display: bool) -> Result<(), AppSW> {
     let mut path = [0u32; MAX_ALLOWED_PATH_LEN];
-    let data = comm.get_data()?;
+    let data = match comm.get_data() {
+        Ok(data) => data,
+        Err(_) => return Err(AppSW::WrongDataLength),
+    };
 
     let path_len = read_bip32_path(data, &mut path)?;
 
     let pk = Secp256k1::derive_from_path(&path[..path_len])
         .public_key()
-        .map_err(|x| Reply(0x6eu16 | (x as u16 & 0xff)))?;
+        .map_err(|_| AppSW::KeyDeriveFail)?;
 
     // Display address on device if requested
     if display {
@@ -42,7 +45,7 @@ pub fn handler_get_public_key(comm: &mut Comm, display: bool) -> Result<(), Repl
 
         unsafe {
             if cx_keccak_init_no_throw(&mut keccak256, 256) != CX_OK {
-                return Err(Reply(SW_DISPLAY_ADDRESS_FAIL));
+                return Err(AppSW::AddrDisplayFail);
             }
 
             let mut pk_mut = pk.pubkey;
@@ -56,14 +59,14 @@ pub fn handler_get_public_key(comm: &mut Comm, display: bool) -> Result<(), Repl
                 address.len(),
             ) != CX_OK
             {
-                return Err(Reply(SW_DISPLAY_ADDRESS_FAIL));
+                return Err(AppSW::AddrDisplayFail);
             }
         }
 
         testing::debug_print("showing public key\n");
         if !ui_display_pk(&address)? {
             testing::debug_print("denied\n");
-            return Err(Reply(SW_DENY));
+            return Err(AppSW::Deny);
         }
     }
 

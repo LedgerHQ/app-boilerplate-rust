@@ -1,6 +1,5 @@
-use crate::SW_WRONG_DATA_LENGTH;
+use crate::AppSW;
 use core::char;
-use ledger_device_sdk::io::Reply;
 
 pub const MAX_ALLOWED_PATH_LEN: usize = 10;
 const MAX_HEX_LEN: usize = 64;
@@ -39,10 +38,10 @@ pub fn to_hex_all_caps(m: &[u8]) -> Result<[u8; MAX_HEX_LEN], ()> {
 }
 
 /// Convert serialized derivation path to u32 array elements
-pub fn read_bip32_path(data: &[u8], path: &mut [u32]) -> Result<usize, Reply> {
+pub fn read_bip32_path(data: &[u8], path: &mut [u32]) -> Result<usize, AppSW> {
     // Check input length and path buffer capacity
     if data.len() < 1 || path.len() < data.len() / 4 {
-        return Err(Reply(SW_WRONG_DATA_LENGTH));
+        return Err(AppSW::WrongDataLength);
     }
 
     let path_len = data[0] as usize; // First byte is the length of the path
@@ -53,7 +52,7 @@ pub fn read_bip32_path(data: &[u8], path: &mut [u32]) -> Result<usize, Reply> {
         || path_data.len() > MAX_ALLOWED_PATH_LEN * 4
         || path_data.len() % 4 != 0
     {
-        return Err(Reply(SW_WRONG_DATA_LENGTH));
+        return Err(AppSW::WrongDataLength);
     }
 
     let mut idx = 0;

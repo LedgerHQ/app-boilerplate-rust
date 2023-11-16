@@ -16,25 +16,24 @@
  *****************************************************************************/
 
 use crate::utils::{concatenate, to_hex_all_caps};
-use crate::SW_DISPLAY_ADDRESS_FAIL;
+use crate::AppSW;
 use core::str::from_utf8;
-use ledger_device_sdk::io::Reply;
 use ledger_device_ui_sdk::bitmaps::{CROSSMARK, EYE, VALIDATE_14};
 use ledger_device_ui_sdk::ui::{Field, MultiFieldReview};
 
 // Display only the last 20 bytes of the address
 const DISPLAY_ADDR_BYTES_LEN: usize = 20;
 
-pub fn ui_display_pk(addr: &[u8]) -> Result<bool, Reply> {
+pub fn ui_display_pk(addr: &[u8]) -> Result<bool, AppSW> {
     let addr_hex_str_buf = to_hex_all_caps(&addr[addr.len() - DISPLAY_ADDR_BYTES_LEN as usize..])
-        .map_err(|_| Reply(SW_DISPLAY_ADDRESS_FAIL))?;
+        .map_err(|_| AppSW::AddrDisplayFail)?;
     let addr_hex_str = from_utf8(&addr_hex_str_buf[..DISPLAY_ADDR_BYTES_LEN * 2])
-        .map_err(|_| Reply(SW_DISPLAY_ADDRESS_FAIL))?;
+        .map_err(|_| AppSW::AddrDisplayFail)?;
 
     let mut addr_hex_str_with_prefix_buf = [0u8; DISPLAY_ADDR_BYTES_LEN * 2 + 2];
     concatenate(&["0x", &addr_hex_str], &mut addr_hex_str_with_prefix_buf);
     let addr_hex_str_with_prefix =
-        from_utf8(&addr_hex_str_with_prefix_buf).map_err(|_| Reply(SW_DISPLAY_ADDRESS_FAIL))?;
+        from_utf8(&addr_hex_str_with_prefix_buf).map_err(|_| AppSW::AddrDisplayFail)?;
 
     let my_field = [Field {
         name: "Address",

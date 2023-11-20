@@ -141,9 +141,13 @@ extern "C" fn sample_main() {
 }
 
 fn handle_apdu(comm: &mut Comm, ins: Ins, ctx: &mut TxContext) -> Result<(), AppSW> {
-    if comm.rx == 0 {
+    // Reject any APDU that does not have a minimum length of 4 bytes
+    // The APDU must have at least 5 bytes: CLA, INS, P1, P2, Lc
+    if comm.rx < 4 {
         return Err(AppSW::WrongDataLength);
     }
+
+    let data = comm.get_data().map_err(|_| AppSW::WrongDataLength)?;
 
     let apdu_metadata = comm.get_apdu_metadata();
 
@@ -168,14 +172,8 @@ fn handle_apdu(comm: &mut Comm, ins: Ins, ctx: &mut TxContext) -> Result<(), App
             if apdu_metadata.p1 > 1 || apdu_metadata.p2 != 0 {
                 return Err(AppSW::WrongP1P2);
             }
-
-            match comm.get_data() {
-                Ok(data) => {
-                    if data.is_empty() {
-                        return Err(AppSW::WrongDataLength);
-                    }
-                }
-                Err(_) => return Err(AppSW::WrongDataLength),
+            if data.is_empty() {
+                return Err(AppSW::WrongDataLength);
             }
 
             return handler_get_public_key(comm, apdu_metadata.p1 == 1);
@@ -187,14 +185,8 @@ fn handle_apdu(comm: &mut Comm, ins: Ins, ctx: &mut TxContext) -> Result<(), App
             {
                 return Err(AppSW::WrongP1P2);
             }
-
-            match comm.get_data() {
-                Ok(data) => {
-                    if data.is_empty() {
-                        return Err(AppSW::WrongDataLength);
-                    }
-                }
-                Err(_) => return Err(AppSW::WrongDataLength),
+            if data.is_empty() {
+                return Err(AppSW::WrongDataLength);
             }
 
             return handler_sign_tx(

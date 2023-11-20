@@ -16,11 +16,10 @@
  *****************************************************************************/
 
 use crate::handlers::sign_tx::Tx;
-use crate::AppSW;
 use ledger_device_ui_sdk::bitmaps::{CROSSMARK, EYE, VALIDATE_14};
 use ledger_device_ui_sdk::ui::{Field, MultiFieldReview};
 
-pub fn ui_display_tx(tx: &Tx) -> Result<bool, AppSW> {
+pub fn ui_display_tx(tx: &Tx) -> bool {
     // Define transaction review fields
     let my_fields = [
         Field {
@@ -48,5 +47,5 @@ pub fn ui_display_tx(tx: &Tx) -> Result<bool, AppSW> {
         Some(&CROSSMARK),
     );
 
-    Ok(my_review.show())
+    my_review.show()
 }

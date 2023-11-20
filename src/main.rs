@@ -142,7 +142,7 @@ extern "C" fn sample_main() {
 
 fn handle_apdu(comm: &mut Comm, ins: Ins, ctx: &mut TxContext) -> Result<(), AppSW> {
     // Reject any APDU that does not have a minimum length of 4 bytes
-    // The APDU must have at least 5 bytes: CLA, INS, P1, P2, Lc
+    // The APDU must have at least 4 bytes: CLA, INS, P1, P2
     if comm.rx < 4 {
         return Err(AppSW::WrongDataLength);
     }

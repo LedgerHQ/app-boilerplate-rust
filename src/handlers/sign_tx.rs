@@ -97,11 +97,12 @@ pub fn handler_sign_tx(
         // Otherwise, try to parse the transaction
         } else {
             // Try to deserialize the transaction
-            let (tx, _) : (Tx, usize) = from_slice(&ctx.raw_tx[..ctx.raw_tx_len]).map_err(|_| AppSW::TxParsingFail)?;
+            let (tx, _): (Tx, usize) =
+                from_slice(&ctx.raw_tx[..ctx.raw_tx_len]).map_err(|_| AppSW::TxParsingFail)?;
             // Display transaction. If user approves
             // the transaction, sign it. Otherwise,
             // return a "deny" status word.
-            if ui_display_tx(&tx)? {
+            if ui_display_tx(&tx) {
                 return compute_signature_and_append(comm, ctx);
             } else {
                 return Err(AppSW::Deny);

@@ -26,8 +26,8 @@ def test_sign_tx_short_tx(firmware, backend, navigator, test_name):
     # Create the transaction that will be sent to the device for signing
     transaction = Transaction(
         nonce=1,
+        value=0.777,
         to="0xde0b295669a9fd93d5f28d9ec85e40f4cb697bae",
-        value=666,
         memo="For u EthDev"
     ).serialize()
 

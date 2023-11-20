@@ -15,7 +15,7 @@
  *  limitations under the License.
  *****************************************************************************/
 use crate::app_ui::sign::ui_display_tx;
-use crate::utils::{read_bip32_path, slice_or_err, varint_read, MAX_ALLOWED_PATH_LEN};
+use crate::utils::{read_bip32_path, MAX_ALLOWED_PATH_LEN};
 use crate::AppSW;
 use ledger_device_sdk::ecc::{Secp256k1, SeedDerive};
 use ledger_device_sdk::io::Comm;
@@ -23,54 +23,20 @@ use ledger_secure_sdk_sys::{
     cx_hash_no_throw, cx_hash_t, cx_keccak_init_no_throw, cx_sha3_t, CX_LAST, CX_OK,
 };
 
+use serde::Deserialize;
+use serde_json_core::from_slice;
+
 const MAX_TRANSACTION_LEN: usize = 510;
 
+#[derive(Deserialize)]
 pub struct Tx<'a> {
     #[allow(dead_code)]
     nonce: u64,
-    pub value: u64,
-    pub to: &'a [u8],
-    pub memo: &'a [u8],
-    pub memo_len: usize,
+    pub value: &'a str,
+    pub to: &'a str,
+    pub memo: &'a str,
 }
 
-// Implement deserialize for Tx from a u8 array
-impl<'a> TryFrom<&'a [u8]> for Tx<'a> {
-    type Error = ();
-    fn try_from(raw_tx: &'a [u8]) -> Result<Self, Self::Error> {
-        if raw_tx.len() > MAX_TRANSACTION_LEN {
-            return Err(());
-        }
-
-        // Try to parse the transaction fields :
-        // Nonce
-        let nonce = u64::from_be_bytes(slice_or_err(raw_tx, 0, 8)?.try_into().map_err(|_| ())?);
-        // Destination address
-        let to = slice_or_err(raw_tx, 8, 20)?;
-        // Amount value
-        let value = u64::from_be_bytes(slice_or_err(raw_tx, 28, 8)?.try_into().map_err(|_| ())?);
-        // Memo length
-        let (memo_len_u64, memo_len_size) = varint_read(&raw_tx[36..])?;
-        let memo_len = memo_len_u64 as usize;
-        // Memo
-        let memo = slice_or_err(raw_tx, 36 + memo_len_size, memo_len)?;
-
-        // Check memo ASCII encoding
-        if !memo[..memo_len].iter().all(|&byte| byte.is_ascii()) {
-            return Err(());
-        }
-
-        Ok(Tx {
-            nonce,
-            value,
-            to,
-            memo,
-            memo_len,
-        })
-    }
-}
-
-// #[derive(Copy, Clone)]
 pub struct TxContext {
     raw_tx: [u8; MAX_TRANSACTION_LEN], // raw transaction serialized
     raw_tx_len: usize,                 // length of raw transaction
@@ -130,10 +96,8 @@ pub fn handler_sign_tx(
             return Ok(());
         // Otherwise, try to parse the transaction
         } else {
-            let tx = match Tx::try_from(&ctx.raw_tx[..ctx.raw_tx_len]) {
-                Ok(tx) => tx,
-                Err(_) => return Err(AppSW::TxParsingFail),
-            };
+            // Try to deserialize the transaction
+            let (tx, _) : (Tx, usize) = from_slice(&ctx.raw_tx[..ctx.raw_tx_len]).map_err(|_| AppSW::TxParsingFail)?;
             // Display transaction. If user approves
             // the transaction, sign it. Otherwise,
             // return a "deny" status word.

@@ -15,6 +15,7 @@ dependencies = [
 name = "app-boilerplate-rust"
 version = "1.0.0"
 dependencies = [
+ "hex",
  "include_gif",
  "ledger_device_sdk",
  "ledger_device_ui_sdk",
@@ -160,6 +161,15 @@ checksum = "0bfb9eb618601c89945a70e254898da93b13be0388091d42117462b265bb3fad"
 dependencies = [
  "hash32",
  "stable_deref_trait",
+]
+
+[[package]]
+name = "hex"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

@@ -20,6 +20,11 @@ use ledger_device_ui_sdk::bitmaps::{CROSSMARK, EYE, VALIDATE_14};
 use ledger_device_ui_sdk::ui::{Field, MultiFieldReview};
 
 pub fn ui_display_tx(tx: &Tx) -> bool {
+    // Generate destination address string in hexadecimal format.
+    let mut to_str = [0u8; 42];
+    to_str[..2].copy_from_slice("0x".as_bytes());
+    hex::encode_to_slice(tx.to, &mut to_str[2..]).unwrap();
+
     // Define transaction review fields
     let my_fields = [
         Field {
@@ -28,7 +33,7 @@ pub fn ui_display_tx(tx: &Tx) -> bool {
         },
         Field {
             name: "Destination",
-            value: tx.to,
+            value: core::str::from_utf8(&to_str).unwrap(),
         },
         Field {
             name: "Memo",

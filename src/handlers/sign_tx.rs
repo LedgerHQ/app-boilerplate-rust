@@ -33,7 +33,8 @@ pub struct Tx<'a> {
     #[allow(dead_code)]
     nonce: u64,
     pub value: &'a str,
-    pub to: &'a str,
+    #[serde(with = "hex::serde")]
+    pub to: [u8; 20],
     pub memo: &'a str,
 }
 

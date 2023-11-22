@@ -4,39 +4,6 @@ use core::char;
 pub const MAX_ALLOWED_PATH_LEN: usize = 10;
 const MAX_HEX_LEN: usize = 64;
 
-/// Convert to hex. Returns a static buffer of 64 bytes
-#[inline]
-pub fn to_hex(m: &[u8]) -> Result<[u8; MAX_HEX_LEN], ()> {
-    if 2 * m.len() > MAX_HEX_LEN {
-        return Err(());
-    }
-    let mut hex = [0u8; MAX_HEX_LEN];
-    let mut i = 0;
-    for c in m {
-        let c0 = char::from_digit((c >> 4).into(), 16).unwrap();
-        let c1 = char::from_digit((c & 0xf).into(), 16).unwrap();
-        hex[i] = c0 as u8;
-        hex[i + 1] = c1 as u8;
-        i += 2;
-    }
-    Ok(hex)
-}
-
-/// Convert to an all capitalized string. Returns a static buffer of 255 bytes
-#[inline]
-pub fn to_hex_all_caps(m: &[u8]) -> Result<[u8; MAX_HEX_LEN], ()> {
-    match to_hex(m) {
-        Ok(hex) => {
-            let mut hex_all_caps = hex;
-            hex_all_caps
-                .iter_mut()
-                .for_each(|x| *x = x.to_ascii_uppercase());
-            Ok(hex_all_caps)
-        }
-        Err(_) => Err(()),
-    }
-}
-
 /// Convert serialized derivation path to u32 array elements
 pub fn read_bip32_path(data: &[u8], path: &mut [u32]) -> Result<usize, AppSW> {
     // Check input length and path buffer capacity

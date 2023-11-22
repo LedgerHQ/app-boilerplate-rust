@@ -26,7 +26,8 @@ def test_sign_tx_short_tx(firmware, backend, navigator, test_name):
     # Create the transaction that will be sent to the device for signing
     transaction = Transaction(
         nonce=1,
-        value=0.777,
+        coin="CRAB",
+        value=777,
         to="de0b295669a9fd93d5f28d9ec85e40f4cb697bae",
         memo="For u EthDev"
     ).serialize()
@@ -70,8 +71,9 @@ def test_sign_tx_long_tx(firmware, backend, navigator, test_name):
 
     transaction = Transaction(
         nonce=1,
-        to="de0b295669a9fd93d5f28d9ec85e40f4cb697bae",
+        coin="CRAB",
         value=666,
+        to="de0b295669a9fd93d5f28d9ec85e40f4cb697bae",
         memo=("This is a very long memo. "
               "It will force the app client to send the serialized transaction to be sent in chunk. "
               "As the maximum chunk size is 255 bytes we will make this memo greater than 255 characters. "
@@ -109,8 +111,9 @@ def test_sign_tx_refused(firmware, backend, navigator, test_name):
 
     transaction = Transaction(
         nonce=1,
-        to="de0b295669a9fd93d5f28d9ec85e40f4cb697bae",
+        coin="CRAB",
         value=666,
+        to="de0b295669a9fd93d5f28d9ec85e40f4cb697bae",
         memo="This transaction will be refused by the user"
     ).serialize()
 

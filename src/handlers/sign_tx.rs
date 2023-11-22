@@ -32,8 +32,9 @@ const MAX_TRANSACTION_LEN: usize = 510;
 pub struct Tx<'a> {
     #[allow(dead_code)]
     nonce: u64,
-    pub value: &'a str,
-    #[serde(with = "hex::serde")]
+    pub coin: &'a str,
+    pub value: u64,
+    #[serde(with = "hex::serde")] // Allows JSON deserialization from hex string
     pub to: [u8; 20],
     pub memo: &'a str,
 }

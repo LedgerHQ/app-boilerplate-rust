@@ -1,5 +1,5 @@
 use crate::AppSW;
-use core::char;
+use core::{char, str::from_utf8};
 
 pub const MAX_ALLOWED_PATH_LEN: usize = 10;
 const MAX_HEX_LEN: usize = 64;
@@ -31,20 +31,19 @@ pub fn read_bip32_path(data: &[u8], path: &mut [u32]) -> Result<usize, AppSW> {
     Ok(idx)
 }
 
-/// Concatenate multiple strings into a fixed-size array
-pub fn concatenate(strings: &[&str], output: &mut [u8]) {
+/// Returns concatenated strings, or an error if the concatenation buffer is too small.
+pub fn concatenate<'a>(strings: &[&str], output: &'a mut [u8]) -> Result<&'a str, ()> {
     let mut offset = 0;
 
     for s in strings {
         let s_len = s.len();
-        let copy_len = core::cmp::min(s_len, output.len() - offset);
-
-        if copy_len > 0 {
-            output[offset..offset + copy_len].copy_from_slice(&s.as_bytes()[..copy_len]);
-            offset += copy_len;
-        } else {
-            // If the output buffer is full, stop concatenating.
-            break;
+        if offset + s_len > output.len() {
+            return Err(());
         }
+
+        output[offset..offset + s_len].copy_from_slice(&s.as_bytes());
+        offset += s_len;
     }
+
+    Ok(from_utf8(&output[..offset]).unwrap())
 }

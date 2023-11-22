@@ -11,12 +11,14 @@ class TransactionError(Exception):
 class Transaction:
     def __init__(self,
                  nonce: int,
-                 value: float,
+                 coin: str,
+                 value: int,
                  to: str,
                  memo: str,
                  do_check: bool = True) -> None:
         self.nonce: int = nonce
-        self.value: str = "CRAB " + str(value)
+        self.coin: str = coin
+        self.value: str = value
         self.to: str = to 
         self.memo: str = memo
 
@@ -31,6 +33,7 @@ class Transaction:
         # Serialize the transaction data to a JSON-formatted string
         return json.dumps({
             "nonce": self.nonce,
+            "coin": self.coin,
             "value": self.value,
             "to": self.to,
             "memo": self.memo

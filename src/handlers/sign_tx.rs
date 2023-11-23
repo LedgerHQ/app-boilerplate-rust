@@ -104,7 +104,7 @@ pub fn handler_sign_tx(
             // Display transaction. If user approves
             // the transaction, sign it. Otherwise,
             // return a "deny" status word.
-            if ui_display_tx(&tx) {
+            if ui_display_tx(&tx)? {
                 return compute_signature_and_append(comm, ctx);
             } else {
                 return Err(AppSW::Deny);

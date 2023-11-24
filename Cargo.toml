@@ -5,9 +5,9 @@ authors = ["yhql", "agrojean-ledger"]
 edition = "2021"
 
 [dependencies]
-ledger_device_sdk = "1.0.0"
-ledger_device_ui_sdk = "1.1.0"
-ledger_secure_sdk_sys = "1.0.0"
+ledger_device_sdk = "1.0.1"
+ledger_device_ui_sdk = "1.1.1"
+ledger_secure_sdk_sys = "1.0.1"
 include_gif = "1.0.0"
 numtoa = "0.2.4"
 

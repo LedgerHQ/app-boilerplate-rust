@@ -22,6 +22,7 @@ pending_review_screen = ["ledger_device_sdk/pending_review_screen"]
 curve = ["secp256k1"]
 flags = "0"
 path = [""]
+name = "Rust Boilerplate"
 
 [package.metadata.ledger.nanos]
 icon = "crab.gif"

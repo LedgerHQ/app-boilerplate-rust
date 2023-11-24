@@ -1,4 +1,4 @@
-name: Checks on the Python client
+name: Checks on the Python tests
 
 # This workflow performs some checks on the Python client used by the Boilerplate tests
 # It is there to help us maintain a level of quality in our codebase and does not have to be kept on forked

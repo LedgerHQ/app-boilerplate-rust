@@ -86,7 +86,7 @@ enum Ins {
     GetAppName,
     GetPubkey,
     SignTx,
-    UnknownIns,
+    Unknown,
 }
 
 impl From<ApduHeader> for Ins {
@@ -96,7 +96,7 @@ impl From<ApduHeader> for Ins {
             4 => Ins::GetAppName,
             5 => Ins::GetPubkey,
             6 => Ins::SignTx,
-            _ => Ins::UnknownIns,
+            _ => Ins::Unknown,
         }
     }
 }
@@ -107,16 +107,14 @@ extern "C" fn sample_pending() {
 
     loop {
         ui::SingleMessage::new("Pending").show();
-        match comm.next_event::<Ins>() {
-            Event::Button(ButtonEvent::RightButtonRelease) => break,
-            _ => (),
+        if let Event::Button(ButtonEvent::RightButtonRelease) = comm.next_event::<Ins>() {
+            break;
         }
     }
     loop {
         ui::SingleMessage::new("Ledger review").show();
-        match comm.next_event::<Ins>() {
-            Event::Button(ButtonEvent::BothButtonsRelease) => break,
-            _ => (),
+        if let Event::Button(ButtonEvent::BothButtonsRelease) = comm.next_event::<Ins>() {
+            break;
         }
     }
 }
@@ -129,12 +127,11 @@ extern "C" fn sample_main() {
     loop {
         // Wait for either a specific button push to exit the app
         // or an APDU command
-        match ui_menu_main(&mut comm) {
-            Event::Command(ins) => match handle_apdu(&mut comm, ins.into(), &mut tx_ctx) {
+        if let Event::Command(ins) = ui_menu_main(&mut comm) {
+            match handle_apdu(&mut comm, ins.into(), &mut tx_ctx) {
                 Ok(()) => comm.reply_ok(),
                 Err(sw) => comm.reply(Reply::from(sw)),
-            },
-            _ => (),
+            }
         }
     }
 }
@@ -170,7 +167,7 @@ fn handle_apdu(comm: &mut Comm, ins: Ins, ctx: &mut TxContext) -> Result<(), App
 
             match comm.get_data() {
                 Ok(data) => {
-                    if data.len() == 0 {
+                    if data.is_empty() {
                         return Err(AppSW::WrongDataLength);
                     }
                 }
@@ -189,7 +186,7 @@ fn handle_apdu(comm: &mut Comm, ins: Ins, ctx: &mut TxContext) -> Result<(), App
 
             match comm.get_data() {
                 Ok(data) => {
-                    if data.len() == 0 {
+                    if data.is_empty() {
                         return Err(AppSW::WrongDataLength);
                     }
                 }
@@ -203,7 +200,7 @@ fn handle_apdu(comm: &mut Comm, ins: Ins, ctx: &mut TxContext) -> Result<(), App
                 ctx,
             );
         }
-        Ins::UnknownIns => {
+        Ins::Unknown => {
             return Err(AppSW::InsNotSupported);
         }
     }

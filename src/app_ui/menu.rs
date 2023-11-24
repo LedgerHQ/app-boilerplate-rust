@@ -28,10 +28,11 @@ fn ui_about_menu(comm: &mut Comm) -> Event<ApduHeader> {
     loop {
         match MultiPageMenu::new(comm, &pages).show() {
             EventOrPageIndex::Event(e) => return e,
-            i => match i {
-                EventOrPageIndex::Index(1) => return ui_menu_main(comm),
-                _ => (),
-            },
+            i => {
+                if let EventOrPageIndex::Index(1) = i {
+                    return ui_menu_main(comm);
+                }
+            }
         }
     }
 }

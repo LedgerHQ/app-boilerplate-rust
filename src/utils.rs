@@ -40,7 +40,7 @@ pub fn to_hex_all_caps(m: &[u8]) -> Result<[u8; MAX_HEX_LEN], ()> {
 /// Convert serialized derivation path to u32 array elements
 pub fn read_bip32_path(data: &[u8], path: &mut [u32]) -> Result<usize, AppSW> {
     // Check input length and path buffer capacity
-    if data.len() < 1 || path.len() < data.len() / 4 {
+    if data.is_empty() || path.len() < data.len() / 4 {
         return Err(AppSW::WrongDataLength);
     }
 

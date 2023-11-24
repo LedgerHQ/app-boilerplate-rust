@@ -21,7 +21,7 @@ pending_review_screen = ["ledger_device_sdk/pending_review_screen"]
 [package.metadata.ledger]
 curve = ["secp256k1"]
 flags = "0"
-path = [""]
+path = ["44'/1'"]
 name = "Rust Boilerplate"
 
 [package.metadata.ledger.nanos]

@@ -26,6 +26,7 @@ use ledger_secure_sdk_sys::{
 const MAX_TRANSACTION_LEN: usize = 510;
 
 pub struct Tx<'a> {
+    #[allow(dead_code)]
     nonce: u64,
     pub value: u64,
     pub to: &'a [u8],

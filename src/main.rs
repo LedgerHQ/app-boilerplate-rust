@@ -30,17 +30,13 @@ mod handlers {
     pub mod sign_tx;
 }
 
-use ledger_device_sdk::buttons::ButtonEvent;
-use ledger_device_sdk::io::{ApduHeader, Comm, Event, Reply};
-
-use ledger_device_ui_sdk::ui;
-
 use app_ui::menu::ui_menu_main;
 use handlers::{
     get_public_key::handler_get_public_key,
     get_version::handler_get_version,
     sign_tx::{handler_sign_tx, TxContext},
 };
+use ledger_device_sdk::io::{ApduHeader, Comm, Event, Reply};
 
 ledger_device_sdk::set_panic!(ledger_device_sdk::exiting_panic);
 
@@ -101,19 +97,24 @@ impl From<ApduHeader> for Ins {
     }
 }
 
-#[no_mangle]
-extern "C" fn sample_pending() {
-    let mut comm = Comm::new();
+// Developer mode / pending review popup
+// must be cleared with user interaction
+fn display_pending_review(comm: &mut Comm) {
+    use ledger_device_sdk::buttons::ButtonEvent::{
+        BothButtonsRelease, LeftButtonRelease, RightButtonRelease,
+    };
+    use ledger_device_ui_sdk::layout::{Layout, Location, StringPlace};
+    use ledger_device_ui_sdk::screen_util::screen_update;
+    use ledger_device_ui_sdk::ui::clear_screen;
+
+    clear_screen();
+    "Pending Review".place(Location::Middle, Layout::Centered, false);
+    screen_update();
 
     loop {
-        ui::SingleMessage::new("Pending").show();
-        if let Event::Button(ButtonEvent::RightButtonRelease) = comm.next_event::<Ins>() {
-            break;
-        }
-    }
-    loop {
-        ui::SingleMessage::new("Ledger review").show();
-        if let Event::Button(ButtonEvent::BothButtonsRelease) = comm.next_event::<Ins>() {
+        if let Event::Button(LeftButtonRelease | RightButtonRelease | BothButtonsRelease) =
+            comm.next_event::<ApduHeader>()
+        {
             break;
         }
     }
@@ -122,6 +123,9 @@ extern "C" fn sample_pending() {
 #[no_mangle]
 extern "C" fn sample_main() {
     let mut comm = Comm::new();
+
+    display_pending_review(&mut comm);
+
     let mut tx_ctx = TxContext::new();
 
     loop {

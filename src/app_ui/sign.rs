@@ -36,7 +36,7 @@ pub fn ui_display_tx(tx: &Tx) -> Result<bool, AppSW> {
         .trim_matches(char::from(0));
 
     // Format destination address
-    let hex_addr_buf = to_hex_all_caps(&tx.to).map_err(|_| AppSW::TxDisplayFail)?;
+    let hex_addr_buf = to_hex_all_caps(tx.to).map_err(|_| AppSW::TxDisplayFail)?;
     let hex_addr_str = from_utf8(&hex_addr_buf).map_err(|_| AppSW::TxDisplayFail)?;
     let mut addr_with_prefix_buf = [0u8; 42];
     concatenate(&["0x", hex_addr_str], &mut addr_with_prefix_buf);
@@ -44,7 +44,7 @@ pub fn ui_display_tx(tx: &Tx) -> Result<bool, AppSW> {
         from_utf8(&addr_with_prefix_buf).map_err(|_| AppSW::TxDisplayFail)?;
 
     // Format memo
-    let memo_str = from_utf8(&tx.memo[..tx.memo_len as usize]).map_err(|_| AppSW::TxDisplayFail)?;
+    let memo_str = from_utf8(&tx.memo[..tx.memo_len]).map_err(|_| AppSW::TxDisplayFail)?;
 
     // Define transaction review fields
     let my_fields = [

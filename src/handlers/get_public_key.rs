@@ -54,7 +54,7 @@ pub fn handler_get_public_key(comm: &mut Comm, display: bool) -> Result<(), AppS
                 &mut keccak256.header as *mut cx_hash_t,
                 CX_LAST,
                 pk_ptr,
-                64 as usize,
+                64_usize,
                 address.as_mut_ptr(),
                 address.len(),
             ) != CX_OK

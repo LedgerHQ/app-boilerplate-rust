@@ -1,52 +1,30 @@
-from io import BytesIO
-from typing import Union
-
-from .boilerplate_utils import read, read_uint, read_varint, write_varint, UINT64_MAX
-
+import json
+from dataclasses import dataclass
+from .boilerplate_utils import UINT64_MAX
 
 class TransactionError(Exception):
     pass
 
-
+@dataclass
 class Transaction:
-    def __init__(self,
-                 nonce: int,
-                 to: Union[str, bytes],
-                 value: int,
-                 memo: str,
-                 do_check: bool = True) -> None:
-        self.nonce: int = nonce
-        self.to: bytes = bytes.fromhex(to[2:]) if isinstance(to, str) else to
-        self.value: int = value
-        self.memo: bytes = memo.encode("ascii")
-
-        if do_check:
-            if not 0 <= self.nonce <= UINT64_MAX:
-                raise TransactionError(f"Bad nonce: '{self.nonce}'!")
-
-            if not 0 <= self.value <= UINT64_MAX:
-                raise TransactionError(f"Bad value: '{self.value}'!")
-
-            if len(self.to) != 20:
-                raise TransactionError(f"Bad address: '{self.to.hex()}'!")
+    nonce: int
+    coin: str
+    value: str
+    to: str
+    memo: str
 
     def serialize(self) -> bytes:
-        return b"".join([
-            self.nonce.to_bytes(8, byteorder="big"),
-            self.to,
-            self.value.to_bytes(8, byteorder="big"),
-            write_varint(len(self.memo)),
-            self.memo
-        ])
+        if not 0 <= self.nonce <= UINT64_MAX:
+            raise TransactionError(f"Bad nonce: '{self.nonce}'!")
 
-    @classmethod
-    def from_bytes(cls, hexa: Union[bytes, BytesIO]):
-        buf: BytesIO = BytesIO(hexa) if isinstance(hexa, bytes) else hexa
+        if len(self.to) != 40:
+            raise TransactionError(f"Bad address: '{self.to}'!")
 
-        nonce: int = read_uint(buf, 64, byteorder="big")
-        to: bytes = read(buf, 20)
-        value: int = read_uint(buf, 64, byteorder="big")
-        memo_len: int = read_varint(buf)
-        memo: str = read(buf, memo_len).decode("ascii")
-
-        return cls(nonce=nonce, to=to, value=value, memo=memo)
+        # Serialize the transaction data to a JSON-formatted string
+        return json.dumps({
+            "nonce": self.nonce,
+            "coin": self.coin,
+            "value": self.value,
+            "to": self.to,
+            "memo": self.memo
+        }).encode('utf-8')

@@ -28,11 +28,8 @@ fn ui_about_menu(comm: &mut Comm) -> Event<ApduHeader> {
     loop {
         match MultiPageMenu::new(comm, &pages).show() {
             EventOrPageIndex::Event(e) => return e,
-            i => {
-                if let EventOrPageIndex::Index(1) = i {
-                    return ui_menu_main(comm);
-                }
-            }
+            EventOrPageIndex::Index(1) => return ui_menu_main(comm),
+            EventOrPageIndex::Index(_) => (),
         }
     }
 }
@@ -50,11 +47,9 @@ pub fn ui_menu_main(comm: &mut Comm) -> Event<ApduHeader> {
     loop {
         match MultiPageMenu::new(comm, &pages).show() {
             EventOrPageIndex::Event(e) => return e,
-            i => match i {
-                EventOrPageIndex::Index(2) => return ui_about_menu(comm),
-                EventOrPageIndex::Index(3) => ledger_device_sdk::exit_app(0),
-                _ => (),
-            },
+            EventOrPageIndex::Index(2) => return ui_about_menu(comm),
+            EventOrPageIndex::Index(3) => ledger_device_sdk::exit_app(0),
+            EventOrPageIndex::Index(_) => (),
         }
     }
 }

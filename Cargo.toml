@@ -9,6 +9,9 @@ ledger_device_sdk = "1.0.1"
 ledger_device_ui_sdk = "1.1.1"
 ledger_secure_sdk_sys = "1.0.1"
 include_gif = "1.0.0"
+serde = {version="1.0.192", default_features = false, features = ["derive"]}
+serde-json-core = { git = "https://github.com/rust-embedded-community/serde-json-core"}
+hex = { version = "0.4.3", default-features = false, features = ["serde"] }
 numtoa = "0.2.4"
 
 [profile.release]

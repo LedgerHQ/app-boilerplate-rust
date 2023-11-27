@@ -48,6 +48,7 @@ pub fn ui_display_tx(tx: &Tx) -> Result<bool, AppSW> {
     let mut to_str = [0u8; 42];
     to_str[..2].copy_from_slice("0x".as_bytes());
     hex::encode_to_slice(tx.to, &mut to_str[2..]).unwrap();
+    to_str[2..].make_ascii_uppercase();
 
     // Define transaction review fields
     let my_fields = [

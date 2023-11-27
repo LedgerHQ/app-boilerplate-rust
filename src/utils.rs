@@ -1,8 +1,7 @@
 use crate::AppSW;
-use core::{char, str::from_utf8};
+use core::str::from_utf8;
 
 pub const MAX_ALLOWED_PATH_LEN: usize = 10;
-const MAX_HEX_LEN: usize = 64;
 
 /// Convert serialized derivation path to u32 array elements
 pub fn read_bip32_path(data: &[u8], path: &mut [u32]) -> Result<usize, AppSW> {
@@ -41,7 +40,7 @@ pub fn concatenate<'a>(strings: &[&str], output: &'a mut [u8]) -> Result<&'a str
             return Err(());
         }
 
-        output[offset..offset + s_len].copy_from_slice(&s.as_bytes());
+        output[offset..offset + s_len].copy_from_slice(s.as_bytes());
         offset += s_len;
     }
 

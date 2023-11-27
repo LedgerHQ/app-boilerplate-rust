@@ -36,7 +36,7 @@ pub fn ui_display_pk(addr: &[u8]) -> Result<bool, AppSW> {
 
     let my_field = [Field {
         name: "Address",
-        value: &addr_hex,
+        value: addr_hex,
     }];
 
     let my_review = MultiFieldReview::new(

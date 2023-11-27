@@ -14,9 +14,6 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  *****************************************************************************/
-
-use core::str::from_utf8;
-
 use crate::handlers::sign_tx::Tx;
 use crate::utils::concatenate;
 use crate::AppSW;
@@ -39,7 +36,7 @@ pub fn ui_display_tx(tx: &Tx) -> Result<bool, AppSW> {
     let mut value_buf = [0u8; 20 + MAX_COIN_LENGTH + 1];
 
     let value_str = concatenate(
-        &[tx.coin, &" ", tx.value.numtoa_str(10, &mut numtoa_buf)],
+        &[tx.coin, " ", tx.value.numtoa_str(10, &mut numtoa_buf)],
         &mut value_buf,
     )
     .map_err(|_| AppSW::TxDisplayFail)?; // Fails if value_buf is too small

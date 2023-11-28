@@ -164,22 +164,10 @@ fn handle_apdu(comm: &mut Comm, ins: Instruction, ctx: &mut TxContext) -> Result
     match ins {
         Instruction::GetAppName => {
             comm.append(env!("CARGO_PKG_NAME").as_bytes());
+            Ok(())
         }
-        Instruction::GetVersion => {
-            return handler_get_version(comm);
-        }
-        Instruction::GetPubkey { display } => {
-            if data.is_empty() {
-                return Err(AppSW::WrongDataLength);
-            }
-            return handler_get_public_key(comm, display);
-        }
-        Instruction::SignTx { chunk, more } => {
-            if data.is_empty() {
-                return Err(AppSW::WrongDataLength);
-            }
-            return handler_sign_tx(comm, chunk, more, ctx);
-        }
+        Instruction::GetVersion => handler_get_version(comm),
+        Instruction::GetPubkey { display } => handler_get_public_key(comm, display),
+        Instruction::SignTx { chunk, more } => handler_sign_tx(comm, chunk, more, ctx)
     }
-    Ok(())
 }

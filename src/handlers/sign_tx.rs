@@ -72,16 +72,14 @@ pub fn handler_sign_tx(
     ctx: &mut TxContext,
 ) -> Result<(), AppSW> {
     // Try to get data from comm
-    let data = match comm.get_data() {
-        Ok(data) => data,
-        Err(_) => return Err(AppSW::WrongDataLength),
-    };
+    let data = comm.get_data().map_err(|_| AppSW::WrongDataLength)?;
     // First chunk, try to parse the path
     if chunk == 0 {
         // Reset transaction context
         ctx.reset();
         // This will propagate the error if the path is invalid
         ctx.path_len = read_bip32_path(data, &mut ctx.path)?;
+        Ok(())
     // Next chunks, append data to raw_tx and return or parse
     // the transaction if it is the last chunk.
     } else {
@@ -95,7 +93,7 @@ pub fn handler_sign_tx(
 
         // If we expect more chunks, return
         if more {
-            return Ok(());
+            Ok(())
         // Otherwise, try to parse the transaction
         } else {
             // Try to deserialize the transaction
@@ -105,13 +103,12 @@ pub fn handler_sign_tx(
             // the transaction, sign it. Otherwise,
             // return a "deny" status word.
             if ui_display_tx(&tx)? {
-                return compute_signature_and_append(comm, ctx);
+                compute_signature_and_append(comm, ctx)
             } else {
-                return Err(AppSW::Deny);
+                Err(AppSW::Deny)
             }
         }
     }
-    Ok(())
 }
 
 fn compute_signature_and_append(comm: &mut Comm, ctx: &mut TxContext) -> Result<(), AppSW> {

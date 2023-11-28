@@ -159,8 +159,6 @@ extern "C" fn sample_main() {
 }
 
 fn handle_apdu(comm: &mut Comm, ins: Instruction, ctx: &mut TxContext) -> Result<(), AppSW> {
-    let data = comm.get_data().map_err(|_| AppSW::BadLen)?;
-
     match ins {
         Instruction::GetAppName => {
             comm.append(env!("CARGO_PKG_NAME").as_bytes());

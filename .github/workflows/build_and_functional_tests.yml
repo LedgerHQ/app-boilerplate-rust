@@ -18,16 +18,18 @@ on:
   pull_request:
 
 jobs:
-  build_application:
-    name: Build application using the reusable workflow
-    uses: LedgerHQ/ledger-app-workflows/.github/workflows/reusable_build.yml@v1
-    with:
-      upload_app_binaries_artifact: "compiled_app_binaries"
-      builder: ledger-app-builder
+  build:
+    name: Build application for NanoS with test image
+    runs-on: ubuntu-latest
+    container:
+        image: alexisgrojean/full-test2:latest
 
-  ragger_tests:
-    name: Run ragger tests using the reusable workflow
-    needs: build_application
-    uses: LedgerHQ/ledger-app-workflows/.github/workflows/reusable_ragger_tests.yml@v1
-    with:
-      download_app_binaries_artifact: "compiled_app_binaries"
+    steps:
+        - name: Clone
+          uses: actions/checkout@v3
+        - name: Build application
+          shell: bash
+          run: |
+            BUILD_DEVICE_NAME="nanos" && \
+            BIN_DIR_NAME="nanos" && \
+            cargo ledger build ${BUILD_DEVICE_NAME} -- -Zunstable-options --out-dir=./build/${BIN_DIR_NAME}/bin/

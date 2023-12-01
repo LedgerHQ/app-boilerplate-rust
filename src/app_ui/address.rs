@@ -17,8 +17,8 @@
 
 use crate::AppSW;
 use core::str::from_utf8_mut;
-use ledger_device_ui_sdk::bitmaps::{CROSSMARK, EYE, VALIDATE_14};
-use ledger_device_ui_sdk::ui::{Field, MultiFieldReview};
+use ledger_device_sdk::ui::bitmaps::{CROSSMARK, EYE, VALIDATE_14};
+use ledger_device_sdk::ui::gadgets::{Field, MultiFieldReview};
 
 // Display only the last 20 bytes of the address
 const DISPLAY_ADDR_BYTES_LEN: usize = 20;

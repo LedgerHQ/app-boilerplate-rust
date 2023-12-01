@@ -17,8 +17,8 @@
 
 use include_gif::include_gif;
 use ledger_device_sdk::io::{ApduHeader, Comm, Event};
-use ledger_device_ui_sdk::bitmaps::{Glyph, BACK, CERTIFICATE, DASHBOARD_X};
-use ledger_device_ui_sdk::ui::{EventOrPageIndex, MultiPageMenu, Page};
+use ledger_device_sdk::ui::bitmaps::{Glyph, BACK, CERTIFICATE, DASHBOARD_X};
+use ledger_device_sdk::ui::gadgets::{EventOrPageIndex, MultiPageMenu, Page};
 
 fn ui_about_menu(comm: &mut Comm) -> Event<ApduHeader> {
     let pages = [

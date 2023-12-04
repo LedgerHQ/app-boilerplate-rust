@@ -36,7 +36,8 @@ use handlers::{
     get_version::handler_get_version,
     sign_tx::{handler_sign_tx, TxContext},
 };
-use ledger_device_sdk::io::{ApduHeader, Comm, Event, Reply, StatusWords};
+use ledger_device_sdk::{io::{ApduHeader, Comm, Event, Reply, StatusWords}, ui::{gadgets::clear_screen, layout::{StringPlace, Location, Layout}, screen_util::screen_update}};
+use ledger_secure_sdk_sys::buttons::ButtonEvent;
 
 ledger_device_sdk::set_panic!(ledger_device_sdk::exiting_panic);
 
@@ -118,19 +119,12 @@ impl TryFrom<ApduHeader> for Instruction {
 // Developer mode / pending review popup
 // must be cleared with user interaction
 fn display_pending_review(comm: &mut Comm) {
-    use ledger_device_sdk::buttons::ButtonEvent::{
-        BothButtonsRelease, LeftButtonRelease, RightButtonRelease,
-    };
-    use ledger_device_ui_sdk::layout::{Layout, Location, StringPlace};
-    use ledger_device_ui_sdk::screen_util::screen_update;
-    use ledger_device_ui_sdk::ui::clear_screen;
-
     clear_screen();
     "Pending Review".place(Location::Middle, Layout::Centered, false);
     screen_update();
 
     loop {
-        if let Event::Button(LeftButtonRelease | RightButtonRelease | BothButtonsRelease) =
+        if let Event::Button(ButtonEvent::LeftButtonRelease | ButtonEvent::RightButtonRelease | ButtonEvent::BothButtonsRelease) =
             comm.next_event::<ApduHeader>()
         {
             break;
@@ -166,6 +160,6 @@ fn handle_apdu(comm: &mut Comm, ins: Instruction, ctx: &mut TxContext) -> Result
         }
         Instruction::GetVersion => handler_get_version(comm),
         Instruction::GetPubkey { display } => handler_get_public_key(comm, display),
-        Instruction::SignTx { chunk, more } => handler_sign_tx(comm, chunk, more, ctx)
+        Instruction::SignTx { chunk, more } => handler_sign_tx(comm, chunk, more, ctx),
     }
 }

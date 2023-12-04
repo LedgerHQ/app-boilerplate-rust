@@ -16,9 +16,7 @@
  *****************************************************************************/
 
 use include_gif::include_gif;
-use ledger_device_sdk::io::{ApduHeader, Comm, Event};
-use ledger_device_ui_sdk::bitmaps::{Glyph, BACK, CERTIFICATE, DASHBOARD_X};
-use ledger_device_ui_sdk::ui::{EventOrPageIndex, MultiPageMenu, Page};
+use ledger_device_sdk::{io::{ApduHeader, Comm, Event}, ui::{gadgets::{Page, MultiPageMenu, EventOrPageIndex}, bitmaps::{BACK, Glyph, CERTIFICATE, DASHBOARD_X}}};
 
 use crate::Instruction;
 

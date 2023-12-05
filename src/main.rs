@@ -36,7 +36,14 @@ use handlers::{
     get_version::handler_get_version,
     sign_tx::{handler_sign_tx, TxContext},
 };
-use ledger_device_sdk::{io::{ApduHeader, Comm, Event, Reply, StatusWords}, ui::{gadgets::clear_screen, layout::{StringPlace, Location, Layout}, screen_util::screen_update}};
+use ledger_device_sdk::{
+    io::{ApduHeader, Comm, Event, Reply, StatusWords},
+    ui::{
+        gadgets::clear_screen,
+        layout::{Layout, Location, StringPlace},
+        screen_util::screen_update,
+    },
+};
 use ledger_secure_sdk_sys::buttons::ButtonEvent;
 
 ledger_device_sdk::set_panic!(ledger_device_sdk::exiting_panic);
@@ -88,30 +95,30 @@ enum Instruction {
 /// APDU parsing logic.
 ///
 /// Parses CLA, INS, P1 and P2 bytes to build an [`Ins`]. P1 and P2 are translated to strongly
-/// typed variables depending on the APDU instruction code. Invalid INS, P1 or P2 values result in
-/// errors with a status word, which are automatically sent to the host by the SDK.
+/// typed variables depending on the APDU instruction code. Invalid CLA, INS, P1 or P2 values
+/// result in errors with a status word, which are automatically sent to the host by the SDK.
 ///
 /// This design allows a clear separation of the APDU parsing logic and commands handling.
 impl TryFrom<ApduHeader> for Instruction {
     type Error = AppSW;
 
     fn try_from(value: ApduHeader) -> Result<Self, Self::Error> {
-        if value.cla != CLA {
-            return Err(AppSW::ClaNotSupported);
-        }
-        match (value.ins, value.p1, value.p2) {
-            (3, 0, 0) => Ok(Instruction::GetVersion),
-            (4, 0, 0) => Ok(Instruction::GetAppName),
-            (5, 0 | 1, 0) => Ok(Instruction::GetPubkey {
+        match (value.cla, value.ins, value.p1, value.p2) {
+            (CLA, 3, 0, 0) => Ok(Instruction::GetVersion),
+            (CLA, 4, 0, 0) => Ok(Instruction::GetAppName),
+            (CLA, 5, 0 | 1, 0) => Ok(Instruction::GetPubkey {
                 display: value.p1 != 0,
             }),
-            (6, P1_SIGN_TX_START, P2_SIGN_TX_MORE)
-            | (6, 1..=3, P2_SIGN_TX_LAST | P2_SIGN_TX_MORE) => Ok(Instruction::SignTx {
-                chunk: value.p1,
-                more: value.p2 == P2_SIGN_TX_MORE,
-            }),
-            (3..=6, _, _) => Err(AppSW::WrongP1P2),
-            (_, _, _) => Err(AppSW::InsNotSupported),
+            (CLA, 6, P1_SIGN_TX_START, P2_SIGN_TX_MORE)
+            | (CLA, 6, 1..=P1_SIGN_TX_MAX, P2_SIGN_TX_LAST | P2_SIGN_TX_MORE) => {
+                Ok(Instruction::SignTx {
+                    chunk: value.p1,
+                    more: value.p2 == P2_SIGN_TX_MORE,
+                })
+            }
+            (CLA, 3..=6, _, _) => Err(AppSW::WrongP1P2),
+            (CLA, _, _, _) => Err(AppSW::InsNotSupported),
+            (_, _, _, _) => Err(AppSW::ClaNotSupported),
         }
     }
 }
@@ -124,8 +131,11 @@ fn display_pending_review(comm: &mut Comm) {
     screen_update();
 
     loop {
-        if let Event::Button(ButtonEvent::LeftButtonRelease | ButtonEvent::RightButtonRelease | ButtonEvent::BothButtonsRelease) =
-            comm.next_event::<ApduHeader>()
+        if let Event::Button(
+            ButtonEvent::LeftButtonRelease
+            | ButtonEvent::RightButtonRelease
+            | ButtonEvent::BothButtonsRelease,
+        ) = comm.next_event::<ApduHeader>()
         {
             break;
         }

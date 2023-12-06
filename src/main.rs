@@ -85,7 +85,7 @@ impl From<AppSW> for Reply {
 }
 
 /// Possible input commands received through APDUs.
-enum Instruction {
+pub enum Instruction {
     GetVersion,
     GetAppName,
     GetPubkey { display: bool },

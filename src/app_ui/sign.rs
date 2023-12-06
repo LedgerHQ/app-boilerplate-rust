@@ -17,10 +17,8 @@
 use crate::handlers::sign_tx::Tx;
 use crate::utils::concatenate;
 use crate::AppSW;
-use ledger_device_sdk::ui::{
-    bitmaps::{CROSSMARK, EYE, VALIDATE_14},
-    gadgets::{Field, MultiFieldReview},
-};
+use ledger_device_sdk::ui::bitmaps::{CROSSMARK, EYE, VALIDATE_14};
+use ledger_device_sdk::ui::gadgets::{Field, MultiFieldReview};
 use numtoa::NumToA;
 
 const MAX_COIN_LENGTH: usize = 10;

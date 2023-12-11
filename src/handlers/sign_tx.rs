@@ -72,7 +72,7 @@ pub fn handler_sign_tx(
     ctx: &mut TxContext,
 ) -> Result<(), AppSW> {
     // Try to get data from comm
-    let data = comm.get_data().map_err(|_| AppSW::WrongDataLength)?;
+    let data = comm.get_data().map_err(|_| AppSW::WrongApduLength)?;
     // First chunk, try to parse the path
     if chunk == 0 {
         // Reset transaction context

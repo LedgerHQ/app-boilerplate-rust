@@ -56,7 +56,6 @@ const P1_SIGN_TX_MAX: u8 = 0x03;
 pub enum AppSW {
     Deny = 0x6985,
     WrongP1P2 = 0x6A86,
-    WrongDataLength = 0x6A87,
     InsNotSupported = 0x6D00,
     ClaNotSupported = 0x6E00,
     TxDisplayFail = 0xB001,

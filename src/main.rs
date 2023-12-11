@@ -36,7 +36,7 @@ use handlers::{
     get_version::handler_get_version,
     sign_tx::{handler_sign_tx, TxContext},
 };
-use ledger_device_sdk::io::{ApduHeader, Comm, Event, Reply};
+use ledger_device_sdk::io::{ApduHeader, Comm, Event, Reply, StatusWords};
 
 ledger_device_sdk::set_panic!(ledger_device_sdk::exiting_panic);
 
@@ -56,7 +56,6 @@ const P1_SIGN_TX_MAX: u8 = 0x03;
 pub enum AppSW {
     Deny = 0x6985,
     WrongP1P2 = 0x6A86,
-    WrongDataLength = 0x6A87,
     InsNotSupported = 0x6D00,
     ClaNotSupported = 0x6E00,
     TxDisplayFail = 0xB001,
@@ -67,6 +66,7 @@ pub enum AppSW {
     TxSignFail = 0xB008,
     KeyDeriveFail = 0xB009,
     VersionParsingFail = 0xB00A,
+    WrongApduLength = StatusWords::BadLen as u16,
 }
 
 impl From<AppSW> for Reply {
@@ -75,24 +75,41 @@ impl From<AppSW> for Reply {
     }
 }
 
-#[repr(u8)]
-// Instruction set for the app.
-enum Ins {
+/// Possible input commands received through APDUs.
+pub enum Instruction {
     GetVersion,
     GetAppName,
-    GetPubkey,
-    SignTx,
-    Unknown,
+    GetPubkey { display: bool },
+    SignTx { chunk: u8, more: bool },
 }
 
-impl From<ApduHeader> for Ins {
-    fn from(header: ApduHeader) -> Ins {
-        match header.ins {
-            3 => Ins::GetVersion,
-            4 => Ins::GetAppName,
-            5 => Ins::GetPubkey,
-            6 => Ins::SignTx,
-            _ => Ins::Unknown,
+/// APDU parsing logic.
+///
+/// Parses CLA, INS, P1 and P2 bytes to build an [`Ins`]. P1 and P2 are translated to strongly
+/// typed variables depending on the APDU instruction code. Invalid CLA, INS, P1 or P2 values
+/// result in errors with a status word, which are automatically sent to the host by the SDK.
+///
+/// This design allows a clear separation of the APDU parsing logic and commands handling.
+impl TryFrom<ApduHeader> for Instruction {
+    type Error = AppSW;
+
+    fn try_from(value: ApduHeader) -> Result<Self, Self::Error> {
+        match (value.cla, value.ins, value.p1, value.p2) {
+            (CLA, 3, 0, 0) => Ok(Instruction::GetVersion),
+            (CLA, 4, 0, 0) => Ok(Instruction::GetAppName),
+            (CLA, 5, 0 | 1, 0) => Ok(Instruction::GetPubkey {
+                display: value.p1 != 0,
+            }),
+            (CLA, 6, P1_SIGN_TX_START, P2_SIGN_TX_MORE)
+            | (CLA, 6, 1..=P1_SIGN_TX_MAX, P2_SIGN_TX_LAST | P2_SIGN_TX_MORE) => {
+                Ok(Instruction::SignTx {
+                    chunk: value.p1,
+                    more: value.p2 == P2_SIGN_TX_MORE,
+                })
+            }
+            (CLA, 3..=6, _, _) => Err(AppSW::WrongP1P2),
+            (CLA, _, _, _) => Err(AppSW::InsNotSupported),
+            (_, _, _, _) => Err(AppSW::ClaNotSupported),
         }
     }
 }
@@ -132,73 +149,22 @@ extern "C" fn sample_main() {
         // Wait for either a specific button push to exit the app
         // or an APDU command
         if let Event::Command(ins) = ui_menu_main(&mut comm) {
-            match handle_apdu(&mut comm, ins.into(), &mut tx_ctx) {
+            match handle_apdu(&mut comm, ins, &mut tx_ctx) {
                 Ok(()) => comm.reply_ok(),
-                Err(sw) => comm.reply(Reply::from(sw)),
+                Err(sw) => comm.reply(sw),
             }
         }
     }
 }
 
-fn handle_apdu(comm: &mut Comm, ins: Ins, ctx: &mut TxContext) -> Result<(), AppSW> {
-    // Reject any APDU that does not have a minimum length of 4 bytes
-    // The APDU must have at least 4 bytes: CLA, INS, P1, P2
-    if comm.rx < 4 {
-        return Err(AppSW::WrongDataLength);
-    }
-
-    let data = comm.get_data().map_err(|_| AppSW::WrongDataLength)?;
-
-    let apdu_metadata = comm.get_apdu_metadata();
-
-    if apdu_metadata.cla != CLA {
-        return Err(AppSW::ClaNotSupported);
-    }
-
+fn handle_apdu(comm: &mut Comm, ins: Instruction, ctx: &mut TxContext) -> Result<(), AppSW> {
     match ins {
-        Ins::GetAppName => {
-            if apdu_metadata.p1 != 0 || apdu_metadata.p2 != 0 {
-                return Err(AppSW::WrongP1P2);
-            }
+        Instruction::GetAppName => {
             comm.append(env!("CARGO_PKG_NAME").as_bytes());
+            Ok(())
         }
-        Ins::GetVersion => {
-            if apdu_metadata.p1 != 0 || apdu_metadata.p2 != 0 {
-                return Err(AppSW::WrongP1P2);
-            }
-            return handler_get_version(comm);
-        }
-        Ins::GetPubkey => {
-            if apdu_metadata.p1 > 1 || apdu_metadata.p2 != 0 {
-                return Err(AppSW::WrongP1P2);
-            }
-            if data.is_empty() {
-                return Err(AppSW::WrongDataLength);
-            }
-
-            return handler_get_public_key(comm, apdu_metadata.p1 == 1);
-        }
-        Ins::SignTx => {
-            if (apdu_metadata.p1 == P1_SIGN_TX_START && apdu_metadata.p2 != P2_SIGN_TX_MORE)
-                || apdu_metadata.p1 > P1_SIGN_TX_MAX
-                || (apdu_metadata.p2 != P2_SIGN_TX_LAST && apdu_metadata.p2 != P2_SIGN_TX_MORE)
-            {
-                return Err(AppSW::WrongP1P2);
-            }
-            if data.is_empty() {
-                return Err(AppSW::WrongDataLength);
-            }
-
-            return handler_sign_tx(
-                comm,
-                apdu_metadata.p1,
-                apdu_metadata.p2 == P2_SIGN_TX_MORE,
-                ctx,
-            );
-        }
-        Ins::Unknown => {
-            return Err(AppSW::InsNotSupported);
-        }
+        Instruction::GetVersion => handler_get_version(comm),
+        Instruction::GetPubkey { display } => handler_get_public_key(comm, display),
+        Instruction::SignTx { chunk, more } => handler_sign_tx(comm, chunk, more, ctx),
     }
-    Ok(())
 }

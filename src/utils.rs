@@ -7,7 +7,7 @@ pub const MAX_ALLOWED_PATH_LEN: usize = 10;
 pub fn read_bip32_path(data: &[u8], path: &mut [u32]) -> Result<usize, AppSW> {
     // Check input length and path buffer capacity
     if data.is_empty() || path.len() < data.len() / 4 {
-        return Err(AppSW::WrongDataLength);
+        return Err(AppSW::WrongApduLength);
     }
 
     let path_len = data[0] as usize; // First byte is the length of the path
@@ -18,7 +18,7 @@ pub fn read_bip32_path(data: &[u8], path: &mut [u32]) -> Result<usize, AppSW> {
         || path_data.len() > MAX_ALLOWED_PATH_LEN * 4
         || path_data.len() % 4 != 0
     {
-        return Err(AppSW::WrongDataLength);
+        return Err(AppSW::WrongApduLength);
     }
 
     let mut idx = 0;

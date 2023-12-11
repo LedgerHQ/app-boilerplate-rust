@@ -36,15 +36,7 @@ use handlers::{
     get_version::handler_get_version,
     sign_tx::{handler_sign_tx, TxContext},
 };
-use ledger_device_sdk::{
-    io::{ApduHeader, Comm, Event, Reply, StatusWords},
-    ui::{
-        gadgets::clear_screen,
-        layout::{Layout, Location, StringPlace},
-        screen_util::screen_update,
-    },
-};
-use ledger_secure_sdk_sys::buttons::ButtonEvent;
+use ledger_device_sdk::io::{ApduHeader, Comm, Event, Reply, StatusWords};
 
 ledger_device_sdk::set_panic!(ledger_device_sdk::exiting_panic);
 
@@ -75,7 +67,7 @@ pub enum AppSW {
     TxSignFail = 0xB008,
     KeyDeriveFail = 0xB009,
     VersionParsingFail = 0xB00A,
-    BadLen = StatusWords::BadLen as u16,
+    WrongApduLength = StatusWords::BadLen as u16,
 }
 
 impl From<AppSW> for Reply {
@@ -126,16 +118,20 @@ impl TryFrom<ApduHeader> for Instruction {
 // Developer mode / pending review popup
 // must be cleared with user interaction
 fn display_pending_review(comm: &mut Comm) {
+    use ledger_device_sdk::buttons::ButtonEvent::{
+        BothButtonsRelease, LeftButtonRelease, RightButtonRelease,
+    };
+    use ledger_device_sdk::ui::gadgets::clear_screen;
+    use ledger_device_sdk::ui::layout::{Layout, Location, StringPlace};
+    use ledger_device_sdk::ui::screen_util::screen_update;
+
     clear_screen();
     "Pending Review".place(Location::Middle, Layout::Centered, false);
     screen_update();
 
     loop {
-        if let Event::Button(
-            ButtonEvent::LeftButtonRelease
-            | ButtonEvent::RightButtonRelease
-            | ButtonEvent::BothButtonsRelease,
-        ) = comm.next_event::<ApduHeader>()
+        if let Event::Button(LeftButtonRelease | RightButtonRelease | BothButtonsRelease) =
+            comm.next_event::<ApduHeader>()
         {
             break;
         }
@@ -156,7 +152,7 @@ extern "C" fn sample_main() {
         if let Event::Command(ins) = ui_menu_main(&mut comm) {
             match handle_apdu(&mut comm, ins, &mut tx_ctx) {
                 Ok(()) => comm.reply_ok(),
-                Err(sw) => comm.reply(Reply::from(sw)),
+                Err(sw) => comm.reply(sw),
             }
         }
     }

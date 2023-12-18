@@ -37,6 +37,7 @@ use handlers::{
     sign_tx::{handler_sign_tx, TxContext},
 };
 use ledger_device_sdk::io::{ApduHeader, Comm, Event, Reply, StatusWords};
+use ledger_device_sdk::ui::gadgets::display_pending_review;
 
 ledger_device_sdk::set_panic!(ledger_device_sdk::exiting_panic);
 
@@ -114,33 +115,12 @@ impl TryFrom<ApduHeader> for Instruction {
     }
 }
 
-// Developer mode / pending review popup
-// must be cleared with user interaction
-fn display_pending_review(comm: &mut Comm) {
-    use ledger_device_sdk::buttons::ButtonEvent::{
-        BothButtonsRelease, LeftButtonRelease, RightButtonRelease,
-    };
-    use ledger_device_sdk::ui::gadgets::clear_screen;
-    use ledger_device_sdk::ui::layout::{Layout, Location, StringPlace};
-    use ledger_device_sdk::ui::screen_util::screen_update;
-
-    clear_screen();
-    "Pending Review".place(Location::Middle, Layout::Centered, false);
-    screen_update();
-
-    loop {
-        if let Event::Button(LeftButtonRelease | RightButtonRelease | BothButtonsRelease) =
-            comm.next_event::<ApduHeader>()
-        {
-            break;
-        }
-    }
-}
-
 #[no_mangle]
 extern "C" fn sample_main() {
     let mut comm = Comm::new();
 
+    // Developer mode / pending review popup
+    // must be cleared with user interaction
     display_pending_review(&mut comm);
 
     let mut tx_ctx = TxContext::new();

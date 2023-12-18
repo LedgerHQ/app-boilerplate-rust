@@ -17,9 +17,9 @@ This is a boilerplate application written in Rust which can be forked to start a
 
 ### With VS Code
 
-You can quickly setup a development environment on any platform (macOS, Linux or Windows) to build and test your application with the [Ledger's VS Code developer tools extension](https://marketplace.visualstudio.com/items?itemName=LedgerHQ.ledger-dev-tools).
+You can quickly setup a development environment on any platform (macOS, Linux or Windows) to build and test your application with [Ledger's VS Code extension](https://marketplace.visualstudio.com/items?itemName=LedgerHQ.ledger-dev-tools).
 
-By using Ledger's own developer [Docker image](https://github.com/LedgerHQ/ledger-app-builder/pkgs/container/ledger-app-builder%2Fledger-app-dev-tools), the extension allows you to **build** your apps with the latest SDK, **test** them on **Speculos** and **load** them on any supported device.
+By using Ledger's own developer tools [Docker image](https://github.com/LedgerHQ/ledger-app-builder/pkgs/container/ledger-app-builder%2Fledger-app-dev-tools), the extension allows you to **build** your apps with the latest SDK, **test** them on **Speculos** and **load** them on any supported device.
 
 * Install and run [Docker](https://www.docker.com/products/docker-desktop/).
 * Make sure you have an X11 server running :
@@ -132,4 +132,4 @@ The following workflows are executed in [GitHub Actions](https://github.com/feat
 * End-to-end tests with the [Speculos](https://github.com/LedgerHQ/speculos) emulator and [ragger](https://github.com/LedgerHQ/ragger) (see [tests/](tests/))
 * Various lint checks :
   * Source code lint checks with `cargo fmt`
-  * Python functional test code link check with `pylint` and `mypy`
+  * Python functional test code lint checks with `pylint` and `mypy`

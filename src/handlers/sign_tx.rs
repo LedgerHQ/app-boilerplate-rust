@@ -15,7 +15,7 @@
  *  limitations under the License.
  *****************************************************************************/
 use crate::app_ui::sign::ui_display_tx;
-use crate::utils::{read_bip32_path, MAX_ALLOWED_PATH_LEN};
+use crate::utils::Bip32Path;
 use crate::AppSW;
 use ledger_device_sdk::ecc::{Secp256k1, SeedDerive};
 use ledger_device_sdk::io::Comm;
@@ -42,8 +42,7 @@ pub struct Tx<'a> {
 pub struct TxContext {
     raw_tx: [u8; MAX_TRANSACTION_LEN], // raw transaction serialized
     raw_tx_len: usize,                 // length of raw transaction
-    path: [u32; MAX_ALLOWED_PATH_LEN], // BIP32 path for key derivation
-    path_len: usize,                   // length of BIP32 path
+    path: Bip32Path,
 }
 
 // Implement constructor for TxInfo with default values
@@ -52,16 +51,14 @@ impl TxContext {
         TxContext {
             raw_tx: [0u8; MAX_TRANSACTION_LEN],
             raw_tx_len: 0,
-            path: [0u32; MAX_ALLOWED_PATH_LEN],
-            path_len: 0,
+            path: Default::default(),
         }
     }
     // Implement reset for TxInfo
     fn reset(&mut self) {
         self.raw_tx = [0u8; MAX_TRANSACTION_LEN];
         self.raw_tx_len = 0;
-        self.path = [0u32; MAX_ALLOWED_PATH_LEN];
-        self.path_len = 0;
+        self.path = Default::default();
     }
 }
 
@@ -78,7 +75,7 @@ pub fn handler_sign_tx(
         // Reset transaction context
         ctx.reset();
         // This will propagate the error if the path is invalid
-        ctx.path_len = read_bip32_path(data, &mut ctx.path)?;
+        ctx.path = data.try_into()?;
         Ok(())
     // Next chunks, append data to raw_tx and return or parse
     // the transaction if it is the last chunk.
@@ -132,7 +129,7 @@ fn compute_signature_and_append(comm: &mut Comm, ctx: &mut TxContext) -> Result<
         }
     }
 
-    let (sig, siglen, parity) = Secp256k1::derive_from_path(&ctx.path[..ctx.path_len])
+    let (sig, siglen, parity) = Secp256k1::derive_from_path(ctx.path.as_ref())
         .deterministic_sign(&message_hash)
         .map_err(|_| AppSW::TxSignFail)?;
     comm.append(&[siglen as u8]);

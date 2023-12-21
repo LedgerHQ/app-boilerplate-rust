@@ -38,11 +38,11 @@ def test_wrong_data_length(backend):
     # APDUs must be at least 4 bytes: CLA, INS, P1, P2.
     with pytest.raises(ExceptionRAPDU) as e:
         backend.exchange_raw(bytes.fromhex("E00300"))
-    assert e.value.status == Errors.SW_WRONG_APDU_LENGTH
+    assert e.value.status == Errors.SW_WRONG_DATA_LENGTH
     # APDUs advertises a too long length
     with pytest.raises(ExceptionRAPDU) as e:
         backend.exchange_raw(bytes.fromhex("E003000005"))
-    assert e.value.status == Errors.SW_WRONG_APDU_LENGTH
+    assert e.value.status == Errors.SW_WRONG_DATA_LENGTH
 
 
 # Ensure there is no state confusion when trying wrong APDU sequences

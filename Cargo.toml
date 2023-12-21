@@ -1,15 +1,20 @@
 [package]
-name = "app-boilerplate-rust"
-version = "1.1.0"
+name = "snt-ledger-app"
+version = "0.0.1"
 authors = ["yhql", "agrojean-ledger"]
 edition = "2021"
 
 [dependencies]
-ledger_device_sdk = "1.3.0"
-ledger_secure_sdk_sys = "1.0.2"
+#ledger_device_sdk = "1.3.0"
+#ledger_device_sdk = { version = "1.3.0", git = "https://github.com/bochaco/ledger-device-rust-sdk.git", branch = "feat-apis-for-eip2333-key-derivation" }
+ledger_device_sdk = { version = "1.3.0", git = "https://github.com/bochaco/ledger-device-rust-sdk.git", branch = "test" }
+#ledger_secure_sdk_sys = "1.0.2"
+#ledger_secure_sdk_sys = { version = "1.0.2", git = "https://github.com/bochaco/ledger-device-rust-sdk.git", branch = "feat-apis-for-eip2333-key-derivation" }
+ledger_secure_sdk_sys = { version = "1.0.2", git = "https://github.com/bochaco/ledger-device-rust-sdk.git", branch = "test" }
 include_gif = "1.0.1"
 serde = {version="1.0.192", default_features = false, features = ["derive"]}
-serde-json-core = { git = "https://github.com/rust-embedded-community/serde-json-core"}
+#rmp-serde = { version = "1.1.2", git = "https://github.com/bochaco/msgpack-rust.git", branch = "fix-no-std-build", default-features = false }
+serde-big-array = "0.5.1"
 hex = { version = "0.4.3", default-features = false, features = ["serde"] }
 numtoa = "0.2.4"
 
@@ -21,16 +26,16 @@ lto = true
 pending_review_screen = ["ledger_device_sdk/pending_review_screen"]
 
 [package.metadata.ledger]
-curve = ["secp256k1"]
+curve = ["bls12381g1"]
 flags = "0"
-path = ["44'/1'"]
-name = "Rust Boilerplate"
+path = ["12381/3600"]
+name = "SNT"
 
 [package.metadata.ledger.nanos]
-icon = "crab.gif"
+icon = "snt.gif"
 
 [package.metadata.ledger.nanox]
-icon = "crab_14x14.gif"
+icon = "snt_14x14.gif"
 
 [package.metadata.ledger.nanosplus]
-icon = "crab_14x14.gif"
+icon = "snt_14x14.gif"

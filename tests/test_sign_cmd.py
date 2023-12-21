@@ -26,7 +26,7 @@ def test_sign_tx_short_tx(firmware, backend, navigator, test_name):
     # Create the transaction that will be sent to the device for signing
     transaction = Transaction(
         nonce=1,
-        coin="CRAB",
+        coin="SNT",
         value=777,
         to="de0b295669a9fd93d5f28d9ec85e40f4cb697bae",
         memo="For u EthDev"

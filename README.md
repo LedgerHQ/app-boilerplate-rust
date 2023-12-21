@@ -1,6 +1,6 @@
-# Ledger Rust Boilerplate Application
+# Ledger SNT Application
 
-![Rule enforcer](https://github.com/LedgerHQ/app-boilerplate-rust/actions/workflows/guidelines_enforcer.yml/badge.svg) ![Build and tests](https://github.com/LedgerHQ/app-boilerplate-rust/actions/workflows/build_and_functional_tests.yml/badge.svg)
+![Rule enforcer](https://github.com/LedgerHQ/snt-ledger-app/actions/workflows/guidelines_enforcer.yml/badge.svg) ![Build and tests](https://github.com/LedgerHQ/snt-ledger-app/actions/workflows/build_and_functional_tests.yml/badge.svg)
 
 This is a boilerplate application written in Rust which can be forked to start a new project for the Ledger Nano S/X/SP devices.
 
@@ -27,8 +27,8 @@ By using Ledger's own developer tools [Docker image](https://github.com/LedgerHQ
   * On macOS, install and launch [XQuartz](https://www.xquartz.org/) (make sure to go to XQuartz > Preferences > Security and check "Allow client connections").
   * On Windows, install and launch [VcXsrv](https://sourceforge.net/projects/vcxsrv/) (make sure to configure it to disable access control).
 * Install [VScode](https://code.visualstudio.com/download) and add [Ledger's extension](https://marketplace.visualstudio.com/items?itemName=LedgerHQ.ledger-dev-tools).
-* Open a terminal and clone `app-boilerplate-rust` with `git clone git@github.com:LedgerHQ/app-boilerplate-rust.git`.
-* Open the `app-boilerplate-rust` folder with VSCode.
+* Open a terminal and clone `snt-ledger-app` with `git clone git@github.com:LedgerHQ/snt-ledger-app.git`.
+* Open the `snt-ledger-app` folder with VSCode.
 * Use Ledger extension's sidebar menu or open the tasks menu with `ctrl + shift + b` (`command + shift + b` on a Mac) to conveniently execute actions :
   * **Build** the app for the device model of your choice with `Build`.
   * **Test** your binary on the [Speculos emulator](https://github.com/LedgerHQ/speculos) with `Run with emulator`.
@@ -111,7 +111,7 @@ pip install -r tests/requirements.txt
 * Run the functional tests (here for Nano S Plus but available for any supported device once you have built the binaries) :
 
 ```shell
-mkdir -p build/nanos2/bin && cp target/nanosplus/release/app-boilerplate-rust build/nanos2/bin/app.elf 
+mkdir -p build/nanos2/bin && cp target/nanosplus/release/snt-ledger-app build/nanos2/bin/app.elf 
 pytest tests/ --tb=short -v --device nanosp
 ```
 
@@ -120,7 +120,7 @@ pytest tests/ --tb=short -v --device nanosp
 You can also run the app directly on the [Speculos emulator](https://github.com/LedgerHQ/speculos)
 
 ```bash
-speculos --model nanox target/nanox/release/app-boilerplate-rust
+speculos --model nanox target/nanox/release/snt-ledger-app
 ```
 
 ## Continuous Integration

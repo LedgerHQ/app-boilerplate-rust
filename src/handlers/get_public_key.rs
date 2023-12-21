@@ -18,52 +18,38 @@
 use crate::app_ui::address::ui_display_pk;
 use crate::utils::{read_bip32_path, MAX_ALLOWED_PATH_LEN};
 use crate::AppSW;
-use ledger_device_sdk::ecc::{Secp256k1, SeedDerive};
+use ledger_device_sdk::ecc::BLSPrivateKey;
 use ledger_device_sdk::io::Comm;
 use ledger_device_sdk::testing;
-use ledger_secure_sdk_sys::{
-    cx_hash_no_throw, cx_hash_t, cx_keccak_init_no_throw, cx_sha3_t, CX_LAST, CX_OK,
-};
 
 pub fn handler_get_public_key(comm: &mut Comm, display: bool) -> Result<(), AppSW> {
+    testing::debug_print("handling get_public_key command\n");
+
     let mut path = [0u32; MAX_ALLOWED_PATH_LEN];
-    let data = comm.get_data().map_err(|_| AppSW::WrongApduLength)?;
+    let data = match comm.get_data() {
+        Ok(data) => data,
+        Err(_) => return Err(AppSW::WrongDataLength),
+    };
+
     let path_len = read_bip32_path(data, &mut path)?;
 
-    let pk = Secp256k1::derive_from_path(&path[..path_len])
-        .public_key()
-        .map_err(|_| AppSW::KeyDeriveFail)?;
+    let bls_sk = BLSPrivateKey::derive_from_path(&path[..path_len]);
+
+    let pk = bls_sk.public_key().map_err(|_| AppSW::PubKeyDerivFail)?;
+    testing::debug_print("BLS PK derived!");
+
+    let mut addr_value_buf = [0u8; crate::utils::BUFFER_LEN_FOR_PK_BYTES_TO_DISPLAY];
+    let addr_hex = crate::utils::addr_hex_for_ui(&pk.pubkey, &mut addr_value_buf)?;
+    testing::debug_print(addr_hex);
 
     // Display address on device if requested
     if display {
-        let mut keccak256: cx_sha3_t = Default::default();
-        let mut address: [u8; 32] = [0u8; 32];
-
-        unsafe {
-            if cx_keccak_init_no_throw(&mut keccak256, 256) != CX_OK {
-                return Err(AppSW::AddrDisplayFail);
-            }
-
-            let mut pk_mut = pk.pubkey;
-            let pk_ptr = pk_mut.as_mut_ptr().offset(1);
-            if cx_hash_no_throw(
-                &mut keccak256.header as *mut cx_hash_t,
-                CX_LAST,
-                pk_ptr,
-                64_usize,
-                address.as_mut_ptr(),
-                address.len(),
-            ) != CX_OK
-            {
-                return Err(AppSW::AddrDisplayFail);
-            }
-        }
-
         testing::debug_print("showing public key\n");
-        if !ui_display_pk(&address)? {
+        if !ui_display_pk(&pk.pubkey)? {
             testing::debug_print("denied\n");
             return Err(AppSW::Deny);
         }
+        testing::debug_print("shown and approved\n");
     }
 
     comm.append(&[pk.pubkey.len() as u8]);
@@ -73,6 +59,8 @@ pub fn handler_get_public_key(comm: &mut Comm, display: bool) -> Result<(), AppS
     const CHAINCODE_LEN: usize = 32;
     comm.append(&[CHAINCODE_LEN as u8]); // Dummy chaincode length
     comm.append(&[0u8; CHAINCODE_LEN]); // Dummy chaincode
+
+    testing::debug_print("DONE!!!\n");
 
     Ok(())
 }

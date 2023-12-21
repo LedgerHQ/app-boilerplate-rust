@@ -18,6 +18,7 @@
 #![no_std]
 #![no_main]
 
+mod cashnotes;
 mod utils;
 mod app_ui {
     pub mod address;
@@ -36,8 +37,8 @@ use handlers::{
     get_version::handler_get_version,
     sign_tx::{handler_sign_tx, TxContext},
 };
-use ledger_device_sdk::io::{ApduHeader, Comm, Event, Reply, StatusWords};
-use ledger_device_sdk::ui::gadgets::display_pending_review;
+use ledger_device_sdk::io::{ApduHeader, Comm, Event, Reply};
+use ledger_device_sdk::testing;
 
 ledger_device_sdk::set_panic!(ledger_device_sdk::exiting_panic);
 
@@ -50,13 +51,14 @@ const P2_SIGN_TX_MORE: u8 = 0x80;
 // P1 for first APDU number.
 const P1_SIGN_TX_START: u8 = 0x00;
 // P1 for maximum APDU number.
-const P1_SIGN_TX_MAX: u8 = 0x03;
+const P1_SIGN_TX_MAX: u8 = 0x10;
 
 // Application status words.
 #[repr(u16)]
 pub enum AppSW {
     Deny = 0x6985,
     WrongP1P2 = 0x6A86,
+    WrongDataLength = 0x6A87,
     InsNotSupported = 0x6D00,
     ClaNotSupported = 0x6E00,
     TxDisplayFail = 0xB001,
@@ -67,7 +69,7 @@ pub enum AppSW {
     TxSignFail = 0xB008,
     KeyDeriveFail = 0xB009,
     VersionParsingFail = 0xB00A,
-    WrongApduLength = StatusWords::BadLen as u16,
+    PubKeyDerivFail = 0xB00B,
 }
 
 impl From<AppSW> for Reply {
@@ -76,41 +78,24 @@ impl From<AppSW> for Reply {
     }
 }
 
-/// Possible input commands received through APDUs.
-pub enum Instruction {
+#[repr(u8)]
+// Instruction set for the app.
+enum Ins {
     GetVersion,
     GetAppName,
-    GetPubkey { display: bool },
-    SignTx { chunk: u8, more: bool },
+    GetPubkey,
+    SignTx,
+    Unknown,
 }
 
-/// APDU parsing logic.
-///
-/// Parses CLA, INS, P1 and P2 bytes to build an [`Ins`]. P1 and P2 are translated to strongly
-/// typed variables depending on the APDU instruction code. Invalid CLA, INS, P1 or P2 values
-/// result in errors with a status word, which are automatically sent to the host by the SDK.
-///
-/// This design allows a clear separation of the APDU parsing logic and commands handling.
-impl TryFrom<ApduHeader> for Instruction {
-    type Error = AppSW;
-
-    fn try_from(value: ApduHeader) -> Result<Self, Self::Error> {
-        match (value.cla, value.ins, value.p1, value.p2) {
-            (CLA, 3, 0, 0) => Ok(Instruction::GetVersion),
-            (CLA, 4, 0, 0) => Ok(Instruction::GetAppName),
-            (CLA, 5, 0 | 1, 0) => Ok(Instruction::GetPubkey {
-                display: value.p1 != 0,
-            }),
-            (CLA, 6, P1_SIGN_TX_START, P2_SIGN_TX_MORE)
-            | (CLA, 6, 1..=P1_SIGN_TX_MAX, P2_SIGN_TX_LAST | P2_SIGN_TX_MORE) => {
-                Ok(Instruction::SignTx {
-                    chunk: value.p1,
-                    more: value.p2 == P2_SIGN_TX_MORE,
-                })
-            }
-            (CLA, 3..=6, _, _) => Err(AppSW::WrongP1P2),
-            (CLA, _, _, _) => Err(AppSW::InsNotSupported),
-            (_, _, _, _) => Err(AppSW::ClaNotSupported),
+impl From<ApduHeader> for Ins {
+    fn from(header: ApduHeader) -> Ins {
+        match header.ins {
+            3 => Ins::GetVersion,
+            4 => Ins::GetAppName,
+            5 => Ins::GetPubkey,
+            6 => Ins::SignTx,
+            _ => Ins::Unknown,
         }
     }
 }
@@ -119,32 +104,97 @@ impl TryFrom<ApduHeader> for Instruction {
 extern "C" fn sample_main() {
     let mut comm = Comm::new();
 
-    // Developer mode / pending review popup
-    // must be cleared with user interaction
-    display_pending_review(&mut comm);
-
     let mut tx_ctx = TxContext::new();
 
     loop {
+        testing::debug_print("AWAITING NEW CMDs...!\n");
         // Wait for either a specific button push to exit the app
         // or an APDU command
         if let Event::Command(ins) = ui_menu_main(&mut comm) {
-            match handle_apdu(&mut comm, ins, &mut tx_ctx) {
-                Ok(()) => comm.reply_ok(),
-                Err(sw) => comm.reply(sw),
+            testing::debug_print("NEW CMD ARRIVED!\n");
+            match handle_apdu(&mut comm, ins.into(), &mut tx_ctx) {
+                Ok(()) => {
+                    testing::debug_print("REPLYING OK!\n");
+                    comm.reply_ok();
+                    testing::debug_print("REPLIED OK!\n");
+                }
+                Err(sw) => {
+                    testing::debug_print("REPLYING ERR!\n");
+                    comm.reply(Reply::from(sw));
+                    testing::debug_print("REPLIED ERR!\n");
+                }
             }
         }
     }
 }
 
-fn handle_apdu(comm: &mut Comm, ins: Instruction, ctx: &mut TxContext) -> Result<(), AppSW> {
-    match ins {
-        Instruction::GetAppName => {
-            comm.append(env!("CARGO_PKG_NAME").as_bytes());
-            Ok(())
-        }
-        Instruction::GetVersion => handler_get_version(comm),
-        Instruction::GetPubkey { display } => handler_get_public_key(comm, display),
-        Instruction::SignTx { chunk, more } => handler_sign_tx(comm, chunk, more, ctx),
+fn handle_apdu(comm: &mut Comm, ins: Ins, ctx: &mut TxContext) -> Result<(), AppSW> {
+    // Reject any APDU that does not have a minimum length of 4 bytes
+    // The APDU must have at least 4 bytes: CLA, INS, P1, P2
+    testing::debug_print("handling new APDU\n");
+
+    if comm.rx < 4 {
+        return Err(AppSW::WrongDataLength);
     }
+
+    let data = comm.get_data().map_err(|_| AppSW::WrongDataLength)?;
+    testing::debug_print("Data read!\n");
+
+    let apdu_metadata = comm.get_apdu_metadata();
+
+    testing::debug_print("Metadata read!\n");
+
+    if apdu_metadata.cla != CLA {
+        return Err(AppSW::ClaNotSupported);
+    }
+    testing::debug_print("CLA OK!!\n");
+
+    match ins {
+        Ins::GetAppName => {
+            if apdu_metadata.p1 != 0 || apdu_metadata.p2 != 0 {
+                return Err(AppSW::WrongP1P2);
+            }
+            comm.append(env!("CARGO_PKG_NAME").as_bytes());
+        }
+        Ins::GetVersion => {
+            if apdu_metadata.p1 != 0 || apdu_metadata.p2 != 0 {
+                return Err(AppSW::WrongP1P2);
+            }
+            return handler_get_version(comm);
+        }
+        Ins::GetPubkey => {
+            testing::debug_print("APDU is Ins::GetPubkey\n");
+
+            if apdu_metadata.p1 > 1 || apdu_metadata.p2 != 0 {
+                return Err(AppSW::WrongP1P2);
+            }
+            if data.is_empty() {
+                return Err(AppSW::WrongDataLength);
+            }
+
+            return handler_get_public_key(comm, apdu_metadata.p1 == 1);
+        }
+        Ins::SignTx => {
+            if (apdu_metadata.p1 == P1_SIGN_TX_START && apdu_metadata.p2 != P2_SIGN_TX_MORE)
+                || apdu_metadata.p1 > P1_SIGN_TX_MAX
+                || (apdu_metadata.p2 != P2_SIGN_TX_LAST && apdu_metadata.p2 != P2_SIGN_TX_MORE)
+            {
+                return Err(AppSW::WrongP1P2);
+            }
+            if data.is_empty() {
+                return Err(AppSW::WrongDataLength);
+            }
+
+            return handler_sign_tx(
+                comm,
+                apdu_metadata.p1,
+                apdu_metadata.p2 == P2_SIGN_TX_MORE,
+                ctx,
+            );
+        }
+        Ins::Unknown => {
+            return Err(AppSW::InsNotSupported);
+        }
+    }
+    Ok(())
 }

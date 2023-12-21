@@ -16,15 +16,13 @@
  *****************************************************************************/
 
 use include_gif::include_gif;
-use ledger_device_sdk::io::{Comm, Event};
+use ledger_device_sdk::io::{ApduHeader, Comm, Event};
 use ledger_device_sdk::ui::bitmaps::{Glyph, BACK, CERTIFICATE, DASHBOARD_X};
 use ledger_device_sdk::ui::gadgets::{EventOrPageIndex, MultiPageMenu, Page};
 
-use crate::Instruction;
-
-fn ui_about_menu(comm: &mut Comm) -> Event<Instruction> {
+fn ui_about_menu(comm: &mut Comm) -> Event<ApduHeader> {
     let pages = [
-        &Page::from((["Rust Boilerplate", "(c) 2023 Ledger"], true)),
+        &Page::from((["SNT Wallet", ""], true)),
         &Page::from(("Back", &BACK)),
     ];
     loop {
@@ -36,12 +34,12 @@ fn ui_about_menu(comm: &mut Comm) -> Event<Instruction> {
     }
 }
 
-pub fn ui_menu_main(comm: &mut Comm) -> Event<Instruction> {
-    const APP_ICON: Glyph = Glyph::from_include(include_gif!("crab.gif"));
+pub fn ui_menu_main(comm: &mut Comm) -> Event<ApduHeader> {
+    const APP_ICON: Glyph = Glyph::from_include(include_gif!("snt.gif"));
     let pages = [
         // The from trait allows to create different styles of pages
         // without having to use the new() function.
-        &Page::from((["Boilerplate", "is ready"], &APP_ICON)),
+        &Page::from((["SNT Wallet", "is ready"], &APP_ICON)),
         &Page::from((["Version", env!("CARGO_PKG_VERSION")], true)),
         &Page::from(("About", &CERTIFICATE)),
         &Page::from(("Quit", &DASHBOARD_X)),

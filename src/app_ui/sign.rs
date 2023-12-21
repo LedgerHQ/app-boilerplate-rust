@@ -14,8 +14,8 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  *****************************************************************************/
-use crate::handlers::sign_tx::Tx;
-use crate::utils::concatenate;
+use crate::cashnotes::Spend;
+use crate::utils::{addr_hex_for_ui, concatenate, BUFFER_LEN_FOR_PK_BYTES_TO_DISPLAY};
 use crate::AppSW;
 use ledger_device_sdk::ui::bitmaps::{CROSSMARK, EYE, VALIDATE_14};
 use ledger_device_sdk::ui::gadgets::{Field, MultiFieldReview};
@@ -29,23 +29,24 @@ const MAX_COIN_LENGTH: usize = 10;
 ///
 /// # Arguments
 ///
-/// * `tx` - Transaction to be displayed for validation
-pub fn ui_display_tx(tx: &Tx) -> Result<bool, AppSW> {
+/// * `spend` - Spend/transaction to be displayed for validation
+pub fn ui_display_tx(spend: &Spend) -> Result<bool, AppSW> {
     // Generate string for amount
     let mut numtoa_buf = [0u8; 20];
     let mut value_buf = [0u8; 20 + MAX_COIN_LENGTH + 1];
 
     let value_str = concatenate(
-        &[tx.coin, " ", tx.value.numtoa_str(10, &mut numtoa_buf)],
+        &[
+            "SNT ",
+            spend.token.as_nano().numtoa_str(10, &mut numtoa_buf),
+        ],
         &mut value_buf,
     )
     .map_err(|_| AppSW::TxDisplayFail)?; // Fails if value_buf is too small
 
-    // Generate destination address string in hexadecimal format.
-    let mut to_str = [0u8; 42];
-    to_str[..2].copy_from_slice("0x".as_bytes());
-    hex::encode_to_slice(tx.to, &mut to_str[2..]).unwrap();
-    to_str[2..].make_ascii_uppercase();
+    let spend_dest = spend.spent_tx.outputs[0].unique_pubkey;
+    let mut addr_value_buf = [0u8; BUFFER_LEN_FOR_PK_BYTES_TO_DISPLAY];
+    let addr_str = addr_hex_for_ui(&spend_dest, &mut addr_value_buf)?;
 
     // Define transaction review fields
     let my_fields = [
@@ -55,11 +56,7 @@ pub fn ui_display_tx(tx: &Tx) -> Result<bool, AppSW> {
         },
         Field {
             name: "Destination",
-            value: core::str::from_utf8(&to_str).unwrap(),
-        },
-        Field {
-            name: "Memo",
-            value: tx.memo,
+            value: addr_str,
         },
     ];
 

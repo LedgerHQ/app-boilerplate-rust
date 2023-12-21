@@ -12,19 +12,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "app-boilerplate-rust"
-version = "1.1.0"
-dependencies = [
- "hex",
- "include_gif",
- "ledger_device_sdk",
- "ledger_secure_sdk_sys",
- "numtoa",
- "serde",
- "serde-json-core",
-]
-
-[[package]]
 name = "autocfg"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -64,12 +51,6 @@ name = "bitflags"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "327762f6e5a765692301e5bb513e0d9fef63be86bbc14528052b1cd3e6f03e07"
-
-[[package]]
-name = "byteorder"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 
 [[package]]
 name = "cc"
@@ -145,25 +126,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
 
 [[package]]
-name = "hash32"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47d60b12902ba28e2730cd37e95b8c9223af2808df9e902d4df49588d1470606"
-dependencies = [
- "byteorder",
-]
-
-[[package]]
-name = "heapless"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0bfb9eb618601c89945a70e254898da93b13be0388091d42117462b265bb3fad"
-dependencies = [
- "hash32",
- "stable_deref_trait",
-]
-
-[[package]]
 name = "hex"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -192,6 +154,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "include_gif"
+version = "1.0.1"
+source = "git+https://github.com/bochaco/ledger-device-rust-sdk.git?branch=test#d1135a4531cb54b2f37568f0f41d407bf8a739e1"
+dependencies = [
+ "gif",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -206,10 +177,9 @@ checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 [[package]]
 name = "ledger_device_sdk"
 version = "1.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77e49b095205173d599285a0547d8430ff55b3a0b63028fa3339cfbef1d71517"
+source = "git+https://github.com/bochaco/ledger-device-rust-sdk.git?branch=test#d1135a4531cb54b2f37568f0f41d407bf8a739e1"
 dependencies = [
- "include_gif",
+ "include_gif 1.0.1 (git+https://github.com/bochaco/ledger-device-rust-sdk.git?branch=test)",
  "ledger_secure_sdk_sys",
  "num-traits",
  "numtoa",
@@ -220,8 +190,7 @@ dependencies = [
 [[package]]
 name = "ledger_secure_sdk_sys"
 version = "1.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22aaf25bc3282151f138f83186e0e2667e5918c2baa38e17c1366050990e5afa"
+source = "git+https://github.com/bochaco/ledger-device-rust-sdk.git?branch=test#d1135a4531cb54b2f37568f0f41d407bf8a739e1"
 dependencies = [
  "bindgen",
  "cc",
@@ -387,12 +356,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ryu"
-version = "1.0.16"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f98d2aa92eebf49b69786be48e4477826b256916e84a57ff2a4f21923b48eb4c"
-
-[[package]]
 name = "serde"
 version = "1.0.193"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -402,12 +365,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde-json-core"
+name = "serde-big-array"
 version = "0.5.1"
-source = "git+https://github.com/rust-embedded-community/serde-json-core#e695aa6be4761acada3ba30d99be46add277ec7f"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "11fc7cc2c76d73e0f27ee52abbd64eec84d46f370c88371120433196934e4b7f"
 dependencies = [
- "heapless",
- "ryu",
  "serde",
 ]
 
@@ -429,10 +391,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a7cee0529a6d40f580e7a5e6c495c8fbfe21b7b52795ed4bb5e62cdf92bc6380"
 
 [[package]]
-name = "stable_deref_trait"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
+name = "snt-ledger-app"
+version = "0.0.1"
+dependencies = [
+ "hex",
+ "include_gif 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ledger_device_sdk",
+ "ledger_secure_sdk_sys",
+ "numtoa",
+ "serde",
+ "serde-big-array",
+]
 
 [[package]]
 name = "syn"

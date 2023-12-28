@@ -118,6 +118,9 @@ impl TryFrom<ApduHeader> for Instruction {
 
 #[no_mangle]
 extern "C" fn sample_main() {
+    // Create the communication manager, and configure it to accept only APDU from the 0xe0 class.
+    // If any APDU with a wrong class value is received, comm will respond automatically with
+    // BadCla status word.
     let mut comm = Comm::new().set_expected_cla(0xe0);
 
     // Developer mode / pending review popup

@@ -87,8 +87,8 @@ impl TryFrom<ApduHeader> for Instruction {
 
     /// APDU parsing logic.
     ///
-    /// Parses CLA, INS, P1 and P2 bytes to build an [`Instruction`]. P1 and P2 are translated to
-    /// strongly typed variables depending on the APDU instruction code. Invalid CLA, INS, P1 or P2
+    /// Parses INS, P1 and P2 bytes to build an [`Instruction`]. P1 and P2 are translated to
+    /// strongly typed variables depending on the APDU instruction code. Invalid INS, P1 or P2
     /// values result in errors with a status word, which are automatically sent to the host by the
     /// SDK.
     ///

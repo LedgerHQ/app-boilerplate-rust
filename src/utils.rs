@@ -40,9 +40,10 @@ impl<const S: usize> TryFrom<&[u8]> for Bip32Path<S> {
     ///
     /// * `data` - Encoded BIP32 path. First byte is the length of the path, as encoded by ragger.
     fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
+        let input_path_len = (data.len() - 1) / 4;
         // Check data length
         if data.is_empty() // At least the length byte is required
-            || ((data.len() - 1) / 4 > S)
+            || (input_path_len > S)
             || (data[0] as usize * 4 != data.len() - 1)
         {
             return Err(AppSW::WrongApduLength);
@@ -55,7 +56,7 @@ impl<const S: usize> TryFrom<&[u8]> for Bip32Path<S> {
 
         Ok(Self {
             buffer: path,
-            len: (data.len() - 1) / 4,
+            len: input_path_len,
         })
     }
 }

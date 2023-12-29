@@ -16,7 +16,7 @@
  *****************************************************************************/
 
 use crate::app_ui::address::ui_display_pk;
-use crate::utils::{read_bip32_path, MAX_ALLOWED_PATH_LEN};
+use crate::utils::Bip32Path;
 use crate::AppSW;
 use ledger_device_sdk::ecc::{Secp256k1, SeedDerive};
 use ledger_device_sdk::io::Comm;
@@ -26,11 +26,10 @@ use ledger_secure_sdk_sys::{
 };
 
 pub fn handler_get_public_key(comm: &mut Comm, display: bool) -> Result<(), AppSW> {
-    let mut path = [0u32; MAX_ALLOWED_PATH_LEN];
     let data = comm.get_data().map_err(|_| AppSW::WrongApduLength)?;
-    let path_len = read_bip32_path(data, &mut path)?;
+    let path: Bip32Path = data.try_into()?;
 
-    let pk = Secp256k1::derive_from_path(&path[..path_len])
+    let pk = Secp256k1::derive_from_path(path.as_ref())
         .public_key()
         .map_err(|_| AppSW::KeyDeriveFail)?;
 

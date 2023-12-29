@@ -41,8 +41,6 @@ use ledger_device_sdk::ui::gadgets::display_pending_review;
 
 ledger_device_sdk::set_panic!(ledger_device_sdk::exiting_panic);
 
-// CLA (APDU class byte) for all APDUs.
-const CLA: u8 = 0xe0;
 // P2 for last APDU to receive.
 const P2_SIGN_TX_LAST: u8 = 0x00;
 // P2 for more APDU to receive.
@@ -84,40 +82,46 @@ pub enum Instruction {
     SignTx { chunk: u8, more: bool },
 }
 
-/// APDU parsing logic.
-///
-/// Parses CLA, INS, P1 and P2 bytes to build an [`Ins`]. P1 and P2 are translated to strongly
-/// typed variables depending on the APDU instruction code. Invalid CLA, INS, P1 or P2 values
-/// result in errors with a status word, which are automatically sent to the host by the SDK.
-///
-/// This design allows a clear separation of the APDU parsing logic and commands handling.
 impl TryFrom<ApduHeader> for Instruction {
     type Error = AppSW;
 
+    /// APDU parsing logic.
+    ///
+    /// Parses INS, P1 and P2 bytes to build an [`Instruction`]. P1 and P2 are translated to
+    /// strongly typed variables depending on the APDU instruction code. Invalid INS, P1 or P2
+    /// values result in errors with a status word, which are automatically sent to the host by the
+    /// SDK.
+    ///
+    /// This design allows a clear separation of the APDU parsing logic and commands handling.
+    ///
+    /// Note that CLA is not checked here. Instead the method [`Comm::set_expected_cla`] is used in
+    /// [`sample_main`] to have this verification automatically performed by the SDK.
     fn try_from(value: ApduHeader) -> Result<Self, Self::Error> {
-        match (value.cla, value.ins, value.p1, value.p2) {
-            (CLA, 3, 0, 0) => Ok(Instruction::GetVersion),
-            (CLA, 4, 0, 0) => Ok(Instruction::GetAppName),
-            (CLA, 5, 0 | 1, 0) => Ok(Instruction::GetPubkey {
+        match (value.ins, value.p1, value.p2) {
+            (3, 0, 0) => Ok(Instruction::GetVersion),
+            (4, 0, 0) => Ok(Instruction::GetAppName),
+            (5, 0 | 1, 0) => Ok(Instruction::GetPubkey {
                 display: value.p1 != 0,
             }),
-            (CLA, 6, P1_SIGN_TX_START, P2_SIGN_TX_MORE)
-            | (CLA, 6, 1..=P1_SIGN_TX_MAX, P2_SIGN_TX_LAST | P2_SIGN_TX_MORE) => {
+            (6, P1_SIGN_TX_START, P2_SIGN_TX_MORE)
+            | (6, 1..=P1_SIGN_TX_MAX, P2_SIGN_TX_LAST | P2_SIGN_TX_MORE) => {
                 Ok(Instruction::SignTx {
                     chunk: value.p1,
                     more: value.p2 == P2_SIGN_TX_MORE,
                 })
             }
-            (CLA, 3..=6, _, _) => Err(AppSW::WrongP1P2),
-            (CLA, _, _, _) => Err(AppSW::InsNotSupported),
-            (_, _, _, _) => Err(AppSW::ClaNotSupported),
+            (3..=6, _, _) => Err(AppSW::WrongP1P2),
+            (_, _, _) => Err(AppSW::InsNotSupported),
         }
     }
 }
 
 #[no_mangle]
 extern "C" fn sample_main() {
-    let mut comm = Comm::new();
+    // Create the communication manager, and configure it to accept only APDU from the 0xe0 class.
+    // If any APDU with a wrong class value is received, comm will respond automatically with
+    // BadCla status word.
+    let mut comm = Comm::new().set_expected_cla(0xe0);
 
     // Developer mode / pending review popup
     // must be cleared with user interaction

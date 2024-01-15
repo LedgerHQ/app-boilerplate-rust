@@ -20,7 +20,6 @@ use crate::utils::Bip32Path;
 use crate::AppSW;
 use ledger_device_sdk::ecc::{Secp256k1, SeedDerive};
 use ledger_device_sdk::io::Comm;
-use ledger_device_sdk::testing;
 use ledger_secure_sdk_sys::{
     cx_hash_no_throw, cx_hash_t, cx_keccak_init_no_throw, cx_sha3_t, CX_LAST, CX_OK,
 };
@@ -58,9 +57,7 @@ pub fn handler_get_public_key(comm: &mut Comm, display: bool) -> Result<(), AppS
             }
         }
 
-        testing::debug_print("showing public key\n");
         if !ui_display_pk(&address)? {
-            testing::debug_print("denied\n");
             return Err(AppSW::Deny);
         }
     }

@@ -22,14 +22,10 @@ pytest_plugins = ("ragger.conftest.base_conftest", )
 # ragger/conftest/configuration.py
 @pytest.fixture(scope="class", autouse=True)
 def clear_pending_review(firmware, navigator):
-    print("Clearing pending review")
     # Press a button to clear the pending review
     if firmware.device.startswith("nano"):
+        print("Clearing pending review")
         instructions = [
             NavInsID.BOTH_CLICK,
         ]
-    else:
-        instructions = [
-            NavInsID.TAPPABLE_CENTER_TAP,
-        ]
-    navigator.navigate(instructions,screen_change_before_first_instruction=False)
+        navigator.navigate(instructions,screen_change_before_first_instruction=False)

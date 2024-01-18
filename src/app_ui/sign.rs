@@ -17,8 +17,15 @@
 use crate::handlers::sign_tx::Tx;
 use crate::utils::concatenate;
 use crate::AppSW;
+
+#[cfg(not(target_os = "stax"))]
 use ledger_device_sdk::ui::bitmaps::{CROSSMARK, EYE, VALIDATE_14};
+#[cfg(not(target_os = "stax"))]
 use ledger_device_sdk::ui::gadgets::{Field, MultiFieldReview};
+
+#[cfg(target_os = "stax")]
+use ledger_device_sdk::nbgl::{Field, NbglReview};
+
 use numtoa::NumToA;
 
 const MAX_COIN_LENGTH: usize = 10;
@@ -64,15 +71,24 @@ pub fn ui_display_tx(tx: &Tx) -> Result<bool, AppSW> {
     ];
 
     // Create transaction review
-    let my_review = MultiFieldReview::new(
-        &my_fields,
-        &["Review ", "Transaction"],
-        Some(&EYE),
-        "Approve",
-        Some(&VALIDATE_14),
-        "Reject",
-        Some(&CROSSMARK),
-    );
+    #[cfg(not(target_os = "stax"))]
+    {
+        let my_review = MultiFieldReview::new(
+            &my_fields,
+            &["Review ", "Transaction"],
+            Some(&EYE),
+            "Approve",
+            Some(&VALIDATE_14),
+            "Reject",
+            Some(&CROSSMARK),
+        );
+    
+        Ok(my_review.show())
+    }
 
-    Ok(my_review.show())
+    #[cfg(target_os = "stax")]
+    {
+        Ok(NbglReview.review_transaction(&my_fields))
+    }
+
 }

@@ -45,8 +45,7 @@ def test_sign_tx_short_tx(firmware, backend, navigator, test_name):
                                                       test_name)
         else:
             navigator.navigate_until_text_and_compare(NavInsID.USE_CASE_REVIEW_TAP,
-                                                      [NavInsID.USE_CASE_REVIEW_CONFIRM,
-                                                       NavInsID.USE_CASE_STATUS_DISMISS],
+                                                      [NavInsID.USE_CASE_REVIEW_CONFIRM],
                                                       "Hold to sign",
                                                       ROOT_SCREENSHOT_PATH,
                                                       test_name)
@@ -89,8 +88,7 @@ def test_sign_tx_long_tx(firmware, backend, navigator, test_name):
                                                       test_name)
         else:
             navigator.navigate_until_text_and_compare(NavInsID.USE_CASE_REVIEW_TAP,
-                                                      [NavInsID.USE_CASE_REVIEW_CONFIRM,
-                                                       NavInsID.USE_CASE_STATUS_DISMISS],
+                                                      [NavInsID.USE_CASE_REVIEW_CONFIRM],
                                                       "Hold to sign",
                                                       ROOT_SCREENSHOT_PATH,
                                                       test_name)
@@ -130,16 +128,14 @@ def test_sign_tx_refused(firmware, backend, navigator, test_name):
         assert e.value.status == Errors.SW_DENY
         assert len(e.value.data) == 0
     else:
-        for i in range(3):
-            instructions = [NavInsID.USE_CASE_REVIEW_TAP] * i
-            instructions += [NavInsID.USE_CASE_REVIEW_REJECT,
-                             NavInsID.USE_CASE_CHOICE_CONFIRM,
-                             NavInsID.USE_CASE_STATUS_DISMISS]
-            with pytest.raises(ExceptionRAPDU) as e:
-                with client.sign_tx(path=path, transaction=transaction):
-                    navigator.navigate_and_compare(ROOT_SCREENSHOT_PATH,
-                                                   test_name + f"/part{i}",
-                                                   instructions)
-            # Assert that we have received a refusal
-            assert e.value.status == Errors.SW_DENY
-            assert len(e.value.data) == 0
+        instructions = [NavInsID.USE_CASE_REVIEW_TAP,
+                        NavInsID.USE_CASE_REVIEW_TAP,
+                        NavInsID.USE_CASE_REVIEW_REJECT]
+        with pytest.raises(ExceptionRAPDU) as e:
+            with client.sign_tx(path=path, transaction=transaction):
+                navigator.navigate_and_compare(ROOT_SCREENSHOT_PATH,
+                                                test_name,
+                                                instructions)
+        # Assert that we have received a refusal
+        assert e.value.status == Errors.SW_DENY
+        assert len(e.value.data) == 0

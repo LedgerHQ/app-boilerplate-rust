@@ -12,6 +12,10 @@ serde-json-core = { git = "https://github.com/rust-embedded-community/serde-json
 hex = { version = "0.4.3", default-features = false, features = ["serde"] }
 numtoa = "0.2.4"
 
+[patch.crates-io]
+ledger_device_sdk = { path = 'ledger-device-rust-sdk/ledger_device_sdk' }
+ledger_secure_sdk_sys = { path = 'ledger-device-rust-sdk/ledger_secure_sdk_sys' }
+
 [profile.release]
 opt-level = 'z'
 lto = true

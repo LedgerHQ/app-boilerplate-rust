@@ -17,8 +17,14 @@
 
 use crate::AppSW;
 use core::str::from_utf8_mut;
+
+#[cfg(not(target_os = "stax"))]
 use ledger_device_sdk::ui::bitmaps::{CROSSMARK, EYE, VALIDATE_14};
+#[cfg(not(target_os = "stax"))]
 use ledger_device_sdk::ui::gadgets::{Field, MultiFieldReview};
+
+#[cfg(target_os = "stax")]
+use ledger_device_sdk::nbgl::NbglAddressConfirm;
 
 // Display only the last 20 bytes of the address
 const DISPLAY_ADDR_BYTES_LEN: usize = 20;
@@ -34,20 +40,29 @@ pub fn ui_display_pk(addr: &[u8]) -> Result<bool, AppSW> {
     let addr_hex = from_utf8_mut(&mut addr_hex).unwrap();
     addr_hex[2..].make_ascii_uppercase();
 
-    let my_field = [Field {
-        name: "Address",
-        value: addr_hex,
-    }];
+    #[cfg(not(target_os = "stax"))]
+    {
+        let my_field = [Field {
+            name: "Address",
+            value: addr_hex,
+        }];
 
-    let my_review = MultiFieldReview::new(
-        &my_field,
-        &["Confirm Address"],
-        Some(&EYE),
-        "Approve",
-        Some(&VALIDATE_14),
-        "Reject",
-        Some(&CROSSMARK),
-    );
+        let my_review = MultiFieldReview::new(
+            &my_field,
+            &["Confirm Address"],
+            Some(&EYE),
+            "Approve",
+            Some(&VALIDATE_14),
+            "Reject",
+            Some(&CROSSMARK),
+        );
+    
+        Ok(my_review.show())
+    }
 
-    Ok(my_review.show())
+    #[cfg(target_os = "stax")]
+    {
+        Ok(NbglAddressConfirm.verify_address(addr_hex))
+    }
+
 }

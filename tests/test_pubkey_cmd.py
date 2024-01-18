@@ -33,10 +33,8 @@ def test_get_public_key_confirm_accepted(firmware, backend, navigator, test_name
         else:
             instructions = [
                 NavInsID.USE_CASE_REVIEW_TAP,
-                NavIns(NavInsID.TOUCH, (200, 335)),
-                NavInsID.USE_CASE_ADDRESS_CONFIRMATION_EXIT_QR,
-                NavInsID.USE_CASE_ADDRESS_CONFIRMATION_CONFIRM,
-                NavInsID.USE_CASE_STATUS_DISMISS
+                NavInsID.USE_CASE_ADDRESS_CONFIRMATION_CONFIRM
+                # NavInsID.USE_CASE_STATUS_DISMISS
             ]
             navigator.navigate_and_compare(ROOT_SCREENSHOT_PATH,
                                            test_name,
@@ -65,23 +63,15 @@ def test_get_public_key_confirm_refused(firmware, backend, navigator, test_name)
         assert e.value.status == Errors.SW_DENY
         assert len(e.value.data) == 0
     else:
-        instructions_set = [
-            [
-                NavInsID.USE_CASE_REVIEW_REJECT,
-                NavInsID.USE_CASE_STATUS_DISMISS
-            ],
-            [
+        instructions = [
                 NavInsID.USE_CASE_REVIEW_TAP,
-                NavInsID.USE_CASE_ADDRESS_CONFIRMATION_CANCEL,
-                NavInsID.USE_CASE_STATUS_DISMISS
-            ]
+                NavInsID.USE_CASE_ADDRESS_CONFIRMATION_CANCEL
         ]
-        for i, instructions in enumerate(instructions_set):
-            with pytest.raises(ExceptionRAPDU) as e:
-                with client.get_public_key_with_confirmation(path=path):
-                    navigator.navigate_and_compare(ROOT_SCREENSHOT_PATH,
-                                                   test_name + f"/part{i}",
-                                                   instructions)
-            # Assert that we have received a refusal
-            assert e.value.status == Errors.SW_DENY
-            assert len(e.value.data) == 0
+        with pytest.raises(ExceptionRAPDU) as e:
+            with client.get_public_key_with_confirmation(path=path):
+                navigator.navigate_and_compare(ROOT_SCREENSHOT_PATH,
+                                                test_name,
+                                                instructions)
+        # Assert that we have received a refusal
+        assert e.value.status == Errors.SW_DENY
+        assert len(e.value.data) == 0

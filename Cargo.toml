@@ -1,6 +1,6 @@
 [package]
 name = "app-boilerplate-rust"
-version = "1.2.0"
+version = "1.2.1"
 authors = ["yhql", "agrojean-ledger"]
 edition = "2021"
 
@@ -18,7 +18,8 @@ opt-level = 'z'
 lto = true
 
 [features]
-pending_review_screen = ["ledger_device_sdk/pending_review_screen"]
+default = ["pending_review_screen"]
+pending_review_screen = []
 
 [package.metadata.ledger]
 curve = ["secp256k1"]

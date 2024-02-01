@@ -37,6 +37,7 @@ use handlers::{
     sign_tx::{handler_sign_tx, TxContext},
 };
 use ledger_device_sdk::io::{ApduHeader, Comm, Event, Reply, StatusWords};
+#[cfg(feature = "pending_review_screen")]
 use ledger_device_sdk::ui::gadgets::display_pending_review;
 
 ledger_device_sdk::set_panic!(ledger_device_sdk::exiting_panic);
@@ -125,6 +126,7 @@ extern "C" fn sample_main() {
 
     // Developer mode / pending review popup
     // must be cleared with user interaction
+    #[cfg(feature = "pending_review_screen")]
     display_pending_review(&mut comm);
 
     let mut tx_ctx = TxContext::new();

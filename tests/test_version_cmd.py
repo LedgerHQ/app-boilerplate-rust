@@ -4,7 +4,7 @@ from application_client.boilerplate_response_unpacker import unpack_get_version_
 # Taken from the Cargo.toml, to update every time the version is bumped
 MAJOR = 1
 MINOR = 2
-PATCH = 1 
+PATCH = 2 
 
 # In this test we check the behavior of the device when asked to provide the app version
 def test_version(backend):

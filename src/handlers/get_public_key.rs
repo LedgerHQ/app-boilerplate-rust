@@ -19,6 +19,7 @@ use crate::app_ui::address::ui_display_pk;
 use crate::utils::Bip32Path;
 use crate::AppSW;
 use ledger_device_sdk::ecc::{Secp256k1, SeedDerive};
+use ledger_device_sdk::hash::{HashId, Hasher};
 use ledger_device_sdk::io::Comm;
 use ledger_secure_sdk_sys::{
     cx_hash_no_throw, cx_hash_t, cx_keccak_init_no_throw, cx_sha3_t, CX_LAST, CX_OK,
@@ -28,12 +29,34 @@ pub fn handler_get_public_key(comm: &mut Comm, display: bool) -> Result<(), AppS
     let data = comm.get_data().map_err(|_| AppSW::WrongApduLength)?;
     let path: Bip32Path = data.try_into()?;
 
-    let pk = Secp256k1::derive_from_path(path.as_ref())
-        .public_key()
-        .map_err(|_| AppSW::KeyDeriveFail)?;
+    {
+        let test_hash: &[u8; 29] = b"Not your keys, not your coins";
+
+        let mut keccak = Hasher::new(HashId::KECCAK_256, 32).unwrap();
+
+        let mut output: [u8; 32] = [0u8; 32];
+
+        let size = keccak.get_size().unwrap();
+        if size == 32 {
+            ledger_device_sdk::testing::debug_print("Size match \n");
+        } else {
+            ledger_device_sdk::testing::debug_print("Size mismatch \n");
+        }
+
+        ledger_device_sdk::testing::debug_print("Calling hash\n");
+
+        let _res = keccak.hash(test_hash, &mut output);
+
+        //let _ = keccak.hash_update(test_hash);
+        //let _ = keccak.hash_final(&mut output);
+    }
+
+    let (k, _cc) = Secp256k1::derive_from_path(path.as_ref());
+    let pk = k.public_key().map_err(|_| AppSW::KeyDeriveFail)?;
 
     // Display address on device if requested
     if display {
+        //let mut keccak256 = Hasher::new(HashId::KECCAK_256, 32).unwrap();
         let mut keccak256: cx_sha3_t = Default::default();
         let mut address: [u8; 32] = [0u8; 32];
 
@@ -42,13 +65,12 @@ pub fn handler_get_public_key(comm: &mut Comm, display: bool) -> Result<(), AppS
                 return Err(AppSW::AddrDisplayFail);
             }
 
-            let mut pk_mut = pk.pubkey;
-            let pk_ptr = pk_mut.as_mut_ptr().offset(1);
+            let pk_ptr = pk.as_ref();
             if cx_hash_no_throw(
                 &mut keccak256.header as *mut cx_hash_t,
                 CX_LAST,
-                pk_ptr,
-                64_usize,
+                pk_ptr[1..].as_ptr(),
+                pk_ptr[1..].len(),
                 address.as_mut_ptr(),
                 address.len(),
             ) != CX_OK
@@ -56,6 +78,9 @@ pub fn handler_get_public_key(comm: &mut Comm, display: bool) -> Result<(), AppS
                 return Err(AppSW::AddrDisplayFail);
             }
         }
+
+        //let pk_ptr = pk.as_ref();
+        //let _ = keccak256.hash(&(pk_ptr[1..]), &mut address);
 
         if !ui_display_pk(&address)? {
             return Err(AppSW::Deny);

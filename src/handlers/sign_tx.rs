@@ -129,7 +129,8 @@ fn compute_signature_and_append(comm: &mut Comm, ctx: &mut TxContext) -> Result<
         }
     }
 
-    let (sig, siglen, parity) = Secp256k1::derive_from_path(ctx.path.as_ref())
+    let (k, _cc) = Secp256k1::derive_from_path(ctx.path.as_ref());
+    let (sig, siglen, parity) = k
         .deterministic_sign(&message_hash)
         .map_err(|_| AppSW::TxSignFail)?;
     comm.append(&[siglen as u8]);

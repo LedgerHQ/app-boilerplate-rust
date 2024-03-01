@@ -72,7 +72,7 @@ pub fn ui_menu_main(comm: &mut Comm) -> Event<Instruction> {
             .app_name("Boilerplate\0")
             .info_contents(env!("CARGO_PKG_VERSION"), env!("CARGO_PKG_AUTHORS"))
             .icon(&BTC_BMP)
-            .show_home()
+            .show()
 }
 
 #[cfg(target_os = "stax")]

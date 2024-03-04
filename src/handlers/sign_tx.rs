@@ -18,10 +18,8 @@ use crate::app_ui::sign::ui_display_tx;
 use crate::utils::Bip32Path;
 use crate::AppSW;
 use ledger_device_sdk::ecc::{Secp256k1, SeedDerive};
+use ledger_device_sdk::hash::{sha3::Keccak256, HashInit};
 use ledger_device_sdk::io::Comm;
-use ledger_secure_sdk_sys::{
-    cx_hash_no_throw, cx_hash_t, cx_keccak_init_no_throw, cx_sha3_t, CX_LAST, CX_OK,
-};
 
 use serde::Deserialize;
 use serde_json_core::from_slice;
@@ -109,25 +107,10 @@ pub fn handler_sign_tx(
 }
 
 fn compute_signature_and_append(comm: &mut Comm, ctx: &mut TxContext) -> Result<(), AppSW> {
-    let mut keccak256: cx_sha3_t = Default::default();
+    let keccak256 = Keccak256::new();
     let mut message_hash: [u8; 32] = [0u8; 32];
 
-    unsafe {
-        if cx_keccak_init_no_throw(&mut keccak256, 256) != CX_OK {
-            return Err(AppSW::TxHashFail);
-        }
-        if cx_hash_no_throw(
-            &mut keccak256.header as *mut cx_hash_t,
-            CX_LAST,
-            ctx.raw_tx.as_ptr(),
-            ctx.raw_tx_len,
-            message_hash.as_mut_ptr(),
-            message_hash.len(),
-        ) != CX_OK
-        {
-            return Err(AppSW::TxHashFail);
-        }
-    }
+    let _ = keccak256.hash(&ctx.raw_tx[..ctx.raw_tx_len], &mut message_hash);
 
     let (sig, siglen, parity) = Secp256k1::derive_from_path(ctx.path.as_ref())
         .deterministic_sign(&message_hash)

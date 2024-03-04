@@ -19,43 +19,22 @@ use crate::app_ui::address::ui_display_pk;
 use crate::utils::Bip32Path;
 use crate::AppSW;
 use ledger_device_sdk::ecc::{Secp256k1, SeedDerive};
+use ledger_device_sdk::hash::{sha3::Keccak256, HashInit};
 use ledger_device_sdk::io::Comm;
-use ledger_secure_sdk_sys::{
-    cx_hash_no_throw, cx_hash_t, cx_keccak_init_no_throw, cx_sha3_t, CX_LAST, CX_OK,
-};
 
 pub fn handler_get_public_key(comm: &mut Comm, display: bool) -> Result<(), AppSW> {
     let data = comm.get_data().map_err(|_| AppSW::WrongApduLength)?;
     let path: Bip32Path = data.try_into()?;
 
-    let pk = Secp256k1::derive_from_path(path.as_ref())
-        .public_key()
-        .map_err(|_| AppSW::KeyDeriveFail)?;
+    let (k, cc) = Secp256k1::derive_from(path.as_ref());
+    let pk = k.public_key().map_err(|_| AppSW::KeyDeriveFail)?;
 
     // Display address on device if requested
     if display {
-        let mut keccak256: cx_sha3_t = Default::default();
+        let keccak256 = Keccak256::new();
         let mut address: [u8; 32] = [0u8; 32];
 
-        unsafe {
-            if cx_keccak_init_no_throw(&mut keccak256, 256) != CX_OK {
-                return Err(AppSW::AddrDisplayFail);
-            }
-
-            let mut pk_mut = pk.pubkey;
-            let pk_ptr = pk_mut.as_mut_ptr().offset(1);
-            if cx_hash_no_throw(
-                &mut keccak256.header as *mut cx_hash_t,
-                CX_LAST,
-                pk_ptr,
-                64_usize,
-                address.as_mut_ptr(),
-                address.len(),
-            ) != CX_OK
-            {
-                return Err(AppSW::AddrDisplayFail);
-            }
-        }
+        let _ = keccak256.hash(&pk.pubkey[1..], &mut address);
 
         if !ui_display_pk(&address)? {
             return Err(AppSW::Deny);
@@ -64,11 +43,11 @@ pub fn handler_get_public_key(comm: &mut Comm, display: bool) -> Result<(), AppS
 
     comm.append(&[pk.pubkey.len() as u8]);
     comm.append(&pk.pubkey);
-    // Rust SDK key derivation API does not return chaincode yet
-    // so we just append a dummy chaincode.
-    const CHAINCODE_LEN: usize = 32;
-    comm.append(&[CHAINCODE_LEN as u8]); // Dummy chaincode length
-    comm.append(&[0u8; CHAINCODE_LEN]); // Dummy chaincode
+
+    const CHAINCODE_LEN: u8 = 32;
+    let code = cc.unwrap();
+    comm.append(&[CHAINCODE_LEN]);
+    comm.append(&code.value);
 
     Ok(())
 }

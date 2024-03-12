@@ -108,11 +108,10 @@ This boilerplate app comes with functional tests implemented with Ledger's [Ragg
 pip install -r tests/requirements.txt 
 ```
 
-* Run the functional tests (here for Nano S Plus but available for any supported device once you have built the binaries) :
+* Run the functional tests :
 
 ```shell
-mkdir -p build/nanos2/bin && cp target/nanosplus/release/app-boilerplate-rust build/nanos2/bin/app.elf 
-pytest tests/ --tb=short -v --device nanosp
+pytest tests/ --tb=short -v --device {nanos | nanosp | nanox}
 ```
 
 ### Emulator

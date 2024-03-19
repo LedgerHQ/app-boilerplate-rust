@@ -24,6 +24,10 @@ def unpack_get_version_response(response: bytes) -> Tuple[int, int, int]:
     major, minor, patch = unpack("BBB", response)
     return (major, minor, patch)
 
+def unpack_get_multifield_review_with_newline_response(response: bytes) -> None:
+    assert len(response) == 0
+    return None
+
 # Unpack from response:
 # response = format_id (1)
 #            app_name_raw_len (1)

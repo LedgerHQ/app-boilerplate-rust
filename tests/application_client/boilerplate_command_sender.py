@@ -28,6 +28,7 @@ class InsType(IntEnum):
     GET_VERSION    = 0x03
     GET_APP_NAME   = 0x04
     GET_PUBLIC_KEY = 0x05
+    GET_MULTIFIELD_REVIEW_WITH_NEWLINE = 13
     SIGN_TX        = 0x06
 
 class Errors(IntEnum):
@@ -70,6 +71,15 @@ class BoilerplateCommandSender:
                                      p1=P1.P1_START,
                                      p2=P2.P2_LAST,
                                      data=b"")
+
+    @contextmanager
+    def get_multifield_review_with_newline(self) -> Generator[None, None, None]:
+        with self.backend.exchange_async(cla=CLA,
+                                         ins=InsType.GET_MULTIFIELD_REVIEW_WITH_NEWLINE,
+                                     p1=P1.P1_START,
+                                     p2=P2.P2_LAST,
+                                         data=b"") as response:
+            yield response
 
 
     def get_app_name(self) -> RAPDU:

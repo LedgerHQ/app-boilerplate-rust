@@ -27,6 +27,7 @@ mod app_ui {
 mod handlers {
     pub mod get_public_key;
     pub mod get_version;
+    pub mod multifield_review_with_newline;
     pub mod sign_tx;
 }
 
@@ -34,6 +35,7 @@ use app_ui::menu::ui_menu_main;
 use handlers::{
     get_public_key::handler_get_public_key,
     get_version::handler_get_version,
+    multifield_review_with_newline::handler_multifield_newline,
     sign_tx::{handler_sign_tx, TxContext},
 };
 use ledger_device_sdk::io::{ApduHeader, Comm, Event, Reply, StatusWords};
@@ -78,6 +80,7 @@ impl From<AppSW> for Reply {
 /// Possible input commands received through APDUs.
 pub enum Instruction {
     GetVersion,
+    MultiFieldReviewWithNewline,
     GetAppName,
     GetPubkey { display: bool },
     SignTx { chunk: u8, more: bool },
@@ -100,6 +103,7 @@ impl TryFrom<ApduHeader> for Instruction {
     fn try_from(value: ApduHeader) -> Result<Self, Self::Error> {
         match (value.ins, value.p1, value.p2) {
             (3, 0, 0) => Ok(Instruction::GetVersion),
+            (13, 0, 0) => Ok(Instruction::MultiFieldReviewWithNewline),
             (4, 0, 0) => Ok(Instruction::GetAppName),
             (5, 0 | 1, 0) => Ok(Instruction::GetPubkey {
                 display: value.p1 != 0,
@@ -150,6 +154,7 @@ fn handle_apdu(comm: &mut Comm, ins: Instruction, ctx: &mut TxContext) -> Result
             Ok(())
         }
         Instruction::GetVersion => handler_get_version(comm),
+        Instruction::MultiFieldReviewWithNewline => handler_multifield_newline(comm),
         Instruction::GetPubkey { display } => handler_get_public_key(comm, display),
         Instruction::SignTx { chunk, more } => handler_sign_tx(comm, chunk, more, ctx),
     }

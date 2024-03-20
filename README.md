@@ -79,7 +79,7 @@ You are now ready to build the boilerplate app for Ledger devices !
 Now that you have followed the [prerequisites](#prerequisites) guide, you can build the boilerplate with the following command executed in the root directory of the app.
 
 ```bash
-cargo ledger nanox build 
+cargo ledger build nanox
 ```
 
 This command will build the app for the Nano X, but you can use any supported device (`nanos`, `nanox`, `nanosplus`)

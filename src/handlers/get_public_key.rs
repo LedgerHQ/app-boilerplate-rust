@@ -31,7 +31,7 @@ pub fn handler_get_public_key(comm: &mut Comm, display: bool) -> Result<(), AppS
 
     // Display address on device if requested
     if display {
-        let keccak256 = Keccak256::new();
+        let mut keccak256 = Keccak256::new();
         let mut address: [u8; 32] = [0u8; 32];
 
         let _ = keccak256.hash(&pk.pubkey[1..], &mut address);

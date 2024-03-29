@@ -18,13 +18,17 @@ use crate::handlers::sign_tx::Tx;
 use crate::utils::concatenate;
 use crate::AppSW;
 
+use ledger_secure_sdk_sys::*;
+
 #[cfg(not(target_os = "stax"))]
 use ledger_device_sdk::ui::bitmaps::{CROSSMARK, EYE, VALIDATE_14};
 #[cfg(not(target_os = "stax"))]
 use ledger_device_sdk::ui::gadgets::{Field, MultiFieldReview};
 
 #[cfg(target_os = "stax")]
-use ledger_device_sdk::nbgl::{Field, NbglReview};
+use include_gif::include_gif;
+#[cfg(target_os = "stax")]
+use ledger_device_sdk::nbgl::{Field, NbglGlyph, NbglReview};
 
 use numtoa::NumToA;
 
@@ -82,13 +86,24 @@ pub fn ui_display_tx(tx: &Tx) -> Result<bool, AppSW> {
             "Reject",
             Some(&CROSSMARK),
         );
-    
+
         Ok(my_review.show())
     }
 
     #[cfg(target_os = "stax")]
     {
-        Ok(NbglReview.review_transaction(&my_fields))
-    }
+        // This will copy the fields into the nbgl format, not ideal
+        // memory-wise...
+        let nbgl_fields: [nbgl_layoutTagValue_t; 3] = [
+            my_fields[0].into(),
+            my_fields[1].into(),
+            my_fields[2].into(),
+        ];
 
+        const FERRIS: NbglGlyph = NbglGlyph::from_include(include_gif!("crab_64x64.gif", NBGL));
+        Ok(NbglReview::new()
+            .status_strings("TRANSACTION\nSIGNED\0", "Transaction\nRejected\0")
+            .glyph(&FERRIS)
+            .show(&nbgl_fields))
+    }
 }

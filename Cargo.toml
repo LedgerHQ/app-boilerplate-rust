@@ -15,6 +15,7 @@ numtoa = "0.2.4"
 [patch.crates-io]
 ledger_device_sdk = { path = 'ledger-device-rust-sdk/ledger_device_sdk' }
 ledger_secure_sdk_sys = { path = 'ledger-device-rust-sdk/ledger_secure_sdk_sys' }
+include_gif = { path = 'ledger-device-rust-sdk/include_gif' }
 
 [profile.release]
 opt-level = 'z'

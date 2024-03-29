@@ -56,13 +56,12 @@ pub fn ui_display_pk(addr: &[u8]) -> Result<bool, AppSW> {
             "Reject",
             Some(&CROSSMARK),
         );
-    
+
         Ok(my_review.show())
     }
 
     #[cfg(target_os = "stax")]
     {
-        Ok(NbglAddressConfirm.verify_address(addr_hex))
+        Ok(NbglAddressConfirm::new().show(addr_hex))
     }
-
 }

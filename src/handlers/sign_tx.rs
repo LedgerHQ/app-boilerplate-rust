@@ -107,7 +107,7 @@ pub fn handler_sign_tx(
 }
 
 fn compute_signature_and_append(comm: &mut Comm, ctx: &mut TxContext) -> Result<(), AppSW> {
-    let keccak256 = Keccak256::new();
+    let mut keccak256 = Keccak256::new();
     let mut message_hash: [u8; 32] = [0u8; 32];
 
     let _ = keccak256.hash(&ctx.raw_tx[..ctx.raw_tx_len], &mut message_hash);

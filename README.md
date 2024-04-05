@@ -55,6 +55,8 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 apt install clang gcc-arm-none-eabi gcc-multilib
 # Rust nightly toolchain used to compile ledger devices binaries
 rustup install nightly-2023-11-10
+# Setup the custom nightly Rust toolchain as default
+rustup default nightly-2023-11-10
 # Install required component of the nightly toolchain
 rustup component add rust-src --toolchain nightly-2023-11-10
 ```
@@ -66,8 +68,6 @@ rustup component add rust-src --toolchain nightly-2023-11-10
 pip install ledgerwallet
 # Install latest cargo-ledger from crates.io
 cargo install cargo-ledger
-# Setup the custom nightly Rust toolchain as default
-rustup default nightly-2023-11-10
 # Run cargo-ledger command to install custom target files on the custom nightly toolchain
 cargo ledger setup
 ```

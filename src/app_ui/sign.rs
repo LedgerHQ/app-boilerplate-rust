@@ -18,8 +18,6 @@ use crate::handlers::sign_tx::Tx;
 use crate::utils::concatenate;
 use crate::AppSW;
 
-use ledger_secure_sdk_sys::*;
-
 #[cfg(not(target_os = "stax"))]
 use ledger_device_sdk::ui::bitmaps::{CROSSMARK, EYE, VALIDATE_14};
 #[cfg(not(target_os = "stax"))]
@@ -92,18 +90,17 @@ pub fn ui_display_tx(tx: &Tx) -> Result<bool, AppSW> {
 
     #[cfg(target_os = "stax")]
     {
-        // This will copy the fields into the nbgl format, not ideal
-        // memory-wise...
-        let nbgl_fields: [nbgl_layoutTagValue_t; 3] = [
-            my_fields[0].into(),
-            my_fields[1].into(),
-            my_fields[2].into(),
-        ];
-
+        // Load glyph from 64x64 4bpp gif file with include_gif macro. Creates an NBGL compatible glyph.
         const FERRIS: NbglGlyph = NbglGlyph::from_include(include_gif!("crab_64x64.gif", NBGL));
-        Ok(NbglReview::new()
-            .status_strings("TRANSACTION\nSIGNED\0", "Transaction\nRejected\0")
-            .glyph(&FERRIS)
-            .show(&nbgl_fields))
+        // Create NBGL review. Maximum number of fields and string buffer length can be customised
+        // with constant generic parameters of NbglReview. Default values are 32 and 1024 respectively.
+        let mut review: NbglReview = NbglReview::new()
+            .titles(
+                "Please review transaction",
+                "To send CRAB",
+                "Sign transaction\nto send CRAB",
+            )
+            .glyph(&FERRIS);
+        Ok(review.show(&my_fields))
     }
 }

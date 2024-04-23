@@ -24,7 +24,10 @@ use ledger_device_sdk::ui::bitmaps::{CROSSMARK, EYE, VALIDATE_14};
 use ledger_device_sdk::ui::gadgets::{Field, MultiFieldReview};
 
 #[cfg(target_os = "stax")]
-use ledger_device_sdk::nbgl::NbglAddressConfirm;
+use ledger_device_sdk::nbgl::{NbglAddressConfirm, NbglGlyph};
+
+#[cfg(target_os = "stax")]
+use include_gif::include_gif;
 
 // Display only the last 20 bytes of the address
 const DISPLAY_ADDR_BYTES_LEN: usize = 20;
@@ -62,6 +65,9 @@ pub fn ui_display_pk(addr: &[u8]) -> Result<bool, AppSW> {
 
     #[cfg(target_os = "stax")]
     {
-        Ok(NbglAddressConfirm::new().show(addr_hex))
+        // Load glyph from 64x64 4bpp gif file with include_gif macro. Creates an NBGL compatible glyph.
+        const FERRIS: NbglGlyph = NbglGlyph::from_include(include_gif!("crab_64x64.gif", NBGL));
+        // Display the address confirmation screen.
+        Ok(NbglAddressConfirm::new().glyph(&FERRIS).show(addr_hex))
     }
 }

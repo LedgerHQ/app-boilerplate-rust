@@ -66,9 +66,11 @@ pub fn ui_menu_main(comm: &mut Comm) -> Event<Instruction> {
 
 #[cfg(target_os = "stax")]
 pub fn ui_menu_main(comm: &mut Comm) -> Event<Instruction> {
+    // Load glyph from 64x64 4bpp gif file with include_gif macro. Creates an NBGL compatible glyph.
     const FERRIS: NbglGlyph = NbglGlyph::from_include(include_gif!("crab_64x64.gif", NBGL));
+    // Display the home screen.
     NbglHome::new(comm)
-        .app_name("Boilerplate\0")
+        .app_name("Boilerplate")
         .info_contents(env!("CARGO_PKG_VERSION"), env!("CARGO_PKG_AUTHORS"))
         .glyph(&FERRIS)
         .show()

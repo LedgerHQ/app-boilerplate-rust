@@ -45,7 +45,8 @@ def test_sign_tx_short_tx(firmware, backend, navigator, test_name):
                                                       test_name)
         else:
             navigator.navigate_until_text_and_compare(NavInsID.USE_CASE_REVIEW_TAP,
-                                                      [NavInsID.USE_CASE_REVIEW_CONFIRM],
+                                                      [NavInsID.USE_CASE_REVIEW_CONFIRM,
+                                                       NavInsID.WAIT_FOR_HOME_SCREEN],
                                                       "Hold to sign",
                                                       ROOT_SCREENSHOT_PATH,
                                                       test_name)
@@ -88,7 +89,8 @@ def test_sign_tx_long_tx(firmware, backend, navigator, test_name):
                                                       test_name)
         else:
             navigator.navigate_until_text_and_compare(NavInsID.USE_CASE_REVIEW_TAP,
-                                                      [NavInsID.USE_CASE_REVIEW_CONFIRM],
+                                                      [NavInsID.USE_CASE_REVIEW_CONFIRM,
+                                                       NavInsID.WAIT_FOR_HOME_SCREEN],
                                                       "Hold to sign",
                                                       ROOT_SCREENSHOT_PATH,
                                                       test_name)
@@ -130,7 +132,10 @@ def test_sign_tx_refused(firmware, backend, navigator, test_name):
     else:
         instructions = [NavInsID.USE_CASE_REVIEW_TAP,
                         NavInsID.USE_CASE_REVIEW_TAP,
-                        NavInsID.USE_CASE_REVIEW_REJECT]
+                        NavInsID.USE_CASE_REVIEW_REJECT,
+                        NavInsID.USE_CASE_CHOICE_CONFIRM,
+                        NavInsID.WAIT_FOR_HOME_SCREEN
+                        ]
         with pytest.raises(ExceptionRAPDU) as e:
             with client.sign_tx(path=path, transaction=transaction):
                 navigator.navigate_and_compare(ROOT_SCREENSHOT_PATH,

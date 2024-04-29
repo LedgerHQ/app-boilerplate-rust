@@ -18,15 +18,15 @@
 use crate::AppSW;
 use core::str::from_utf8_mut;
 
-#[cfg(not(target_os = "stax"))]
+#[cfg(not(any(target_os = "stax", target_os = "flex")))]
 use ledger_device_sdk::ui::bitmaps::{CROSSMARK, EYE, VALIDATE_14};
-#[cfg(not(target_os = "stax"))]
+#[cfg(not(any(target_os = "stax", target_os = "flex")))]
 use ledger_device_sdk::ui::gadgets::{Field, MultiFieldReview};
 
-#[cfg(target_os = "stax")]
+#[cfg(any(target_os = "stax", target_os = "flex"))]
 use ledger_device_sdk::nbgl::{NbglAddressConfirm, NbglGlyph};
 
-#[cfg(target_os = "stax")]
+#[cfg(any(target_os = "stax", target_os = "flex"))]
 use include_gif::include_gif;
 
 // Display only the last 20 bytes of the address
@@ -43,7 +43,7 @@ pub fn ui_display_pk(addr: &[u8]) -> Result<bool, AppSW> {
     let addr_hex = from_utf8_mut(&mut addr_hex).unwrap();
     addr_hex[2..].make_ascii_uppercase();
 
-    #[cfg(not(target_os = "stax"))]
+    #[cfg(not(any(target_os = "stax", target_os = "flex")))]
     {
         let my_field = [Field {
             name: "Address",
@@ -63,7 +63,7 @@ pub fn ui_display_pk(addr: &[u8]) -> Result<bool, AppSW> {
         Ok(my_review.show())
     }
 
-    #[cfg(target_os = "stax")]
+    #[cfg(any(target_os = "stax", target_os = "flex"))]
     {
         // Load glyph from 64x64 4bpp gif file with include_gif macro. Creates an NBGL compatible glyph.
         const FERRIS: NbglGlyph = NbglGlyph::from_include(include_gif!("crab_64x64.gif", NBGL));

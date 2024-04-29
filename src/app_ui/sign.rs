@@ -18,14 +18,14 @@ use crate::handlers::sign_tx::Tx;
 use crate::utils::concatenate;
 use crate::AppSW;
 
-#[cfg(not(target_os = "stax"))]
+#[cfg(not(any(target_os = "stax", target_os = "flex")))]
 use ledger_device_sdk::ui::bitmaps::{CROSSMARK, EYE, VALIDATE_14};
-#[cfg(not(target_os = "stax"))]
+#[cfg(not(any(target_os = "stax", target_os = "flex")))]
 use ledger_device_sdk::ui::gadgets::{Field, MultiFieldReview};
 
-#[cfg(target_os = "stax")]
+#[cfg(any(target_os = "stax", target_os = "flex"))]
 use include_gif::include_gif;
-#[cfg(target_os = "stax")]
+#[cfg(any(target_os = "stax", target_os = "flex"))]
 use ledger_device_sdk::nbgl::{Field, NbglGlyph, NbglReview};
 
 use numtoa::NumToA;
@@ -73,7 +73,7 @@ pub fn ui_display_tx(tx: &Tx) -> Result<bool, AppSW> {
     ];
 
     // Create transaction review
-    #[cfg(not(target_os = "stax"))]
+    #[cfg(not(any(target_os = "stax", target_os = "flex")))]
     {
         let my_review = MultiFieldReview::new(
             &my_fields,
@@ -88,7 +88,7 @@ pub fn ui_display_tx(tx: &Tx) -> Result<bool, AppSW> {
         Ok(my_review.show())
     }
 
-    #[cfg(target_os = "stax")]
+    #[cfg(any(target_os = "stax", target_os = "flex"))]
     {
         // Load glyph from 64x64 4bpp gif file with include_gif macro. Creates an NBGL compatible glyph.
         const FERRIS: NbglGlyph = NbglGlyph::from_include(include_gif!("crab_64x64.gif", NBGL));

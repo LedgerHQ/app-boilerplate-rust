@@ -18,17 +18,17 @@
 use include_gif::include_gif;
 use ledger_device_sdk::io::{Comm, Event};
 
-#[cfg(not(target_os = "stax"))]
+#[cfg(not(any(target_os = "stax", target_os = "flex")))]
 use ledger_device_sdk::ui::bitmaps::{Glyph, BACK, CERTIFICATE, DASHBOARD_X};
-#[cfg(not(target_os = "stax"))]
+#[cfg(not(any(target_os = "stax", target_os = "flex")))]
 use ledger_device_sdk::ui::gadgets::{EventOrPageIndex, MultiPageMenu, Page};
 
-#[cfg(target_os = "stax")]
+#[cfg(any(target_os = "stax", target_os = "flex"))]
 use ledger_device_sdk::nbgl::{NbglGlyph, NbglHome};
 
 use crate::Instruction;
 
-#[cfg(not(target_os = "stax"))]
+#[cfg(not(any(target_os = "stax", target_os = "flex")))]
 fn ui_about_menu(comm: &mut Comm) -> Event<Instruction> {
     let pages = [
         &Page::from((["Rust Boilerplate", "(c) 2023 Ledger"], true)),
@@ -43,7 +43,7 @@ fn ui_about_menu(comm: &mut Comm) -> Event<Instruction> {
     }
 }
 
-#[cfg(not(target_os = "stax"))]
+#[cfg(not(any(target_os = "stax", target_os = "flex")))]
 pub fn ui_menu_main(comm: &mut Comm) -> Event<Instruction> {
     const APP_ICON: Glyph = Glyph::from_include(include_gif!("crab.gif"));
     let pages = [
@@ -64,14 +64,14 @@ pub fn ui_menu_main(comm: &mut Comm) -> Event<Instruction> {
     }
 }
 
-#[cfg(target_os = "stax")]
+#[cfg(any(target_os = "stax", target_os = "flex"))]
 pub fn ui_menu_main(comm: &mut Comm) -> Event<Instruction> {
     // Load glyph from 64x64 4bpp gif file with include_gif macro. Creates an NBGL compatible glyph.
     const FERRIS: NbglGlyph = NbglGlyph::from_include(include_gif!("crab_64x64.gif", NBGL));
     // Display the home screen.
     NbglHome::new(comm)
-        .app_name("Boilerplate")
-        .info_contents(env!("CARGO_PKG_VERSION"), env!("CARGO_PKG_AUTHORS"))
         .glyph(&FERRIS)
+        // .app_name("Boilerplate")
+        .infos("Boilerplate", env!("CARGO_PKG_VERSION"), env!("CARGO_PKG_AUTHORS"))
         .show()
 }

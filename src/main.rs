@@ -38,9 +38,9 @@ use handlers::{
 };
 use ledger_device_sdk::io::{ApduHeader, Comm, Event, Reply, StatusWords};
 #[cfg(feature = "pending_review_screen")]
-#[cfg(not(target_os = "stax"))]
+#[cfg(not(any(target_os = "stax", target_os = "flex")))]
 use ledger_device_sdk::ui::gadgets::display_pending_review;
-#[cfg(not(target_os = "stax"))]
+#[cfg(not(any(target_os = "stax", target_os = "flex")))]
 ledger_device_sdk::set_panic!(ledger_device_sdk::exiting_panic);
 
 // P2 for last APDU to receive.
@@ -128,7 +128,7 @@ extern "C" fn sample_main() {
     // Developer mode / pending review popup
     // must be cleared with user interaction
     #[cfg(feature = "pending_review_screen")]
-    #[cfg(not(target_os = "stax"))]
+    #[cfg(not(any(target_os = "stax", target_os = "flex")))]
     display_pending_review(&mut comm);
 
     let mut tx_ctx = TxContext::new();

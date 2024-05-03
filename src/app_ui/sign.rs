@@ -24,6 +24,8 @@ use ledger_device_sdk::ui::bitmaps::{CROSSMARK, EYE, VALIDATE_14};
 use ledger_device_sdk::ui::gadgets::{Field, MultiFieldReview};
 
 #[cfg(any(target_os = "stax", target_os = "flex"))]
+use crate::settings::Settings;
+#[cfg(any(target_os = "stax", target_os = "flex"))]
 use include_gif::include_gif;
 #[cfg(any(target_os = "stax", target_os = "flex"))]
 use ledger_device_sdk::nbgl::{Field, NbglGlyph, NbglReview};
@@ -101,6 +103,13 @@ pub fn ui_display_tx(tx: &Tx) -> Result<bool, AppSW> {
                 "Sign transaction\nto send CRAB",
             )
             .glyph(&FERRIS);
-        Ok(review.show(&my_fields))
+
+        // If first setting switch is disabled do not display the transaction memo
+        let settings = Settings::default();
+        if settings.get_element(0) == 0 {
+            return Ok(review.show(&my_fields[0..2]));
+        } else {
+            return Ok(review.show(&my_fields));
+        }
     }
 }

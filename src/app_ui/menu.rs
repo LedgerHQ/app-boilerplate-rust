@@ -24,9 +24,13 @@ use ledger_device_sdk::ui::bitmaps::{Glyph, BACK, CERTIFICATE, DASHBOARD_X};
 use ledger_device_sdk::ui::gadgets::{EventOrPageIndex, MultiPageMenu, Page};
 
 #[cfg(any(target_os = "stax", target_os = "flex"))]
-use ledger_device_sdk::nbgl::{NbglGlyph, NbglHome};
+use crate::settings::Settings;
+#[cfg(any(target_os = "stax", target_os = "flex"))]
+use ledger_device_sdk::nbgl::{NbglGlyph, NbglHomeAndSettings};
 
 use crate::Instruction;
+
+// use ledger_device_sdk::nvm::*;
 
 #[cfg(not(any(target_os = "stax", target_os = "flex")))]
 fn ui_about_menu(comm: &mut Comm) -> Event<Instruction> {
@@ -68,10 +72,17 @@ pub fn ui_menu_main(comm: &mut Comm) -> Event<Instruction> {
 pub fn ui_menu_main(comm: &mut Comm) -> Event<Instruction> {
     // Load glyph from 64x64 4bpp gif file with include_gif macro. Creates an NBGL compatible glyph.
     const FERRIS: NbglGlyph = NbglGlyph::from_include(include_gif!("crab_64x64.gif", NBGL));
+
+    let settings_strings = [["Display Memo", "Allow display of transaction memo."]];
+    let settings = Settings::default();
     // Display the home screen.
-    NbglHome::new(comm)
+    NbglHomeAndSettings::new(comm)
         .glyph(&FERRIS)
-        // .app_name("Boilerplate")
-        .infos("Boilerplate", env!("CARGO_PKG_VERSION"), env!("CARGO_PKG_AUTHORS"))
+        .settings(settings.get_mut_ref(), &settings_strings)
+        .infos(
+            "Boilerplate",
+            env!("CARGO_PKG_VERSION"),
+            env!("CARGO_PKG_AUTHORS"),
+        )
         .show()
 }

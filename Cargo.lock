@@ -21,6 +21,7 @@ dependencies = [
 name = "app-boilerplate-rust"
 version = "1.3.0"
 dependencies = [
+ "heapless",
  "hex",
  "include_gif",
  "ledger_device_sdk",
@@ -115,8 +116,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d7b894f5411737b7867f4827955924d7c254fc9f4d91a6aad6b097804b1018b"
 
 [[package]]
-name = "const-zero"
-version = "0.1.1"
+name = "critical-section"
+version = "1.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7059fff8937831a9ae6f0fe4d658ffabf58f2ca96aa9dec1c889f936f705f216"
+
+[[package]]
+name = "either"
+version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a3c6565524986fe3225da0beb9b4aa55ebc73cd57ff8cb4ccf016ca4c8d006af"
 
@@ -134,6 +141,16 @@ name = "either"
 version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3dca9240753cf90908d7e4aac30f630662b02aebaa1b58a3cadabdb23385b58b"
+
+[[package]]
+name = "embedded-alloc"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ddae17915accbac2cfbc64ea0ae6e3b330e6ea124ba108dada63646fd3c6f815"
+dependencies = [
+ "critical-section",
+ "linked_list_allocator",
+]
 
 [[package]]
 name = "errno"
@@ -233,11 +250,18 @@ checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
 name = "ledger_device_sdk"
+<<<<<<< HEAD
 version = "1.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c799dd808a566399aa22a31e3fa9563c8f9959a4960e3fbef65a7b492f9f83f7"
 dependencies = [
  "const-zero",
+=======
+version = "1.9.0"
+dependencies = [
+ "critical-section",
+ "embedded-alloc",
+>>>>>>> 675cae8 (Use of heap feature for simpler code)
  "include_gif",
  "ledger_secure_sdk_sys",
  "num-traits",

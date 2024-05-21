@@ -16,6 +16,7 @@
  *****************************************************************************/
 
 use crate::AppSW;
+use alloc::format;
 use core::str::from_utf8_mut;
 
 #[cfg(not(any(target_os = "stax", target_os = "flex")))]
@@ -34,15 +35,10 @@ use include_gif::include_gif;
 const DISPLAY_ADDR_BYTES_LEN: usize = 20;
 
 pub fn ui_display_pk(addr: &[u8]) -> Result<bool, AppSW> {
-    let mut addr_hex = [0u8; DISPLAY_ADDR_BYTES_LEN * 2 + 2];
-    addr_hex[..2].copy_from_slice("0x".as_bytes());
-    hex::encode_to_slice(
-        &addr[addr.len() - DISPLAY_ADDR_BYTES_LEN..],
-        &mut addr_hex[2..],
-    )
-    .unwrap();
-    let addr_hex = from_utf8_mut(&mut addr_hex).unwrap();
-    addr_hex[2..].make_ascii_uppercase();
+    let addr_hex = format!(
+        "0x{}",
+        hex::encode(&addr[addr.len() - DISPLAY_ADDR_BYTES_LEN..]).to_uppercase()
+    );
 
     #[cfg(not(any(target_os = "stax", target_os = "flex")))]
     {

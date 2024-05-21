@@ -15,7 +15,6 @@
  *  limitations under the License.
  *****************************************************************************/
 use crate::handlers::sign_tx::Tx;
-use crate::utils::concatenate;
 use crate::AppSW;
 
 #[cfg(not(any(target_os = "stax", target_os = "flex")))]
@@ -35,6 +34,8 @@ use numtoa::NumToA;
 
 const MAX_COIN_LENGTH: usize = 10;
 
+use alloc::format;
+
 /// Displays a transaction and returns true if user approved it.
 ///
 /// This method can return [`AppSW::TxDisplayFail`] error if the coin name length is too long.
@@ -43,31 +44,18 @@ const MAX_COIN_LENGTH: usize = 10;
 ///
 /// * `tx` - Transaction to be displayed for validation
 pub fn ui_display_tx(tx: &Tx) -> Result<bool, AppSW> {
-    // Generate string for amount
-    let mut numtoa_buf = [0u8; 20];
-    let mut value_buf = [0u8; 20 + MAX_COIN_LENGTH + 1];
-
-    let value_str = concatenate(
-        &[tx.coin, " ", tx.value.numtoa_str(10, &mut numtoa_buf)],
-        &mut value_buf,
-    )
-    .map_err(|_| AppSW::TxDisplayFail)?; // Fails if value_buf is too small
-
-    // Generate destination address string in hexadecimal format.
-    let mut to_str = [0u8; 42];
-    to_str[..2].copy_from_slice("0x".as_bytes());
-    hex::encode_to_slice(tx.to, &mut to_str[2..]).unwrap();
-    to_str[2..].make_ascii_uppercase();
+    let value_str = format!("{} {}", tx.coin, tx.value);
+    let to_str = format!("0x{}", hex::encode(tx.to).to_uppercase());
 
     // Define transaction review fields
     let my_fields = [
         Field {
             name: "Amount",
-            value: value_str,
+            value: value_str.as_str(),
         },
         Field {
             name: "Destination",
-            value: core::str::from_utf8(&to_str).unwrap(),
+            value: to_str.as_str(),
         },
         Field {
             name: "Memo",

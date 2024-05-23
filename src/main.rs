@@ -45,6 +45,9 @@ use ledger_device_sdk::ui::gadgets::display_pending_review;
 #[cfg(not(any(target_os = "stax", target_os = "flex")))]
 ledger_device_sdk::set_panic!(ledger_device_sdk::exiting_panic);
 
+#[cfg(any(target_os = "stax", target_os = "flex"))]
+use ledger_device_sdk::nbgl::init_comm;
+
 // P2 for last APDU to receive.
 const P2_SIGN_TX_LAST: u8 = 0x00;
 // P2 for more APDU to receive.
@@ -126,6 +129,11 @@ extern "C" fn sample_main() {
     // If any APDU with a wrong class value is received, comm will respond automatically with
     // BadCla status word.
     let mut comm = Comm::new().set_expected_cla(0xe0);
+
+    // Initialize reference to Comm instance for NBGL
+    // API calls.
+    #[cfg(any(target_os = "stax", target_os = "flex"))]
+    init_comm(&mut comm);
 
     // Developer mode / pending review popup
     // must be cleared with user interaction

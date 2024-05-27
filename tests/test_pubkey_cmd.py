@@ -33,8 +33,8 @@ def test_get_public_key_confirm_accepted(firmware, backend, navigator, test_name
         else:
             instructions = [
                 NavInsID.USE_CASE_REVIEW_TAP,
-                NavInsID.USE_CASE_ADDRESS_CONFIRMATION_CONFIRM
-                # NavInsID.USE_CASE_STATUS_DISMISS
+                NavInsID.USE_CASE_ADDRESS_CONFIRMATION_CONFIRM,
+                NavInsID.WAIT_FOR_HOME_SCREEN
             ]
             navigator.navigate_and_compare(ROOT_SCREENSHOT_PATH,
                                            test_name,
@@ -65,7 +65,8 @@ def test_get_public_key_confirm_refused(firmware, backend, navigator, test_name)
     else:
         instructions = [
                 NavInsID.USE_CASE_REVIEW_TAP,
-                NavInsID.USE_CASE_ADDRESS_CONFIRMATION_CANCEL
+                NavInsID.USE_CASE_ADDRESS_CONFIRMATION_CANCEL,
+                NavInsID.WAIT_FOR_HOME_SCREEN
         ]
         with pytest.raises(ExceptionRAPDU) as e:
             with client.get_public_key_with_confirmation(path=path):

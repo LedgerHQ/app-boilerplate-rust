@@ -1,4 +1,4 @@
-import tomllib
+import tomli
 from application_client.boilerplate_command_sender import BoilerplateCommandSender
 from application_client.boilerplate_response_unpacker import unpack_get_version_response
 
@@ -6,7 +6,7 @@ from application_client.boilerplate_response_unpacker import unpack_get_version_
 def test_version(backend):
     
     with open("Cargo.toml", "rb") as f:
-        data = tomllib.load(f)
+        data = tomli.load(f)
     version = tuple(map(int, data['package']['version'].split('.')))
     # Use the app interface instead of raw interface
     client = BoilerplateCommandSender(backend)

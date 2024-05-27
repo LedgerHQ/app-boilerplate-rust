@@ -74,7 +74,7 @@ pub fn ui_menu_main(_: &mut Comm) -> Event<Instruction> {
     const FERRIS: NbglGlyph = NbglGlyph::from_include(include_gif!("crab_64x64.gif", NBGL));
 
     let settings_strings = [["Display Memo", "Allow display of transaction memo."]];
-    let settings = Settings::default();
+    let mut settings: Settings = Default::default();
     // Display the home screen.
     NbglHomeAndSettings::new()
         .glyph(&FERRIS)

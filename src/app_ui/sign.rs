@@ -105,11 +105,11 @@ pub fn ui_display_tx(tx: &Tx) -> Result<bool, AppSW> {
             .glyph(&FERRIS);
 
         // If first setting switch is disabled do not display the transaction memo
-        let settings = Settings::default();
+        let settings: Settings = Default::default();
         if settings.get_element(0) == 0 {
-            return Ok(review.show(&my_fields[0..2]));
+            Ok(review.show(&my_fields[0..2]))
         } else {
-            return Ok(review.show(&my_fields));
+            Ok(review.show(&my_fields))
         }
     }
 }

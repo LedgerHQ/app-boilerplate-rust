@@ -7,13 +7,12 @@ from ragger.error import ExceptionRAPDU
 from ragger.navigator import NavIns, NavInsID
 from utils import ROOT_SCREENSHOT_PATH, check_signature_validity
 
-# In this tests we check the behavior of the device when asked to sign a transaction
+# In these tests we check the behavior of the device when asked to sign a transaction
 
-
-# In this test se send to the device a transaction to sign and validate it on screen
-# The transaction is short and will be sent in one chunk
-# We will ensure that the displayed information is correct by using screenshots comparison
-def test_sign_tx_short_tx(firmware, backend, navigator, test_name):
+# In this test a transaction is sent to the device to be signed and validated on screen.
+# The transaction is short and will be sent in one chunk.
+# We will ensure that the displayed information is correct by using screenshots comparison.
+def test_sign_tx_short_tx(backend, scenario_navigator, firmware, navigator):
     # Use the app interface instead of raw interface
     client = BoilerplateCommandSender(backend)
     # The path used for this entire test
@@ -39,37 +38,24 @@ def test_sign_tx_short_tx(firmware, backend, navigator, test_name):
                             NavInsID.USE_CASE_SUB_SETTINGS_EXIT],
                             screen_change_before_first_instruction=False,
                             screen_change_after_last_instruction=False)
-    
+
     # Send the sign device instruction.
     # As it requires on-screen validation, the function is asynchronous.
     # It will yield the result when the navigation is done
     with client.sign_tx(path=path, transaction=transaction):
         # Validate the on-screen request by performing the navigation appropriate for this device
-        if firmware.device.startswith("nano"):
-            navigator.navigate_until_text_and_compare(NavInsID.RIGHT_CLICK,
-                                                      [NavInsID.BOTH_CLICK],
-                                                      "Approve",
-                                                      ROOT_SCREENSHOT_PATH,
-                                                      test_name)
-        else:
-            navigator.navigate_until_text_and_compare(NavInsID.USE_CASE_REVIEW_TAP,
-                                                      [NavInsID.USE_CASE_REVIEW_CONFIRM,
-                                                       NavInsID.WAIT_FOR_HOME_SCREEN],
-                                                      "Hold to sign",
-                                                      ROOT_SCREENSHOT_PATH,
-                                                      test_name)
+        scenario_navigator.review_approve()
 
     # The device as yielded the result, parse it and ensure that the signature is correct
     response = client.get_async_response().data
     _, der_sig, _ = unpack_sign_tx_response(response)
-    
     assert check_signature_validity(public_key, der_sig, transaction)
     
-# In this test se send to the device a transaction to sign and validate it on screen
+# In this test a transaction is sent to the device to be signed and validated on screen.
 # The transaction is short and will be sent in one chunk
 # We will ensure that the displayed information is correct by using screenshots comparison
 # The transaction memo should not be displayed as we have not enabled it in the app settings.
-def test_sign_tx_short_tx_no_memo(firmware, backend, navigator, test_name):
+def test_sign_tx_short_tx_no_memo(backend, scenario_navigator, firmware):
     if firmware.device.startswith("nano"):
         pytest.skip("Skipping this test for Nano devices")
     
@@ -95,12 +81,8 @@ def test_sign_tx_short_tx_no_memo(firmware, backend, navigator, test_name):
     # As it requires on-screen validation, the function is asynchronous.
     # It will yield the result when the navigation is done
     with client.sign_tx(path=path, transaction=transaction):
-            navigator.navigate_until_text_and_compare(NavInsID.USE_CASE_REVIEW_TAP,
-                                                      [NavInsID.USE_CASE_REVIEW_CONFIRM,
-                                                       NavInsID.WAIT_FOR_HOME_SCREEN],
-                                                      "Hold to sign",
-                                                      ROOT_SCREENSHOT_PATH,
-                                                      test_name)
+        # Validate the on-screen request by performing the navigation appropriate for this device
+        scenario_navigator.review_approve()
 
     # The device as yielded the result, parse it and ensure that the signature is correct
     response = client.get_async_response().data
@@ -109,10 +91,11 @@ def test_sign_tx_short_tx_no_memo(firmware, backend, navigator, test_name):
     assert check_signature_validity(public_key, der_sig, transaction)
 
 
-# In this test se send to the device a transaction to sign and validate it on screen
+# In this test a transaction is sent to the device to be signed and validated on screen.
 # This test is mostly the same as the previous one but with different values.
 # In particular the long memo will force the transaction to be sent in multiple chunks
-def test_sign_tx_long_tx(firmware, backend, navigator, test_name):
+# def test_sign_tx_long_tx(firmware, backend, navigator, test_name):
+def test_sign_tx_long_tx(backend, scenario_navigator, firmware, navigator):
     # Use the app interface instead of raw interface
     client = BoilerplateCommandSender(backend)
     path: str = "m/44'/1'/0'/0/0"
@@ -139,20 +122,13 @@ def test_sign_tx_long_tx(firmware, backend, navigator, test_name):
                             screen_change_before_first_instruction=False,
                             screen_change_after_last_instruction=False)
 
+    # Send the sign device instruction.
+    # As it requires on-screen validation, the function is asynchronous.
+    # It will yield the result when the navigation is done
     with client.sign_tx(path=path, transaction=transaction):
-        if firmware.device.startswith("nano"):
-            navigator.navigate_until_text_and_compare(NavInsID.RIGHT_CLICK,
-                                                      [NavInsID.BOTH_CLICK],
-                                                      "Approve",
-                                                      ROOT_SCREENSHOT_PATH,
-                                                      test_name)
-        else:
-            navigator.navigate_until_text_and_compare(NavInsID.USE_CASE_REVIEW_TAP,
-                                                      [NavInsID.USE_CASE_REVIEW_CONFIRM,
-                                                       NavInsID.WAIT_FOR_HOME_SCREEN],
-                                                      "Hold to sign",
-                                                      ROOT_SCREENSHOT_PATH,
-                                                      test_name)
+        # Validate the on-screen request by performing the navigation appropriate for this device
+        scenario_navigator.review_approve()
+
     response = client.get_async_response().data
     _, der_sig, _ = unpack_sign_tx_response(response)
     assert check_signature_validity(public_key, der_sig, transaction)
@@ -160,7 +136,7 @@ def test_sign_tx_long_tx(firmware, backend, navigator, test_name):
 
 # Transaction signature refused test
 # The test will ask for a transaction signature that will be refused on screen
-def test_sign_tx_refused(firmware, backend, navigator, test_name):
+def test_sign_tx_refused(backend, scenario_navigator):
     # Use the app interface instead of raw interface
     client = BoilerplateCommandSender(backend)
     path: str = "m/44'/1'/0'/0/0"
@@ -176,30 +152,10 @@ def test_sign_tx_refused(firmware, backend, navigator, test_name):
         memo="This transaction will be refused by the user"
     ).serialize()
 
-    if firmware.device.startswith("nano"):
-        with pytest.raises(ExceptionRAPDU) as e:
-            with client.sign_tx(path=path, transaction=transaction):
-                navigator.navigate_until_text_and_compare(NavInsID.RIGHT_CLICK,
-                                                          [NavInsID.BOTH_CLICK],
-                                                          "Reject",
-                                                          ROOT_SCREENSHOT_PATH,
-                                                          test_name)
-
-        # Assert that we have received a refusal
-        assert e.value.status == Errors.SW_DENY
-        assert len(e.value.data) == 0
-    else:
-        instructions = [NavInsID.USE_CASE_REVIEW_TAP,
-                        NavInsID.USE_CASE_REVIEW_TAP,
-                        NavInsID.USE_CASE_REVIEW_REJECT,
-                        NavInsID.USE_CASE_CHOICE_CONFIRM,
-                        NavInsID.WAIT_FOR_HOME_SCREEN
-                        ]
-        with pytest.raises(ExceptionRAPDU) as e:
-            with client.sign_tx(path=path, transaction=transaction):
-                navigator.navigate_and_compare(ROOT_SCREENSHOT_PATH,
-                                                test_name,
-                                                instructions)
-        # Assert that we have received a refusal
-        assert e.value.status == Errors.SW_DENY
-        assert len(e.value.data) == 0
+    with pytest.raises(ExceptionRAPDU) as e:
+        with client.sign_tx(path=path, transaction=transaction):
+            scenario_navigator.review_reject()
+    
+    # Assert that we have received a refusal
+    assert e.value.status == Errors.SW_DENY
+    assert len(e.value.data) == 0

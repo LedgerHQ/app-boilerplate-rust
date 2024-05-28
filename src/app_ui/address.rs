@@ -19,9 +19,10 @@ use crate::AppSW;
 use core::str::from_utf8_mut;
 
 #[cfg(not(any(target_os = "stax", target_os = "flex")))]
-use ledger_device_sdk::ui::bitmaps::{CROSSMARK, EYE, VALIDATE_14};
-#[cfg(not(any(target_os = "stax", target_os = "flex")))]
-use ledger_device_sdk::ui::gadgets::{Field, MultiFieldReview};
+use ledger_device_sdk::ui::{
+    bitmaps::{CROSSMARK, EYE, VALIDATE_14},
+    gadgets::{Field, MultiFieldReview},
+};
 
 #[cfg(any(target_os = "stax", target_os = "flex"))]
 use ledger_device_sdk::nbgl::{NbglAddressReview, NbglGlyph};
@@ -68,6 +69,9 @@ pub fn ui_display_pk(addr: &[u8]) -> Result<bool, AppSW> {
         // Load glyph from 64x64 4bpp gif file with include_gif macro. Creates an NBGL compatible glyph.
         const FERRIS: NbglGlyph = NbglGlyph::from_include(include_gif!("crab_64x64.gif", NBGL));
         // Display the address confirmation screen.
-        Ok(NbglAddressReview::new().glyph(&FERRIS).show(addr_hex))
+        Ok(NbglAddressReview::new()
+            .glyph(&FERRIS)
+            .verify_str("Verify CRAB address")
+            .show(addr_hex))
     }
 }

@@ -19,9 +19,10 @@ use crate::utils::concatenate;
 use crate::AppSW;
 
 #[cfg(not(any(target_os = "stax", target_os = "flex")))]
-use ledger_device_sdk::ui::bitmaps::{CROSSMARK, EYE, VALIDATE_14};
-#[cfg(not(any(target_os = "stax", target_os = "flex")))]
-use ledger_device_sdk::ui::gadgets::{Field, MultiFieldReview};
+use ledger_device_sdk::ui::{
+    bitmaps::{CROSSMARK, EYE, VALIDATE_14},
+    gadgets::{Field, MultiFieldReview},
+};
 
 #[cfg(any(target_os = "stax", target_os = "flex"))]
 use crate::settings::Settings;
@@ -98,8 +99,8 @@ pub fn ui_display_tx(tx: &Tx) -> Result<bool, AppSW> {
         // with constant generic parameters of NbglReview. Default values are 32 and 1024 respectively.
         let mut review: NbglReview = NbglReview::new()
             .titles(
-                "Please review transaction",
-                "To send CRAB",
+                "Review transaction\nto send CRAB",
+                "",
                 "Sign transaction\nto send CRAB",
             )
             .glyph(&FERRIS);

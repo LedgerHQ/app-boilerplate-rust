@@ -30,6 +30,8 @@ mod handlers {
     pub mod sign_tx;
 }
 
+mod settings;
+
 use app_ui::menu::ui_menu_main;
 use handlers::{
     get_public_key::handler_get_public_key,
@@ -38,9 +40,13 @@ use handlers::{
 };
 use ledger_device_sdk::io::{ApduHeader, Comm, Event, Reply, StatusWords};
 #[cfg(feature = "pending_review_screen")]
+#[cfg(not(any(target_os = "stax", target_os = "flex")))]
 use ledger_device_sdk::ui::gadgets::display_pending_review;
-
+#[cfg(not(any(target_os = "stax", target_os = "flex")))]
 ledger_device_sdk::set_panic!(ledger_device_sdk::exiting_panic);
+
+#[cfg(any(target_os = "stax", target_os = "flex"))]
+use ledger_device_sdk::nbgl::init_comm;
 
 // P2 for last APDU to receive.
 const P2_SIGN_TX_LAST: u8 = 0x00;
@@ -124,9 +130,15 @@ extern "C" fn sample_main() {
     // BadCla status word.
     let mut comm = Comm::new().set_expected_cla(0xe0);
 
+    // Initialize reference to Comm instance for NBGL
+    // API calls.
+    #[cfg(any(target_os = "stax", target_os = "flex"))]
+    init_comm(&mut comm);
+
     // Developer mode / pending review popup
     // must be cleared with user interaction
     #[cfg(feature = "pending_review_screen")]
+    #[cfg(not(any(target_os = "stax", target_os = "flex")))]
     display_pending_review(&mut comm);
 
     let mut tx_ctx = TxContext::new();

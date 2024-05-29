@@ -17,11 +17,23 @@
 
 use include_gif::include_gif;
 use ledger_device_sdk::io::{Comm, Event};
-use ledger_device_sdk::ui::bitmaps::{Glyph, BACK, CERTIFICATE, DASHBOARD_X};
-use ledger_device_sdk::ui::gadgets::{EventOrPageIndex, MultiPageMenu, Page};
+
+#[cfg(not(any(target_os = "stax", target_os = "flex")))]
+use ledger_device_sdk::ui::{
+    bitmaps::{Glyph, BACK, CERTIFICATE, DASHBOARD_X},
+    gadgets::{EventOrPageIndex, MultiPageMenu, Page},
+};
+
+#[cfg(any(target_os = "stax", target_os = "flex"))]
+use crate::settings::Settings;
+#[cfg(any(target_os = "stax", target_os = "flex"))]
+use ledger_device_sdk::nbgl::{NbglGlyph, NbglHomeAndSettings};
 
 use crate::Instruction;
 
+// use ledger_device_sdk::nvm::*;
+
+#[cfg(not(any(target_os = "stax", target_os = "flex")))]
 fn ui_about_menu(comm: &mut Comm) -> Event<Instruction> {
     let pages = [
         &Page::from((["Rust Boilerplate", "(c) 2023 Ledger"], true)),
@@ -36,6 +48,7 @@ fn ui_about_menu(comm: &mut Comm) -> Event<Instruction> {
     }
 }
 
+#[cfg(not(any(target_os = "stax", target_os = "flex")))]
 pub fn ui_menu_main(comm: &mut Comm) -> Event<Instruction> {
     const APP_ICON: Glyph = Glyph::from_include(include_gif!("crab.gif"));
     let pages = [
@@ -54,4 +67,23 @@ pub fn ui_menu_main(comm: &mut Comm) -> Event<Instruction> {
             EventOrPageIndex::Index(_) => (),
         }
     }
+}
+
+#[cfg(any(target_os = "stax", target_os = "flex"))]
+pub fn ui_menu_main(_: &mut Comm) -> Event<Instruction> {
+    // Load glyph from 64x64 4bpp gif file with include_gif macro. Creates an NBGL compatible glyph.
+    const FERRIS: NbglGlyph = NbglGlyph::from_include(include_gif!("crab_64x64.gif", NBGL));
+
+    let settings_strings = [["Display Memo", "Allow display of transaction memo."]];
+    let mut settings: Settings = Default::default();
+    // Display the home screen.
+    NbglHomeAndSettings::new()
+        .glyph(&FERRIS)
+        .settings(settings.get_mut_ref(), &settings_strings)
+        .infos(
+            "Boilerplate",
+            env!("CARGO_PKG_VERSION"),
+            env!("CARGO_PKG_AUTHORS"),
+        )
+        .show()
 }

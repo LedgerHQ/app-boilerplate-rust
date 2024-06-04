@@ -30,10 +30,6 @@ use include_gif::include_gif;
 #[cfg(any(target_os = "stax", target_os = "flex"))]
 use ledger_device_sdk::nbgl::{Field, NbglGlyph, NbglReview};
 
-use numtoa::NumToA;
-
-const MAX_COIN_LENGTH: usize = 10;
-
 use alloc::format;
 
 /// Displays a transaction and returns true if user approved it.

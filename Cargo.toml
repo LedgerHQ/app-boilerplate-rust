@@ -26,9 +26,6 @@ flags = "0"
 path = ["44'/1'"]
 name = "Rust Boilerplate"
 
-[package.metadata.ledger.nanos]
-icon = "crab.gif"
-
 [package.metadata.ledger.nanox]
 icon = "crab_14x14.gif"
 

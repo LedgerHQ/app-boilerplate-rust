@@ -2,7 +2,9 @@
 
 ![Rule enforcer](https://github.com/LedgerHQ/app-boilerplate-rust/actions/workflows/guidelines_enforcer.yml/badge.svg) ![Build and tests](https://github.com/LedgerHQ/app-boilerplate-rust/actions/workflows/build_and_functional_tests.yml/badge.svg)
 
-This is a boilerplate application written in Rust which can be forked to start a new project for the Ledger Nano S/X/SP, Stax and Flex devices.
+This is a boilerplate application written in Rust which can be forked to start a new project for the Ledger Nano X/SP, Stax and Flex devices.
+
+:warning: Nano S is not supported
 
 * Implements standard features (display address, transaction signature...),
 * Has functional tests using [Ragger](https://github.com/LedgerHQ/ragger),
@@ -82,7 +84,7 @@ Now that you have followed the [prerequisites](#prerequisites) guide, you can bu
 cargo ledger build nanox
 ```
 
-This command will build the app for the Nano X, but you can use any supported device (`nanos`, `nanox`, `nanosplus`)
+This command will build the app for the Nano X, but you can use any supported device (`nanox`, `nanosplus`, `stax`, `flex`)
 
 ### Loading
 
@@ -94,7 +96,7 @@ This command will build the app for the Nano X, but you can use any supported de
 cargo ledger build nanox --load
 ```
 
-As for the build command, you can replace `nanos` with `nanox` or `nanosplus`.
+As for the build command, you can replace `nanox` with `nanosplus`, `stax` or `flex`.
 
 ## Test
 
@@ -111,7 +113,7 @@ pip install -r tests/requirements.txt
 * Run the functional tests :
 
 ```shell
-pytest tests/ --tb=short -v --device {nanos | nanosp | nanox}
+pytest tests/ --tb=short -v --device {nanosp | nanox | stax | flex}
 ```
 
 ### Emulator

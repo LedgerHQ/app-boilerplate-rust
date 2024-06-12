@@ -17,6 +17,7 @@
 use crate::app_ui::sign::ui_display_tx;
 use crate::utils::Bip32Path;
 use crate::AppSW;
+use alloc::vec::Vec;
 use ledger_device_sdk::ecc::{Secp256k1, SeedDerive};
 use ledger_device_sdk::hash::{sha3::Keccak256, HashInit};
 use ledger_device_sdk::io::Comm;
@@ -38,8 +39,7 @@ pub struct Tx<'a> {
 }
 
 pub struct TxContext {
-    raw_tx: [u8; MAX_TRANSACTION_LEN], // raw transaction serialized
-    raw_tx_len: usize,                 // length of raw transaction
+    raw_tx: Vec<u8>,
     path: Bip32Path,
 }
 
@@ -47,15 +47,13 @@ pub struct TxContext {
 impl TxContext {
     pub fn new() -> TxContext {
         TxContext {
-            raw_tx: [0u8; MAX_TRANSACTION_LEN],
-            raw_tx_len: 0,
+            raw_tx: Vec::new(),
             path: Default::default(),
         }
     }
     // Implement reset for TxInfo
     fn reset(&mut self) {
-        self.raw_tx = [0u8; MAX_TRANSACTION_LEN];
-        self.raw_tx_len = 0;
+        self.raw_tx.clear();
         self.path = Default::default();
     }
 }
@@ -78,13 +76,12 @@ pub fn handler_sign_tx(
     // Next chunks, append data to raw_tx and return or parse
     // the transaction if it is the last chunk.
     } else {
-        if ctx.raw_tx_len + data.len() > MAX_TRANSACTION_LEN {
+        if ctx.raw_tx.len() + data.len() > MAX_TRANSACTION_LEN {
             return Err(AppSW::TxWrongLength);
         }
 
         // Append data to raw_tx
-        ctx.raw_tx[ctx.raw_tx_len..ctx.raw_tx_len + data.len()].copy_from_slice(data);
-        ctx.raw_tx_len += data.len();
+        ctx.raw_tx.extend(data);
 
         // If we expect more chunks, return
         if more {
@@ -92,8 +89,7 @@ pub fn handler_sign_tx(
         // Otherwise, try to parse the transaction
         } else {
             // Try to deserialize the transaction
-            let (tx, _): (Tx, usize) =
-                from_slice(&ctx.raw_tx[..ctx.raw_tx_len]).map_err(|_| AppSW::TxParsingFail)?;
+            let (tx, _): (Tx, usize) = from_slice(&ctx.raw_tx).map_err(|_| AppSW::TxParsingFail)?;
             // Display transaction. If user approves
             // the transaction, sign it. Otherwise,
             // return a "deny" status word.
@@ -110,7 +106,7 @@ fn compute_signature_and_append(comm: &mut Comm, ctx: &mut TxContext) -> Result<
     let mut keccak256 = Keccak256::new();
     let mut message_hash: [u8; 32] = [0u8; 32];
 
-    let _ = keccak256.hash(&ctx.raw_tx[..ctx.raw_tx_len], &mut message_hash);
+    let _ = keccak256.hash(&ctx.raw_tx, &mut message_hash);
 
     let (sig, siglen, parity) = Secp256k1::derive_from_path(ctx.path.as_ref())
         .deterministic_sign(&message_hash)

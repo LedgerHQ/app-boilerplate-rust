@@ -28,8 +28,13 @@ use crate::settings::Settings;
 #[cfg(any(target_os = "stax", target_os = "flex"))]
 use include_gif::include_gif;
 #[cfg(any(target_os = "stax", target_os = "flex"))]
-use ledger_device_sdk::nbgl::{Field, NbglGlyph, NbglReview};
+use ledger_device_sdk::nbgl::{
+    convert_content_array, convert_fields, CField, CenteredInfo, CenteredInfoStyle, Field,
+    InfoButton, InfoLongPress, NbglGenericReview, NbglGlyph, NbglPageContent, TagValueConfirm,
+    TagValueList, TuneIndex,
+};
 
+use alloc::ffi::CString;
 use alloc::format;
 
 /// Displays a transaction and returns true if user approved it.
@@ -42,7 +47,6 @@ use alloc::format;
 pub fn ui_display_tx(tx: &Tx) -> Result<bool, AppSW> {
     let value_str = format!("{} {}", tx.coin, tx.value);
     let to_str = format!("0x{}", hex::encode(tx.to).to_uppercase());
-
     // Define transaction review fields
     let my_fields = [
         Field {
@@ -79,22 +83,72 @@ pub fn ui_display_tx(tx: &Tx) -> Result<bool, AppSW> {
     {
         // Load glyph from 64x64 4bpp gif file with include_gif macro. Creates an NBGL compatible glyph.
         const FERRIS: NbglGlyph = NbglGlyph::from_include(include_gif!("crab_64x64.gif", NBGL));
-        // Create NBGL review. Maximum number of fields and string buffer length can be customised
-        // with constant generic parameters of NbglReview. Default values are 32 and 1024 respectively.
-        let mut review: NbglReview = NbglReview::new()
-            .titles(
-                "Review transaction\nto send CRAB",
-                "",
-                "Sign transaction\nto send CRAB",
-            )
-            .glyph(&FERRIS);
+        let ferris_icon = (&FERRIS).into();
 
-        // If first setting switch is disabled do not display the transaction memo
-        let settings: Settings = Default::default();
-        if settings.get_element(0) == 0 {
-            Ok(review.show(&my_fields[0..2]))
-        } else {
-            Ok(review.show(&my_fields))
-        }
+        let centered_info = CenteredInfo {
+            text1: &CString::new("Please ").unwrap(),
+            text2: &CString::new("Some stuff").unwrap(),
+            text3: &CString::new("Some more stuff").unwrap(),
+            icon: Some(&ferris_icon),
+            on_top: true,
+            style: CenteredInfoStyle::LargeCaseBoldInfo,
+            offset_y: 0,
+        };
+
+        // let info_button = InfoButton {
+        //     text: &CString::new("Validate info : abc").unwrap(),
+        //     icon: Some(&ferris_icon),
+        //     button_text: &CString::new("Approve").unwrap(),
+        //     tune_id: TuneIndex::Success,
+        // };
+
+        // let info_long_press = InfoLongPress {
+        //     text: &CString::new("Hold to validate transaction").unwrap(),
+        //     icon: Some(&ferris_icon),
+        //     long_press_text: &CString::new("Hold to validate").unwrap(),
+        //     tune_id: TuneIndex::Success,
+        // };
+
+        let my_c_fields = [CField {
+            name: &CString::new("Hash").unwrap(),
+            value: &CString::new("0x6dfb7c0422c534f0b2bada1ac42fbafe").unwrap(),
+        }];
+
+        let tag_values_list = TagValueList {
+            pairs: &convert_fields(my_c_fields),
+            nb_max_lines_for_value: 5,
+            small_case_for_value: false,
+            wrapping: false,
+        };
+
+        let tag_value_confirm = TagValueConfirm {
+            tag_value_list: tag_values_list,
+            tune_id: TuneIndex::Success,
+            confirmation_text: &CString::new("Confirm hash").unwrap(),
+            cancel_text: &CString::new("Reject hash").unwrap(),
+        };
+
+        let content_array = [
+            NbglPageContent::CenteredInfo(centered_info),
+            NbglPageContent::TagValueConfirm(tag_value_confirm),
+            // NbglPageContent::TagValueList(tag_values_list),
+            // NbglPageContent::InfoButton(info_button),
+            // NbglPageContent::InfoLongPress(info_long_press),
+        ];
+
+        let mut review: NbglGenericReview = NbglGenericReview::new();
+
+        // let mut review: NbglGenericReview = NbglGenericReview::new()
+        // .add_content(NbglPageContent::CenteredInfo(centered_info))
+        // .add_content(NbglPageContent::TagValueList(tag_values_list));
+        // .add_content(NbglPageContent::InfoButton(info_button));
+        // .add_content(NbglPageContent::InfoLongPress(info_long_press));
+        // .add_content(NbglPageContent::TagValueConfirm(tag_value_confirm));
+
+        Ok(review.show_content_array(
+            &(convert_content_array(content_array)),
+            &CString::new("Reject Transaction").unwrap(),
+        ))
+        // Ok(review.show(&CString::new("Reject Transaction").unwrap()))
     }
 }

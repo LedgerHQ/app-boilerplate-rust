@@ -81,9 +81,9 @@ pub fn ui_menu_main(_: &mut Comm) -> Event<Instruction> {
         .glyph(&FERRIS)
         .settings(settings.get_mut_ref(), &settings_strings)
         .infos(
-            "Boilerplate",
-            env!("CARGO_PKG_VERSION"),
-            env!("CARGO_PKG_AUTHORS"),
+            &alloc::ffi::CString::new("Boilerplate\0").unwrap(),
+            &alloc::ffi::CString::new("1.0.0\0").unwrap(),
+            &alloc::ffi::CString::new("Ledger\0").unwrap(),
         )
         .show()
 }

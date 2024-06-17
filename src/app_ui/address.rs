@@ -61,12 +61,16 @@ pub fn ui_display_pk(addr: &[u8]) -> Result<bool, AppSW> {
 
     #[cfg(any(target_os = "stax", target_os = "flex"))]
     {
+        use alloc::ffi::CString;
+
         // Load glyph from 64x64 4bpp gif file with include_gif macro. Creates an NBGL compatible glyph.
         const FERRIS: NbglGlyph = NbglGlyph::from_include(include_gif!("crab_64x64.gif", NBGL));
         // Display the address confirmation screen.
+        let verify_text = CString::new("Verify CRAB address").unwrap();
+        let address = CString::new(addr_hex).unwrap();
         Ok(NbglAddressReview::new()
             .glyph(&FERRIS)
-            .verify_str("Verify CRAB address")
-            .show(&addr_hex))
+            .verify_str(verify_text.as_c_str())
+            .show(address.as_c_str()))
     }
 }

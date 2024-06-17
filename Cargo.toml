@@ -40,3 +40,4 @@ icon = "crab_40x40.gif"
 
 [patch.crates-io]
 ledger_device_sdk = { path = "../ledger-device-rust-sdk/ledger_device_sdk" }
+include_gif = { path = "../ledger-device-rust-sdk/include_gif" }

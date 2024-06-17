@@ -71,19 +71,24 @@ pub fn ui_menu_main(comm: &mut Comm) -> Event<Instruction> {
 
 #[cfg(any(target_os = "stax", target_os = "flex"))]
 pub fn ui_menu_main(_: &mut Comm) -> Event<Instruction> {
+    use alloc::ffi::CString;
+
     // Load glyph from 64x64 4bpp gif file with include_gif macro. Creates an NBGL compatible glyph.
     const FERRIS: NbglGlyph = NbglGlyph::from_include(include_gif!("crab_64x64.gif", NBGL));
 
-    let settings_strings = [["Display Memo", "Allow display of transaction memo."]];
+    let setting_0_text = CString::new("Display Memo").unwrap();
+    let setting_0_desc = CString::new("Allow display of transaction memo.").unwrap();
+
+    let settings_strings = [[setting_0_text.as_c_str(), setting_0_desc.as_c_str()]];
     let mut settings: Settings = Default::default();
+
     // Display the home screen.
+    let app_name = CString::new("Boilerplate").unwrap();
+    let version = CString::new(env!("CARGO_PKG_VERSION")).unwrap();
+    let authors = CString::new(env!("CARGO_PKG_AUTHORS")).unwrap();
     NbglHomeAndSettings::new()
         .glyph(&FERRIS)
         .settings(settings.get_mut_ref(), &settings_strings)
-        .infos(
-            &alloc::ffi::CString::new("Boilerplate\0").unwrap(),
-            &alloc::ffi::CString::new("1.0.0\0").unwrap(),
-            &alloc::ffi::CString::new("Ledger\0").unwrap(),
-        )
+        .infos(app_name.as_c_str(), version.as_c_str(), authors.as_c_str())
         .show()
 }

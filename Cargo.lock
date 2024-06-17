@@ -22,7 +22,7 @@ name = "app-boilerplate-rust"
 version = "1.4.0"
 dependencies = [
  "hex",
- "include_gif 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "include_gif",
  "ledger_device_sdk",
  "numtoa",
  "serde",
@@ -234,17 +234,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "include_gif"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c18f099f85187e07161246cc0346968f76084266ddc1f286d11a7bad67ec4b59"
-dependencies = [
- "flate2",
- "gif",
- "syn 1.0.109",
-]
-
-[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -261,7 +250,7 @@ name = "ledger_device_sdk"
 version = "1.10.2"
 dependencies = [
  "const-zero",
- "include_gif 1.1.0",
+ "include_gif",
  "ledger_secure_sdk_sys",
  "num-traits",
  "numtoa",

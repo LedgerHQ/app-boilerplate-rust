@@ -43,25 +43,25 @@ pub fn ui_display_tx(tx: &Tx) -> Result<bool, AppSW> {
     let value_str = format!("{} {}", tx.coin, tx.value);
     let to_str = format!("0x{}", hex::encode(tx.to).to_uppercase());
 
+    // Define transaction review fields
+    let my_fields = [
+        Field {
+            name: "Amount",
+            value: value_str.as_str(),
+        },
+        Field {
+            name: "Destination",
+            value: to_str.as_str(),
+        },
+        Field {
+            name: "Memo",
+            value: tx.memo,
+        },
+    ];
+
     // Create transaction review
     #[cfg(not(any(target_os = "stax", target_os = "flex")))]
     {
-        // Define transaction review fields
-        let my_fields = [
-            Field {
-                name: "Amount",
-                value: value_str.as_str(),
-            },
-            Field {
-                name: "Destination",
-                value: to_str.as_str(),
-            },
-            Field {
-                name: "Memo",
-                value: tx.memo,
-            },
-        ];
-
         let my_review = MultiFieldReview::new(
             &my_fields,
             &["Review ", "Transaction"],
@@ -77,43 +77,17 @@ pub fn ui_display_tx(tx: &Tx) -> Result<bool, AppSW> {
 
     #[cfg(any(target_os = "stax", target_os = "flex"))]
     {
-        use alloc::ffi::CString;
-
-        let amount = CString::new("Amount").unwrap();
-        let amount_value = CString::new(value_str).unwrap();
-        let destination = CString::new("Destination").unwrap();
-        let destination_value = CString::new(to_str).unwrap();
-        let memo = CString::new("Memo").unwrap();
-        let memo_value = CString::new(tx.memo).unwrap();
-
-        let my_fields = [
-            Field {
-                name: amount.as_c_str(),
-                value: amount_value.as_c_str(),
-            },
-            Field {
-                name: destination.as_c_str(),
-                value: destination_value.as_c_str(),
-            },
-            Field {
-                name: memo.as_c_str(),
-                value: memo_value.as_c_str(),
-            },
-        ];
+        use alloc::string::String;
 
         // Load glyph from 64x64 4bpp gif file with include_gif macro. Creates an NBGL compatible glyph.
         const FERRIS: NbglGlyph = NbglGlyph::from_include(include_gif!("crab_64x64.gif", NBGL));
         // Create NBGL review. Maximum number of fields can be customized
         // with constant generic parameters of NbglReview. Default values is 32.
-        let title = CString::new("Review transaction\nto send CRAB").unwrap();
-        let subtitle = CString::new("").unwrap();
-        let finish_title = CString::new("Sign transaction\nto send CRAB").unwrap();
+        let title = String::from("Review transaction\nto send CRAB");
+        let subtitle = String::from("");
+        let finish_title = String::from("Sign transaction\nto send CRAB");
         let mut review: NbglReview = NbglReview::new()
-            .titles(
-                title.as_c_str(),
-                subtitle.as_c_str(),
-                finish_title.as_c_str(),
-            )
+            .titles(title.as_str(), subtitle.as_str(), finish_title.as_str())
             .glyph(&FERRIS);
 
         // If first setting switch is disabled do not display the transaction memo

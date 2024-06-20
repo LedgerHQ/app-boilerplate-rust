@@ -38,10 +38,13 @@ mod settings;*/
     get_version::handler_get_version,
     sign_tx::{handler_sign_tx, TxContext},
 //};*/
-use ledger_device_sdk::io::{ApduHeader, Comm, Event, Reply, StatusWords};
 #[cfg(feature = "pending_review_screen")]
 #[cfg(not(any(target_os = "stax", target_os = "flex")))]
 use ledger_device_sdk::ui::gadgets::display_pending_review;
+use ledger_device_sdk::{
+    io::{ApduHeader, Comm, Event, Reply, StatusWords},
+    nbgl_layout,
+};
 
 ledger_device_sdk::set_panic!(ledger_device_sdk::exiting_panic);
 
@@ -123,12 +126,19 @@ impl TryFrom<ApduHeader> for Instruction {
     }
 }
 
+use include_gif::include_gif;
+use ledger_device_sdk::nbgl_layout::NbglGlyph;
+
 #[no_mangle]
 extern "C" fn sample_main() {
     // Create the communication manager, and configure it to accept only APDU from the 0xe0 class.
     // If any APDU with a wrong class value is received, comm will respond automatically with
     // BadCla status word.
     let mut comm = Comm::new().set_expected_cla(0xe0);
+
+    const FERRIS: NbglGlyph = NbglGlyph::from_include(include_gif!("crab_64x64.gif", NBGL));
+
+    nbgl_layout::display(&FERRIS);
 }
 
 /*fn handle_apdu(comm: &mut Comm, ins: Instruction, ctx: &mut TxContext) -> Result<(), AppSW> {

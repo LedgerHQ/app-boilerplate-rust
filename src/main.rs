@@ -19,7 +19,7 @@
 #![no_main]
 
 mod utils;
-mod app_ui {
+/*mod app_ui {
     pub mod address;
     pub mod menu;
     pub mod sign;
@@ -30,14 +30,14 @@ mod handlers {
     pub mod sign_tx;
 }
 
-mod settings;
+mod settings;*/
 
-use app_ui::menu::ui_menu_main;
-use handlers::{
+//use app_ui::menu::ui_menu_main;
+/*use handlers::{
     get_public_key::handler_get_public_key,
     get_version::handler_get_version,
     sign_tx::{handler_sign_tx, TxContext},
-};
+//};*/
 use ledger_device_sdk::io::{ApduHeader, Comm, Event, Reply, StatusWords};
 #[cfg(feature = "pending_review_screen")]
 #[cfg(not(any(target_os = "stax", target_os = "flex")))]
@@ -47,9 +47,6 @@ ledger_device_sdk::set_panic!(ledger_device_sdk::exiting_panic);
 
 // Required for using String, Vec, format!...
 extern crate alloc;
-
-#[cfg(any(target_os = "stax", target_os = "flex"))]
-use ledger_device_sdk::nbgl::init_comm;
 
 // P2 for last APDU to receive.
 const P2_SIGN_TX_LAST: u8 = 0x00;
@@ -132,33 +129,9 @@ extern "C" fn sample_main() {
     // If any APDU with a wrong class value is received, comm will respond automatically with
     // BadCla status word.
     let mut comm = Comm::new().set_expected_cla(0xe0);
-
-    // Initialize reference to Comm instance for NBGL
-    // API calls.
-    #[cfg(any(target_os = "stax", target_os = "flex"))]
-    init_comm(&mut comm);
-
-    // Developer mode / pending review popup
-    // must be cleared with user interaction
-    #[cfg(feature = "pending_review_screen")]
-    #[cfg(not(any(target_os = "stax", target_os = "flex")))]
-    display_pending_review(&mut comm);
-
-    let mut tx_ctx = TxContext::new();
-
-    loop {
-        // Wait for either a specific button push to exit the app
-        // or an APDU command
-        if let Event::Command(ins) = ui_menu_main(&mut comm) {
-            match handle_apdu(&mut comm, ins, &mut tx_ctx) {
-                Ok(()) => comm.reply_ok(),
-                Err(sw) => comm.reply(sw),
-            }
-        }
-    }
 }
 
-fn handle_apdu(comm: &mut Comm, ins: Instruction, ctx: &mut TxContext) -> Result<(), AppSW> {
+/*fn handle_apdu(comm: &mut Comm, ins: Instruction, ctx: &mut TxContext) -> Result<(), AppSW> {
     match ins {
         Instruction::GetAppName => {
             comm.append(env!("CARGO_PKG_NAME").as_bytes());
@@ -168,4 +141,4 @@ fn handle_apdu(comm: &mut Comm, ins: Instruction, ctx: &mut TxContext) -> Result
         Instruction::GetPubkey { display } => handler_get_public_key(comm, display),
         Instruction::SignTx { chunk, more } => handler_sign_tx(comm, chunk, more, ctx),
     }
-}
+}*/

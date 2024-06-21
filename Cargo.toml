@@ -1,11 +1,11 @@
 [package]
 name = "app-boilerplate-rust"
-version = "1.4.0"
+version = "1.5.0"
 authors = ["yhql", "agrojean-ledger"]
 edition = "2021"
 
 [dependencies]
-ledger_device_sdk = { version="1.10.1", features = ["heap"] }
+ledger_device_sdk = { version="1.10.4" }
 include_gif = "1.1.0"
 serde = {version="1.0.192", default_features = false, features = ["derive"]}
 serde-json-core = { git = "https://github.com/rust-embedded-community/serde-json-core"}

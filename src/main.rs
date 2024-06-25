@@ -42,7 +42,7 @@ mod settings;*/
 #[cfg(not(any(target_os = "stax", target_os = "flex")))]
 use ledger_device_sdk::ui::gadgets::display_pending_review;
 use ledger_device_sdk::{
-    io::{ApduHeader, Comm, Event, Reply, StatusWords},
+    io::{self, ApduHeader, Comm, Event, Reply, StatusWords},
     nbgl_layout,
 };
 
@@ -84,50 +84,24 @@ impl From<AppSW> for Reply {
     }
 }
 
-/// Possible input commands received through APDUs.
-pub enum Instruction {
-    GetVersion,
-    GetAppName,
-    GetPubkey { display: bool },
-    SignTx { chunk: u8, more: bool },
+use include_gif::include_gif;
+use ledger_device_sdk::nbgl_layout::NbglGlyph;
+
+enum Instruction {
+    Select,
+    ReadBinary,
 }
 
 impl TryFrom<ApduHeader> for Instruction {
-    type Error = AppSW;
-
-    /// APDU parsing logic.
-    ///
-    /// Parses INS, P1 and P2 bytes to build an [`Instruction`]. P1 and P2 are translated to
-    /// strongly typed variables depending on the APDU instruction code. Invalid INS, P1 or P2
-    /// values result in errors with a status word, which are automatically sent to the host by the
-    /// SDK.
-    ///
-    /// This design allows a clear separation of the APDU parsing logic and commands handling.
-    ///
-    /// Note that CLA is not checked here. Instead the method [`Comm::set_expected_cla`] is used in
-    /// [`sample_main`] to have this verification automatically performed by the SDK.
-    fn try_from(value: ApduHeader) -> Result<Self, Self::Error> {
-        match (value.ins, value.p1, value.p2) {
-            (3, 0, 0) => Ok(Instruction::GetVersion),
-            (4, 0, 0) => Ok(Instruction::GetAppName),
-            (5, 0 | 1, 0) => Ok(Instruction::GetPubkey {
-                display: value.p1 != 0,
-            }),
-            (6, P1_SIGN_TX_START, P2_SIGN_TX_MORE)
-            | (6, 1..=P1_SIGN_TX_MAX, P2_SIGN_TX_LAST | P2_SIGN_TX_MORE) => {
-                Ok(Instruction::SignTx {
-                    chunk: value.p1,
-                    more: value.p2 == P2_SIGN_TX_MORE,
-                })
-            }
-            (3..=6, _, _) => Err(AppSW::WrongP1P2),
-            (_, _, _) => Err(AppSW::InsNotSupported),
+    type Error = StatusWords;
+    fn try_from(h: ApduHeader) -> Result<Self, Self::Error> {
+        match h.ins {
+            0xa4 => Ok(Self::Select),
+            0xb0 => Ok(Self::ReadBinary),
+            _ => Err(StatusWords::BadIns),
         }
     }
 }
-
-use include_gif::include_gif;
-use ledger_device_sdk::nbgl_layout::NbglGlyph;
 
 #[no_mangle]
 extern "C" fn sample_main() {
@@ -139,6 +113,24 @@ extern "C" fn sample_main() {
     const FERRIS: NbglGlyph = NbglGlyph::from_include(include_gif!("crab_64x64.gif", NBGL));
 
     nbgl_layout::display(&FERRIS);
+
+    loop {
+        // Wait for either a specific button push to exit the app
+        // or an APDU command
+        match comm.next_event() {
+            Event::Command(Instruction::Select) => {
+                ledger_device_sdk::testing::debug_print("Command received\n");
+            }
+            Event::Command(Instruction::ReadBinary) => {
+                ledger_device_sdk::testing::debug_print("Command received\n");
+            }
+
+            Event::TouchEvent => {
+                ledger_device_sdk::testing::debug_print("Touch event received\n");
+            }
+            _ => (),
+        }
+    }
 }
 
 /*fn handle_apdu(comm: &mut Comm, ins: Instruction, ctx: &mut TxContext) -> Result<(), AppSW> {

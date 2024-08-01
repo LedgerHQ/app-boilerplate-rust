@@ -41,20 +41,29 @@ pub struct Tx<'a> {
 pub struct TxContext {
     raw_tx: Vec<u8>,
     path: Bip32Path,
+    review_finished: bool,
 }
 
 // Implement constructor for TxInfo with default values
 impl TxContext {
+    // Constructor
     pub fn new() -> TxContext {
         TxContext {
             raw_tx: Vec::new(),
             path: Default::default(),
+            review_finished: false,
         }
+    }
+    // Get review status
+    #[allow(dead_code)]
+    pub fn finished(&self) -> bool {
+        self.review_finished
     }
     // Implement reset for TxInfo
     fn reset(&mut self) {
         self.raw_tx.clear();
         self.path = Default::default();
+        self.review_finished = false;
     }
 }
 
@@ -85,6 +94,7 @@ pub fn handler_sign_tx(
 
         // If we expect more chunks, return
         if more {
+            ctx.review_finished = false;
             Ok(())
         // Otherwise, try to parse the transaction
         } else {
@@ -94,8 +104,10 @@ pub fn handler_sign_tx(
             // the transaction, sign it. Otherwise,
             // return a "deny" status word.
             if ui_display_tx(&tx)? {
+                ctx.review_finished = true;
                 compute_signature_and_append(comm, ctx)
             } else {
+                ctx.review_finished = true;
                 Err(AppSW::Deny)
             }
         }

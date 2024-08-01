@@ -49,7 +49,7 @@ ledger_device_sdk::set_panic!(ledger_device_sdk::exiting_panic);
 extern crate alloc;
 
 #[cfg(any(target_os = "stax", target_os = "flex"))]
-use ledger_device_sdk::nbgl::init_comm;
+use ledger_device_sdk::nbgl::{init_comm, NbglReviewStatus, StatusType};
 
 // P2 for last APDU to receive.
 const P2_SIGN_TX_LAST: u8 = 0x00;
@@ -62,6 +62,7 @@ const P1_SIGN_TX_MAX: u8 = 0x03;
 
 // Application status words.
 #[repr(u16)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum AppSW {
     Deny = 0x6985,
     WrongP1P2 = 0x6A86,
@@ -76,6 +77,7 @@ pub enum AppSW {
     KeyDeriveFail = 0xB009,
     VersionParsingFail = 0xB00A,
     WrongApduLength = StatusWords::BadLen as u16,
+    Ok = 0x9000,
 }
 
 impl From<AppSW> for Reply {
@@ -126,6 +128,26 @@ impl TryFrom<ApduHeader> for Instruction {
     }
 }
 
+#[cfg(any(target_os = "stax", target_os = "flex"))]
+fn show_status_if_needed(ins: &Instruction, tx_ctx: &TxContext, status: &AppSW) {
+    let (show_status, status_type) = match (ins, status) {
+        (Instruction::GetPubkey { display: true }, AppSW::Deny | AppSW::Ok) => {
+            (true, StatusType::Address)
+        }
+        (Instruction::SignTx { .. }, AppSW::Deny | AppSW::Ok) if tx_ctx.finished() => {
+            (true, StatusType::Transaction)
+        }
+        (_, _) => (false, StatusType::Transaction),
+    };
+
+    if show_status {
+        let success = *status == AppSW::Ok;
+        NbglReviewStatus::new()
+            .status_type(status_type)
+            .show(success);
+    }
+}
+
 #[no_mangle]
 extern "C" fn sample_main() {
     // Create the communication manager, and configure it to accept only APDU from the 0xe0 class.
@@ -150,22 +172,32 @@ extern "C" fn sample_main() {
         // Wait for either a specific button push to exit the app
         // or an APDU command
         if let Event::Command(ins) = ui_menu_main(&mut comm) {
-            match handle_apdu(&mut comm, ins, &mut tx_ctx) {
-                Ok(()) => comm.reply_ok(),
-                Err(sw) => comm.reply(sw),
-            }
+            let result = handle_apdu(&mut comm, &ins, &mut tx_ctx);
+            let _status: AppSW = match result {
+                Ok(()) => {
+                    comm.reply_ok();
+                    AppSW::Ok
+                }
+                Err(sw) => {
+                    comm.reply(sw);
+                    sw
+                }
+            };
+
+            #[cfg(any(target_os = "stax", target_os = "flex"))]
+            show_status_if_needed(&ins, &tx_ctx, &_status);
         }
     }
 }
 
-fn handle_apdu(comm: &mut Comm, ins: Instruction, ctx: &mut TxContext) -> Result<(), AppSW> {
+fn handle_apdu(comm: &mut Comm, ins: &Instruction, ctx: &mut TxContext) -> Result<(), AppSW> {
     match ins {
         Instruction::GetAppName => {
             comm.append(env!("CARGO_PKG_NAME").as_bytes());
             Ok(())
         }
         Instruction::GetVersion => handler_get_version(comm),
-        Instruction::GetPubkey { display } => handler_get_public_key(comm, display),
-        Instruction::SignTx { chunk, more } => handler_sign_tx(comm, chunk, more, ctx),
+        Instruction::GetPubkey { display } => handler_get_public_key(comm, *display),
+        Instruction::SignTx { chunk, more } => handler_sign_tx(comm, *chunk, *more, ctx),
     }
 }

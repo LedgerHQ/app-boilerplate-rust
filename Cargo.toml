@@ -5,7 +5,7 @@ authors = ["yhql", "agrojean-ledger"]
 edition = "2021"
 
 [dependencies]
-ledger_device_sdk = { version="1.13.1" }
+ledger_device_sdk = { version="1.14.0" }
 include_gif = "1.2.0"
 serde = {version="1.0.192", default_features = false, features = ["derive"]}
 serde-json-core = { git = "https://github.com/rust-embedded-community/serde-json-core"}

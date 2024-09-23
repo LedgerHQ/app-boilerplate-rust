@@ -129,7 +129,7 @@ impl TryFrom<ApduHeader> for Instruction {
 }
 
 #[cfg(any(target_os = "stax", target_os = "flex"))]
-fn show_status_if_needed(ins: &Instruction, tx_ctx: &TxContext, status: &AppSW) {
+fn show_status_if_needed(ins: &Instruction, tx_ctx: &mut TxContext, status: &AppSW) {
     let (show_status, status_type) = match (ins, status) {
         (Instruction::GetPubkey { display: true }, AppSW::Deny | AppSW::Ok) => {
             (true, StatusType::Address)
@@ -145,6 +145,9 @@ fn show_status_if_needed(ins: &Instruction, tx_ctx: &TxContext, status: &AppSW) 
         NbglReviewStatus::new()
             .status_type(status_type)
             .show(success);
+
+        // call display() to show home and setting screen
+        tx_ctx.home.show_and_return();
     }
 }
 
@@ -155,25 +158,19 @@ extern "C" fn sample_main() {
     // BadCla status word.
     let mut comm = Comm::new().set_expected_cla(0xe0);
 
-    // Initialize reference to Comm instance for NBGL
-    // API calls.
-    #[cfg(any(target_os = "stax", target_os = "flex"))]
-    init_comm(&mut comm);
-
-    // Developer mode / pending review popup
-    // must be cleared with user interaction
-    #[cfg(feature = "pending_review_screen")]
-    #[cfg(not(any(target_os = "stax", target_os = "flex")))]
-    display_pending_review(&mut comm);
-
     let mut tx_ctx = TxContext::new();
 
-    loop {
-        // Wait for either a specific button push to exit the app
-        // or an APDU command
-        if let Event::Command(ins) = ui_menu_main(&mut comm) {
-            let result = handle_apdu(&mut comm, &ins, &mut tx_ctx);
-            let _status: AppSW = match result {
+    #[cfg(any(target_os = "stax", target_os = "flex"))]
+    {
+        // Initialize reference to Comm instance for NBGL
+        // API calls.
+        init_comm(&mut comm);
+        tx_ctx.home = ui_menu_main(&mut comm);
+        tx_ctx.home.show_and_return();
+
+        loop {
+            let ins: Instruction = comm.next_command();
+            let status = match handle_apdu(&mut comm, &ins, &mut tx_ctx) {
                 Ok(()) => {
                     comm.reply_ok();
                     AppSW::Ok
@@ -183,9 +180,33 @@ extern "C" fn sample_main() {
                     sw
                 }
             };
+            show_status_if_needed(&ins, &mut tx_ctx, &status);
+        }
+    }
 
-            #[cfg(any(target_os = "stax", target_os = "flex"))]
-            show_status_if_needed(&ins, &tx_ctx, &_status);
+    #[cfg(not(any(target_os = "stax", target_os = "flex")))]
+    {
+        // Developer mode / pending review popup
+        // must be cleared with user interaction
+        #[cfg(feature = "pending_review_screen")]
+        display_pending_review(&mut comm);
+
+        loop {
+            // Wait for either a specific button push to exit the app
+            // or an APDU command
+            if let Event::Command(ins) = ui_menu_main(&mut comm) {
+                let result = handle_apdu(&mut comm, &ins, &mut tx_ctx);
+                let _status: AppSW = match result {
+                    Ok(()) => {
+                        comm.reply_ok();
+                        AppSW::Ok
+                    }
+                    Err(sw) => {
+                        comm.reply(sw);
+                        sw
+                    }
+                };
+            }
         }
     }
 }

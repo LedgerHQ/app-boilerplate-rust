@@ -58,7 +58,7 @@ impl TxContext {
             path: Default::default(),
             review_finished: false,
             #[cfg(any(target_os = "stax", target_os = "flex"))]
-            home: NbglHomeAndSettings::new(),
+            home: Default::default(),
         }
     }
     // Get review status

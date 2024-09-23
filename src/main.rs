@@ -38,7 +38,7 @@ use handlers::{
     get_version::handler_get_version,
     sign_tx::{handler_sign_tx, TxContext},
 };
-use ledger_device_sdk::io::{ApduHeader, Comm, Reply, StatusWords};
+use ledger_device_sdk::io::{ApduHeader, Comm, Event, Reply, StatusWords};
 #[cfg(feature = "pending_review_screen")]
 #[cfg(not(any(target_os = "stax", target_os = "flex")))]
 use ledger_device_sdk::ui::gadgets::display_pending_review;
@@ -167,49 +167,35 @@ extern "C" fn sample_main() {
         init_comm(&mut comm);
         tx_ctx.home = ui_menu_main(&mut comm);
         tx_ctx.home.show_and_return();
-
-        loop {
-            let ins: Instruction = comm.next_command();
-            let status = match handle_apdu(&mut comm, &ins, &mut tx_ctx) {
-                Ok(()) => {
-                    comm.reply_ok();
-                    AppSW::Ok
-                }
-                Err(sw) => {
-                    comm.reply(sw);
-                    sw
-                }
-            };
-            show_status_and_home_if_needed(&ins, &mut tx_ctx, &status);
-        }
     }
 
     #[cfg(not(any(target_os = "stax", target_os = "flex")))]
-    {
-        use ledger_device_sdk::io::Event;
+    #[cfg(feature = "pending_review_screen")]
+    display_pending_review(&mut comm);
 
-        // Developer mode / pending review popup
-        // must be cleared with user interaction
-        #[cfg(feature = "pending_review_screen")]
-        display_pending_review(&mut comm);
+    loop {
+        #[cfg(any(target_os = "stax", target_os = "flex"))]
+        let ins: Instruction = comm.next_command();
 
-        loop {
-            // Wait for either a specific button push to exit the app
-            // or an APDU command
-            if let Event::Command(ins) = ui_menu_main(&mut comm) {
-                let result = handle_apdu(&mut comm, &ins, &mut tx_ctx);
-                let _status: AppSW = match result {
-                    Ok(()) => {
-                        comm.reply_ok();
-                        AppSW::Ok
-                    }
-                    Err(sw) => {
-                        comm.reply(sw);
-                        sw
-                    }
-                };
+        #[cfg(not(any(target_os = "stax", target_os = "flex")))]
+        let ins = if let Event::Command(ins) = ui_menu_main(&mut comm) {
+            ins
+        } else {
+            continue;
+        };
+
+        let status = match handle_apdu(&mut comm, &ins, &mut tx_ctx) {
+            Ok(()) => {
+                comm.reply_ok();
+                AppSW::Ok
             }
-        }
+            Err(sw) => {
+                comm.reply(sw);
+                sw
+            }
+        };
+        #[cfg(any(target_os = "stax", target_os = "flex"))]
+        show_status_and_home_if_needed(&ins, &mut tx_ctx, &status);
     }
 }
 

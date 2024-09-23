@@ -38,7 +38,7 @@ use handlers::{
     get_version::handler_get_version,
     sign_tx::{handler_sign_tx, TxContext},
 };
-use ledger_device_sdk::io::{ApduHeader, Comm, Event, Reply, StatusWords};
+use ledger_device_sdk::io::{ApduHeader, Comm, Reply, StatusWords};
 #[cfg(feature = "pending_review_screen")]
 #[cfg(not(any(target_os = "stax", target_os = "flex")))]
 use ledger_device_sdk::ui::gadgets::display_pending_review;
@@ -186,6 +186,8 @@ extern "C" fn sample_main() {
 
     #[cfg(not(any(target_os = "stax", target_os = "flex")))]
     {
+        use ledger_device_sdk::io::Event;
+
         // Developer mode / pending review popup
         // must be cleared with user interaction
         #[cfg(feature = "pending_review_screen")]

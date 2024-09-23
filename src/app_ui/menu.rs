@@ -16,7 +16,7 @@
  *****************************************************************************/
 
 use include_gif::include_gif;
-use ledger_device_sdk::io::{Comm, Event};
+use ledger_device_sdk::io::Comm;
 
 #[cfg(not(any(target_os = "stax", target_os = "flex")))]
 use ledger_device_sdk::ui::{
@@ -31,6 +31,8 @@ use ledger_device_sdk::nbgl::{NbglGlyph, NbglHomeAndSettings};
 
 #[cfg(not(any(target_os = "stax", target_os = "flex")))]
 use crate::Instruction;
+#[cfg(not(any(target_os = "stax", target_os = "flex")))]
+use ledger_device_sdk::io::Event;
 
 // use ledger_device_sdk::nvm::*;
 

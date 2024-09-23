@@ -129,7 +129,7 @@ impl TryFrom<ApduHeader> for Instruction {
 }
 
 #[cfg(any(target_os = "stax", target_os = "flex"))]
-fn show_status_if_needed(ins: &Instruction, tx_ctx: &mut TxContext, status: &AppSW) {
+fn show_status_and_home_if_needed(ins: &Instruction, tx_ctx: &mut TxContext, status: &AppSW) {
     let (show_status, status_type) = match (ins, status) {
         (Instruction::GetPubkey { display: true }, AppSW::Deny | AppSW::Ok) => {
             (true, StatusType::Address)
@@ -146,7 +146,7 @@ fn show_status_if_needed(ins: &Instruction, tx_ctx: &mut TxContext, status: &App
             .status_type(status_type)
             .show(success);
 
-        // call display() to show home and setting screen
+        // call home.show_and_return() to show home and setting screen
         tx_ctx.home.show_and_return();
     }
 }
@@ -180,7 +180,7 @@ extern "C" fn sample_main() {
                     sw
                 }
             };
-            show_status_if_needed(&ins, &mut tx_ctx, &status);
+            show_status_and_home_if_needed(&ins, &mut tx_ctx, &status);
         }
     }
 

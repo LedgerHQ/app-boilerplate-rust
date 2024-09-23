@@ -1,11 +1,11 @@
 [package]
 name = "app-boilerplate-rust"
-version = "1.5.1"
+version = "1.6.0"
 authors = ["yhql", "agrojean-ledger"]
 edition = "2021"
 
 [dependencies]
-ledger_device_sdk = { version="1.15.6" }
+ledger_device_sdk = { version="1.16.0" }
 include_gif = "1.2.0"
 serde = {version="1.0.192", default_features = false, features = ["derive"]}
 serde-json-core = { git = "https://github.com/rust-embedded-community/serde-json-core"}
@@ -37,7 +37,3 @@ icon = "crab_32x32.gif"
 
 [package.metadata.ledger.flex]
 icon = "crab_40x40.gif"
-
-[patch.crates-io]
-ledger_device_sdk = { git = "https://github.com/LedgerHQ/ledger-device-rust-sdk.git", branch = "y333/new_nbgl" }
-include_gif = { git = "https://github.com/LedgerHQ/ledger-device-rust-sdk.git", branch = "y333/new_nbgl" }

@@ -38,10 +38,13 @@ use handlers::{
     get_version::handler_get_version,
     sign_tx::{handler_sign_tx, TxContext},
 };
-use ledger_device_sdk::io::{ApduHeader, Comm, Event, Reply, StatusWords};
+use ledger_device_sdk::io::{ApduHeader, Comm, Reply, StatusWords};
 #[cfg(feature = "pending_review_screen")]
 #[cfg(not(any(target_os = "stax", target_os = "flex")))]
 use ledger_device_sdk::ui::gadgets::display_pending_review;
+
+#[cfg(not(any(target_os = "stax", target_os = "flex")))]
+use ledger_device_sdk::io::Event;
 
 ledger_device_sdk::set_panic!(ledger_device_sdk::exiting_panic);
 
@@ -184,7 +187,7 @@ extern "C" fn sample_main() {
             continue;
         };
 
-        let status = match handle_apdu(&mut comm, &ins, &mut tx_ctx) {
+        let _status = match handle_apdu(&mut comm, &ins, &mut tx_ctx) {
             Ok(()) => {
                 comm.reply_ok();
                 AppSW::Ok
@@ -195,7 +198,7 @@ extern "C" fn sample_main() {
             }
         };
         #[cfg(any(target_os = "stax", target_os = "flex"))]
-        show_status_and_home_if_needed(&ins, &mut tx_ctx, &status);
+        show_status_and_home_if_needed(&ins, &mut tx_ctx, &_status);
     }
 }
 

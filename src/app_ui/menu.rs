@@ -79,14 +79,14 @@ pub fn ui_menu_main(_: &mut Comm) -> NbglHomeAndSettings {
 
     let settings_strings = [["Display Memo", "Allow display of transaction memo."]];
     let mut settings: Settings = Default::default();
+
     // Display the home screen.
-    let home = NbglHomeAndSettings::new()
+    NbglHomeAndSettings::new()
         .glyph(&FERRIS)
         .settings(settings.get_mut_ref(), &settings_strings)
         .infos(
             "Boilerplate",
             env!("CARGO_PKG_VERSION"),
             env!("CARGO_PKG_AUTHORS"),
-        );
-    home
+        )
 }

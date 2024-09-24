@@ -333,8 +333,6 @@ dependencies = [
 [[package]]
 name = "include_gif"
 version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8511434ad4b61bf0be7c61707d0172b6ad091519da93bf95d66555f3f0d994ac"
 dependencies = [
  "flate2",
  "image",
@@ -842,3 +840,7 @@ checksum = "73ab332fe2f6680068f3582b16a24f90ad7096d5d39b974d1c0aff0125116f02"
 dependencies = [
  "simd-adler32",
 ]
+
+[[patch.unused]]
+name = "ledger_device_sdk"
+version = "1.17.1"

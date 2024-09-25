@@ -39,5 +39,5 @@ icon = "crab_32x32.gif"
 icon = "crab_40x40.gif"
 
 [patch.crates-io]
-ledger_device_sdk = { path = "../ledger-device-rust-sdk/ledger_device_sdk" }
-include_gif = { path = "../ledger-device-rust-sdk/include_gif" }
+ledger_device_sdk = { git = "https://github.com/LedgerHQ/ledger-device-rust-sdk.git", branch = "y333/settings_nvm_management" }
+include_gif = { git = "https://github.com/LedgerHQ/ledger-device-rust-sdk.git", branch = "y333/settings_nvm_management" }

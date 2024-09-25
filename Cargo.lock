@@ -333,6 +333,7 @@ dependencies = [
 [[package]]
 name = "include_gif"
 version = "1.2.0"
+source = "git+https://github.com/LedgerHQ/ledger-device-rust-sdk.git?branch=y333/settings_nvm_management#0f6245725caf49decfbdef333c1e92ab3d33f0b9"
 dependencies = [
  "flate2",
  "image",
@@ -843,4 +844,5 @@ dependencies = [
 
 [[patch.unused]]
 name = "ledger_device_sdk"
-version = "1.17.1"
+version = "1.16.0"
+source = "git+https://github.com/LedgerHQ/ledger-device-rust-sdk.git?branch=y333/settings_nvm_management#0f6245725caf49decfbdef333c1e92ab3d33f0b9"

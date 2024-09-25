@@ -83,7 +83,7 @@ pub fn ui_menu_main(_: &mut Comm) -> NbglHomeAndSettings {
     // Display the home screen.
     NbglHomeAndSettings::new()
         .glyph(&FERRIS)
-        .settings(settings.get_mut_ref(), &settings_strings)
+        .settings(settings.get_mut(), &settings_strings)
         .infos(
             "Boilerplate",
             env!("CARGO_PKG_VERSION"),

@@ -16,7 +16,7 @@
  *****************************************************************************/
 
 use include_gif::include_gif;
-use ledger_device_sdk::io::{Comm, Event};
+use ledger_device_sdk::io::Comm;
 
 #[cfg(not(any(target_os = "stax", target_os = "flex")))]
 use ledger_device_sdk::ui::{
@@ -29,7 +29,10 @@ use crate::settings::Settings;
 #[cfg(any(target_os = "stax", target_os = "flex"))]
 use ledger_device_sdk::nbgl::{NbglGlyph, NbglHomeAndSettings};
 
+#[cfg(not(any(target_os = "stax", target_os = "flex")))]
 use crate::Instruction;
+#[cfg(not(any(target_os = "stax", target_os = "flex")))]
+use ledger_device_sdk::io::Event;
 
 // use ledger_device_sdk::nvm::*;
 
@@ -70,12 +73,13 @@ pub fn ui_menu_main(comm: &mut Comm) -> Event<Instruction> {
 }
 
 #[cfg(any(target_os = "stax", target_os = "flex"))]
-pub fn ui_menu_main(_: &mut Comm) -> Event<Instruction> {
+pub fn ui_menu_main(_: &mut Comm) -> NbglHomeAndSettings {
     // Load glyph from 64x64 4bpp gif file with include_gif macro. Creates an NBGL compatible glyph.
     const FERRIS: NbglGlyph = NbglGlyph::from_include(include_gif!("crab_64x64.gif", NBGL));
 
     let settings_strings = [["Display Memo", "Allow display of transaction memo."]];
     let mut settings: Settings = Default::default();
+
     // Display the home screen.
     NbglHomeAndSettings::new()
         .glyph(&FERRIS)
@@ -85,5 +89,4 @@ pub fn ui_menu_main(_: &mut Comm) -> Event<Instruction> {
             env!("CARGO_PKG_VERSION"),
             env!("CARGO_PKG_AUTHORS"),
         )
-        .show()
 }

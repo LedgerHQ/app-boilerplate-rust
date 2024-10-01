@@ -81,7 +81,7 @@ pub fn ui_display_tx(tx: &Tx) -> Result<bool, AppSW> {
         const FERRIS: NbglGlyph = NbglGlyph::from_include(include_gif!("crab_64x64.gif", NBGL));
         // Create NBGL review. Maximum number of fields and string buffer length can be customised
         // with constant generic parameters of NbglReview. Default values are 32 and 1024 respectively.
-        let mut review: NbglReview = NbglReview::new()
+        let review: NbglReview = NbglReview::new()
             .titles(
                 "Review transaction\nto send CRAB",
                 "",

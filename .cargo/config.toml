@@ -8,7 +8,8 @@ target = "nanosplus"
 build-std = ["core", "alloc"]
 build-std-features = ["compiler-builtins-mem"]
 
-# Uncomment the following lines to set the heap size (default is 8192)
+# By default, heap size is enforced to 8192 bytes.
 # Recommended values are [2048, 4096, 8192, 16384, 24576]
+# Uncomment the following lines to set the heap size 
 #[env]
 #HEAP_SIZE = "8192"

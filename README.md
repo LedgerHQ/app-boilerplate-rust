@@ -38,47 +38,45 @@ By using Ledger's own developer tools [Docker image](https://github.com/LedgerHQ
 
 ℹ️ The terminal tab of VSCode will show you what commands the extension runs behind the scene.
 
-## Compilation and load
-
-If you do not wish to use the [VS Code extension](#with-vs-code), you can follow the following steps to setup a development environment on a host running a Debian based Linux distribution (such as Ubuntu).
+## With a terminal
 
 ### Prerequisites
 
-* Install the [Rust language](https://www.rust-lang.org/)
+If you do not wish to use the [VS Code extension](#with-vs-code), you can follow the following steps to setup a development environment on Linux or MacOS.
 
-```bash
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+The [ledger-app-dev-tools](https://github.com/LedgerHQ/ledger-app-builder/pkgs/container/ledger-app-builder%2Fledger-app-dev-tools) Docker image contains all the required tools and libraries to build, test and load an application on a device.
+
+You can download it from the ghcr.io docker repository:
+
+```shell
+sudo docker pull ghcr.io/ledgerhq/ledger-app-builder/ledger-app-dev-tools:latest
 ```
 
-* Install Ledger Rust building tools dependencies
+You can then enter into this development environment by executing the following command from the directory of the application (`git` repository):
 
-```bash
-# Clang compiler, GCC ARM cross-compiling toolchain 
-apt install clang gcc-arm-none-eabi gcc-multilib
-# Rust nightly toolchain used to compile ledger devices binaries
-rustup install nightly-2023-11-10
-# Setup the custom nightly Rust toolchain as default
-rustup default nightly-2023-11-10
-# Install required component of the nightly toolchain
-rustup component add rust-src --toolchain nightly-2023-11-10
+**Linux (Ubuntu)**
+
+```shell
+sudo docker run --rm -ti --privileged -v "/dev/bus/usb:/dev/bus/usb" -v "$(realpath .):/app" ghcr.io/ledgerhq/ledger-app-builder/ledger-app-dev-tools:latest
 ```
 
-* Install [ledgerwallet](https://github.com/LedgerHQ/ledgerctl/) and [cargo-ledger](https://github.com/LedgerHQ/cargo-ledger)
+**macOS**
 
-```bash
-# Install ledgerwallet, a Python dependency of cargo-ledger to sideload binaries on Ledger devices
-pip install ledgerwallet
-# Install latest cargo-ledger from crates.io
-cargo install cargo-ledger
-# Run cargo-ledger command to install custom target files on the custom nightly toolchain
-cargo ledger setup
+```shell
+sudo docker run  --rm -ti --privileged -v "$(pwd -P):/app" ghcr.io/ledgerhq/ledger-app-builder/ledger-app-dev-tools:latest
 ```
 
-You are now ready to build the boilerplate app for Ledger devices !
+**Windows (with PowerShell)**
+
+```shell
+docker run --rm -ti --privileged -v "$(Get-Location):/app" ghcr.io/ledgerhq/ledger-app-builder/ledger-app-dev-tools:latest
+```
+
+The application's code will be available from inside the docker container, you can proceed to the following compilation steps to build your app.
 
 ### Building
 
-Now that you have followed the [prerequisites](#prerequisites) guide, you can build the boilerplate with the following command executed in the root directory of the app.
+You can build the boilerplate with the following command executed in the root directory of the app.
 
 ```bash
 cargo ledger build nanox

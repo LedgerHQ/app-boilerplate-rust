@@ -1,5 +1,5 @@
 /*****************************************************************************
- *   Ledger App Boilerplate Rust.
+ *   Ledger App Conflux Rust.
  *   (c) 2023 Ledger SAS.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
@@ -66,7 +66,7 @@ pub fn ui_display_pk(addr: &[u8]) -> Result<bool, AppSW> {
         // Display the address confirmation screen.
         Ok(NbglAddressReview::new()
             .glyph(&FERRIS)
-            .verify_str("Verify CRAB address")
+            .verify_str("Verify CFX address")
             .show(&addr_hex))
     }
 }

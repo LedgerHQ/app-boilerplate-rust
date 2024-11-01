@@ -1,6 +1,6 @@
 import json
 from dataclasses import dataclass
-from .boilerplate_utils import UINT64_MAX
+from .utils import UINT64_MAX
 
 class TransactionError(Exception):
     pass

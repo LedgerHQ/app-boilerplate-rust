@@ -37,7 +37,7 @@ impl Settings {
     }
 
     #[allow(unused)]
-    // Not used in this boilerplate, but can be used to set a value in the settings
+    // can be used to set a value in the settings
     pub fn set_element(&self, index: usize, value: u8) {
         let storage = unsafe { DATA.get_mut() };
         let mut updated_data = *storage.get_ref();

@@ -18,8 +18,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "app-boilerplate-rust"
-version = "1.6.2"
+name = "app-conflux"
+version = "0.1.0"
 dependencies = [
  "hex",
  "include_gif",

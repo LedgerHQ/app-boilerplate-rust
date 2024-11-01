@@ -1,5 +1,5 @@
 /*****************************************************************************
- *   Ledger App Boilerplate Rust.
+ *   Ledger App Conflux Rust.
  *   (c) 2023 Ledger SAS.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
@@ -39,7 +39,7 @@ use ledger_device_sdk::io::Event;
 #[cfg(not(any(target_os = "stax", target_os = "flex")))]
 fn ui_about_menu(comm: &mut Comm) -> Event<Instruction> {
     let pages = [
-        &Page::from((["Rust Boilerplate", "(c) 2023 Ledger"], true)),
+        &Page::from((["Rust Conflux", "(c) 2024 Conflux"], true)),
         &Page::from(("Back", &BACK)),
     ];
     loop {
@@ -57,7 +57,7 @@ pub fn ui_menu_main(comm: &mut Comm) -> Event<Instruction> {
     let pages = [
         // The from trait allows to create different styles of pages
         // without having to use the new() function.
-        &Page::from((["Boilerplate", "is ready"], &APP_ICON)),
+        &Page::from((["Conflux", "is ready"], &APP_ICON)),
         &Page::from((["Version", env!("CARGO_PKG_VERSION")], true)),
         &Page::from(("About", &CERTIFICATE)),
         &Page::from(("Quit", &DASHBOARD_X)),
@@ -85,7 +85,7 @@ pub fn ui_menu_main(_: &mut Comm) -> NbglHomeAndSettings {
         .glyph(&FERRIS)
         .settings(settings.get_mut(), &settings_strings)
         .infos(
-            "Boilerplate",
+            "Conflux",
             env!("CARGO_PKG_VERSION"),
             env!("CARGO_PKG_AUTHORS"),
         )

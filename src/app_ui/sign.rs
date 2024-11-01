@@ -1,5 +1,5 @@
 /*****************************************************************************
- *   Ledger App Boilerplate Rust.
+ *   Ledger App Conflux Rust.
  *   (c) 2023 Ledger SAS.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
@@ -83,9 +83,9 @@ pub fn ui_display_tx(tx: &Tx) -> Result<bool, AppSW> {
         // with constant generic parameters of NbglReview. Default values are 32 and 1024 respectively.
         let review: NbglReview = NbglReview::new()
             .titles(
-                "Review transaction\nto send CRAB",
+                "Review transaction\nto send CFX",
                 "",
-                "Sign transaction\nto send CRAB",
+                "Sign transaction\nto send CFX",
             )
             .glyph(&FERRIS);
 

@@ -1,7 +1,7 @@
 import pytest
 
-from application_client.boilerplate_command_sender import BoilerplateCommandSender, Errors
-from application_client.boilerplate_response_unpacker import unpack_get_public_key_response
+from application_client.command_sender import ConfluxCommandSender, Errors
+from application_client.response_unpacker import unpack_get_public_key_response
 from ragger.bip import calculate_public_key_and_chaincode, CurveChoice
 from ragger.error import ExceptionRAPDU
 from ragger.navigator import NavInsID, NavIns
@@ -11,7 +11,7 @@ from utils import ROOT_SCREENSHOT_PATH
 # In this test we check that the GET_PUBLIC_KEY works in non-confirmation mode
 def test_get_public_key_no_confirm(backend):
     for path in ["m/44'/1'/0'/0/0", "m/44'/1'/0/0/0", "m/44'/1'/911'/0/0", "m/44'/1'/255/255/255", "m/44'/1'/2147483647/0/0/0/0/0/0/0"]:
-        client = BoilerplateCommandSender(backend)
+        client = ConfluxCommandSender(backend)
         response = client.get_public_key(path=path).data
         _, public_key, _, _ = unpack_get_public_key_response(response)
 
@@ -21,7 +21,7 @@ def test_get_public_key_no_confirm(backend):
 
 # In this test we check that the GET_PUBLIC_KEY works in confirmation mode
 def test_get_public_key_confirm_accepted(backend, scenario_navigator):
-    client = BoilerplateCommandSender(backend)
+    client = ConfluxCommandSender(backend)
     path = "m/44'/1'/0'/0/0"
     
     with client.get_public_key_with_confirmation(path=path):
@@ -36,7 +36,7 @@ def test_get_public_key_confirm_accepted(backend, scenario_navigator):
 
 # In this test we check that the GET_PUBLIC_KEY in confirmation mode replies an error if the user refuses
 def test_get_public_key_confirm_refused(backend, scenario_navigator):
-    client = BoilerplateCommandSender(backend)
+    client = ConfluxCommandSender(backend)
     path = "m/44'/1'/0'/0/0"
 
     with pytest.raises(ExceptionRAPDU) as e:

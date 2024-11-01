@@ -1,8 +1,8 @@
 import pytest
 
-from application_client.boilerplate_transaction import Transaction
-from application_client.boilerplate_command_sender import BoilerplateCommandSender, Errors
-from application_client.boilerplate_response_unpacker import unpack_get_public_key_response, unpack_sign_tx_response
+from application_client.transaction import Transaction
+from application_client.command_sender import ConfluxCommandSender, Errors
+from application_client.response_unpacker import unpack_get_public_key_response, unpack_sign_tx_response
 from ragger.error import ExceptionRAPDU
 from ragger.navigator import NavIns, NavInsID
 from utils import ROOT_SCREENSHOT_PATH, check_signature_validity
@@ -14,7 +14,7 @@ from utils import ROOT_SCREENSHOT_PATH, check_signature_validity
 # We will ensure that the displayed information is correct by using screenshots comparison.
 def test_sign_tx_short_tx(backend, scenario_navigator, firmware, navigator):
     # Use the app interface instead of raw interface
-    client = BoilerplateCommandSender(backend)
+    client = ConfluxCommandSender(backend)
     # The path used for this entire test
     path: str = "m/44'/1'/0'/0/0"
 
@@ -25,7 +25,7 @@ def test_sign_tx_short_tx(backend, scenario_navigator, firmware, navigator):
     # Create the transaction that will be sent to the device for signing
     transaction = Transaction(
         nonce=1,
-        coin="CRAB",
+        coin="CFX",
         value=777,
         to="de0b295669a9fd93d5f28d9ec85e40f4cb697bae",
         memo="For u EthDev"
@@ -60,7 +60,7 @@ def test_sign_tx_short_tx_no_memo(backend, scenario_navigator, firmware):
         pytest.skip("Skipping this test for Nano devices")
     
     # Use the app interface instead of raw interface
-    client = BoilerplateCommandSender(backend)
+    client = ConfluxCommandSender(backend)
     # The path used for this entire test
     path: str = "m/44'/1'/0'/0/0"
 
@@ -71,7 +71,7 @@ def test_sign_tx_short_tx_no_memo(backend, scenario_navigator, firmware):
     # Create the transaction that will be sent to the device for signing
     transaction = Transaction(
         nonce=1,
-        coin="CRAB",
+        coin="CFX",
         value=777,
         to="de0b295669a9fd93d5f28d9ec85e40f4cb697bae",
         memo="For u EthDev"
@@ -97,7 +97,7 @@ def test_sign_tx_short_tx_no_memo(backend, scenario_navigator, firmware):
 # def test_sign_tx_long_tx(firmware, backend, navigator, test_name):
 def test_sign_tx_long_tx(backend, scenario_navigator, firmware, navigator):
     # Use the app interface instead of raw interface
-    client = BoilerplateCommandSender(backend)
+    client = ConfluxCommandSender(backend)
     path: str = "m/44'/1'/0'/0/0"
 
     rapdu = client.get_public_key(path=path)
@@ -105,7 +105,7 @@ def test_sign_tx_long_tx(backend, scenario_navigator, firmware, navigator):
 
     transaction = Transaction(
         nonce=1,
-        coin="CRAB",
+        coin="CFX",
         value=666,
         to="de0b295669a9fd93d5f28d9ec85e40f4cb697bae",
         memo=("This is a very long memo. "
@@ -138,7 +138,7 @@ def test_sign_tx_long_tx(backend, scenario_navigator, firmware, navigator):
 # The test will ask for a transaction signature that will be refused on screen
 def test_sign_tx_refused(backend, scenario_navigator):
     # Use the app interface instead of raw interface
-    client = BoilerplateCommandSender(backend)
+    client = ConfluxCommandSender(backend)
     path: str = "m/44'/1'/0'/0/0"
 
     rapdu = client.get_public_key(path=path)
@@ -146,7 +146,7 @@ def test_sign_tx_refused(backend, scenario_navigator):
 
     transaction = Transaction(
         nonce=1,
-        coin="CRAB",
+        coin="CFX",
         value=666,
         to="de0b295669a9fd93d5f28d9ec85e40f4cb697bae",
         memo="This transaction will be refused by the user"

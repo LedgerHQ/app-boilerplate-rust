@@ -29,6 +29,7 @@ mod handlers {
     pub mod get_version;
     pub mod sign_tx;
 }
+mod cfx_addr;
 
 mod settings;
 

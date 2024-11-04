@@ -6,6 +6,7 @@ from application_client.response_unpacker import unpack_get_public_key_response,
 from ragger.error import ExceptionRAPDU
 from ragger.navigator import NavIns, NavInsID
 from utils import ROOT_SCREENSHOT_PATH, check_signature_validity
+from web3 import Web3
 
 # In these tests we check the behavior of the device when asked to sign a transaction
 
@@ -25,13 +26,12 @@ def test_sign_tx_short_tx(backend, scenario_navigator, firmware, navigator):
     # Create the transaction that will be sent to the device for signing
     transaction = Transaction(
         nonce=1,
-        coin="CFX",
         value=777,
         to="de0b295669a9fd93d5f28d9ec85e40f4cb697bae",
-        memo="For u EthDev"
+        data=Web3.to_hex("For u EthDev")
     ).serialize()
     
-    # Enable display of transaction memo (NBGL devices only)
+    # Enable display of transaction data (NBGL devices only)
     if not firmware.device.startswith("nano"):
         navigator.navigate([NavInsID.USE_CASE_HOME_SETTINGS,
                             NavIns(NavInsID.TOUCH, (200, 113)),
@@ -54,7 +54,7 @@ def test_sign_tx_short_tx(backend, scenario_navigator, firmware, navigator):
 # In this test a transaction is sent to the device to be signed and validated on screen.
 # The transaction is short and will be sent in one chunk
 # We will ensure that the displayed information is correct by using screenshots comparison
-# The transaction memo should not be displayed as we have not enabled it in the app settings.
+# The transaction data should not be displayed as we have not enabled it in the app settings.
 def test_sign_tx_short_tx_no_memo(backend, scenario_navigator, firmware):
     if firmware.device.startswith("nano"):
         pytest.skip("Skipping this test for Nano devices")
@@ -71,10 +71,9 @@ def test_sign_tx_short_tx_no_memo(backend, scenario_navigator, firmware):
     # Create the transaction that will be sent to the device for signing
     transaction = Transaction(
         nonce=1,
-        coin="CFX",
         value=777,
         to="de0b295669a9fd93d5f28d9ec85e40f4cb697bae",
-        memo="For u EthDev"
+        data=Web3.to_hex("For u EthDev")
     ).serialize()
 
     # Send the sign device instruction.
@@ -93,7 +92,7 @@ def test_sign_tx_short_tx_no_memo(backend, scenario_navigator, firmware):
 
 # In this test a transaction is sent to the device to be signed and validated on screen.
 # This test is mostly the same as the previous one but with different values.
-# In particular the long memo will force the transaction to be sent in multiple chunks
+# In particular the long data will force the transaction to be sent in multiple chunks
 # def test_sign_tx_long_tx(firmware, backend, navigator, test_name):
 def test_sign_tx_long_tx(backend, scenario_navigator, firmware, navigator):
     # Use the app interface instead of raw interface
@@ -105,16 +104,15 @@ def test_sign_tx_long_tx(backend, scenario_navigator, firmware, navigator):
 
     transaction = Transaction(
         nonce=1,
-        coin="CFX",
         value=666,
         to="de0b295669a9fd93d5f28d9ec85e40f4cb697bae",
-        memo=("This is a very long memo. "
+        data=Web3.to_hex("This is a very long data. "
               "It will force the app client to send the serialized transaction to be sent in chunk. "
-              "As the maximum chunk size is 255 bytes we will make this memo greater than 255 characters. "
+              "As the maximum chunk size is 255 bytes we will make this data greater than 255 characters. "
               "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed non risus. Suspendisse lectus tortor, dignissim sit amet, adipiscing nec, ultricies sed, dolor. Cras elementum ultrices diam.")
     ).serialize()
     
-    # Enable display of transaction memo (NBGL devices only)
+    # Enable display of transaction data (NBGL devices only)
     if not firmware.device.startswith("nano"):
         navigator.navigate([NavInsID.USE_CASE_HOME_SETTINGS,
                             NavIns(NavInsID.TOUCH, (200, 113)),
@@ -146,10 +144,9 @@ def test_sign_tx_refused(backend, scenario_navigator):
 
     transaction = Transaction(
         nonce=1,
-        coin="CFX",
         value=666,
         to="de0b295669a9fd93d5f28d9ec85e40f4cb697bae",
-        memo="This transaction will be refused by the user"
+        data=Web3.to_hex("This transaction will be refused by the user")
     ).serialize()
 
     with pytest.raises(ExceptionRAPDU) as e:

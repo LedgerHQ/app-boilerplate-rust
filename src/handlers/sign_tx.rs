@@ -21,6 +21,7 @@ use alloc::vec::Vec;
 use ledger_device_sdk::ecc::{Secp256k1, SeedDerive};
 use ledger_device_sdk::hash::{sha3::Keccak256, HashInit};
 use ledger_device_sdk::io::Comm;
+use alloy_primitives::{U256, Bytes};
 
 #[cfg(any(target_os = "stax", target_os = "flex"))]
 use ledger_device_sdk::nbgl::NbglHomeAndSettings;
@@ -31,14 +32,18 @@ use serde_json_core::from_slice;
 const MAX_TRANSACTION_LEN: usize = 510;
 
 #[derive(Deserialize)]
-pub struct Tx<'a> {
-    #[allow(dead_code)]
-    nonce: u64,
-    pub coin: &'a str,
-    pub value: u64,
+pub struct Tx {
     #[serde(with = "hex::serde")] // Allows JSON deserialization from hex string
-    pub to: [u8; 20],
-    pub memo: &'a str,
+    pub to: [u8; 20], // to can not be null, which means contract deployment is not supported
+    pub value: U256,
+    #[allow(dead_code)]
+    pub nonce: u64,
+    pub data: Bytes,
+    pub gas: u64,
+    pub gas_price: U256,
+    pub storage_limit: u64,
+    pub epoch_height: u64,
+    pub chain_id: u64,
 }
 
 pub struct TxContext {

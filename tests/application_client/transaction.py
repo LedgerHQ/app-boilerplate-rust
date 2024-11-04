@@ -8,10 +8,14 @@ class TransactionError(Exception):
 @dataclass
 class Transaction:
     nonce: int
-    coin: str
-    value: str
+    value: int
     to: str
-    memo: str
+    gas: int
+    gasPrice: int
+    storageLimit: int
+    epochHeight: int
+    chainId: int
+    data: str
 
     def serialize(self) -> bytes:
         if not 0 <= self.nonce <= UINT64_MAX:
@@ -23,8 +27,12 @@ class Transaction:
         # Serialize the transaction data to a JSON-formatted string
         return json.dumps({
             "nonce": self.nonce,
-            "coin": self.coin,
             "value": self.value,
             "to": self.to,
-            "memo": self.memo
+            "data": self.data,
+            "gas": self.gas,
+            "gasPrice": self.gasPrice,
+            "storageLimit": self.storageLimit,
+            "epochHeight": self.epochHeight,
+            "chainId": self.chainId,
         }).encode('utf-8')

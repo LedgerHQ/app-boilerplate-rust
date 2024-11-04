@@ -40,8 +40,9 @@ use alloc::format;
 ///
 /// * `tx` - Transaction to be displayed for validation
 pub fn ui_display_tx(tx: &Tx) -> Result<bool, AppSW> {
-    let value_str = format!("{} {}", tx.coin, tx.value);
+    let value_str = format!("{} {}", "CFX", tx.value); // TODO convert Drip to CFX
     let to_str = format!("0x{}", hex::encode(tx.to).to_uppercase());
+    let data_str = format!("0x{}", hex::encode(tx.data).to_uppercase());
 
     // Define transaction review fields
     let my_fields = [
@@ -50,12 +51,12 @@ pub fn ui_display_tx(tx: &Tx) -> Result<bool, AppSW> {
             value: value_str.as_str(),
         },
         Field {
-            name: "Destination",
+            name: "To",
             value: to_str.as_str(),
         },
         Field {
-            name: "Memo",
-            value: tx.memo,
+            name: "Data",
+            value: data_str,
         },
     ];
 
@@ -89,7 +90,7 @@ pub fn ui_display_tx(tx: &Tx) -> Result<bool, AppSW> {
             )
             .glyph(&FERRIS);
 
-        // If first setting switch is disabled do not display the transaction memo
+        // If first setting switch is disabled do not display the transaction data
         let settings: Settings = Default::default();
         if settings.get_element(0) == 0 {
             Ok(review.show(&my_fields[0..2]))

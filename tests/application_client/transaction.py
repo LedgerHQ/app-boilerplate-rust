@@ -1,38 +1,16 @@
 import json
 from dataclasses import dataclass
 from .utils import UINT64_MAX
+from cfx_utils.types import TxParam
+from cfx_account._utils.transactions.transactions import Transaction as CfxTransaction
+
 
 class TransactionError(Exception):
     pass
 
-@dataclass
 class Transaction:
-    nonce: int
-    value: int
-    to: str
-    gas: int
-    gasPrice: int
-    storageLimit: int
-    epochHeight: int
-    chainId: int
-    data: str
+    def __init__(self, **kwargs: TxParam):
+        self.tx = CfxTransaction.from_dict(kwargs)
 
     def serialize(self) -> bytes:
-        if not 0 <= self.nonce <= UINT64_MAX:
-            raise TransactionError(f"Bad nonce: '{self.nonce}'!")
-
-        if len(self.to) != 40:
-            raise TransactionError(f"Bad address: '{self.to}'!")
-
-        # Serialize the transaction data to a JSON-formatted string
-        return json.dumps({
-            "nonce": self.nonce,
-            "value": self.value,
-            "to": self.to,
-            "data": self.data,
-            "gas": self.gas,
-            "gasPrice": self.gasPrice,
-            "storageLimit": self.storageLimit,
-            "epochHeight": self.epochHeight,
-            "chainId": self.chainId,
-        }).encode('utf-8')
+        return self.tx.hash()

@@ -30,6 +30,7 @@ mod handlers {
     pub mod sign_tx;
 }
 mod cfx_addr;
+mod consts;
 
 mod settings;
 

@@ -1,18 +1,15 @@
 #![allow(unused)]
 mod consts;
-mod utils;
 mod types;
+mod utils;
 
 use consts::*;
+pub use types::*;
 use utils::*;
-use types::*;
 
 use alloc::{string::String, vec::Vec};
 
-pub fn cfx_addr_encode(
-    raw: &[u8],
-    network: Network
-) -> Result<String, EncodingError> {
+pub fn cfx_addr_encode(raw: &[u8], network: Network) -> Result<String, EncodingError> {
     // Calculate version byte
     let length = raw.len();
     let version_byte = match length {

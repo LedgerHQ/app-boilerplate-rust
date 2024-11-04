@@ -1,12 +1,6 @@
-use super::consts::{MAINNET_PREFIX, TESTNET_PREFIX, RESERVED_NETWORK_IDS};
-use core::fmt;
+use super::consts::{MAINNET_PREFIX, RESERVED_NETWORK_IDS, TESTNET_PREFIX};
 use alloc::{format, string::String};
-
-#[derive(Copy, Clone)]
-pub enum EncodingOptions {
-    Simple,
-    QrCode,
-}
+use core::fmt;
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug, Hash)]
 pub enum Network {
@@ -30,6 +24,14 @@ impl Network {
                     Ok(format!("net{}", network_id))
                 }
             }
+        }
+    }
+
+    pub fn from_network_id(network_id: u64) -> Self {
+        match network_id {
+            1029 => Self::Main,
+            1 => Self::Test,
+            _ => Self::Id(network_id),
         }
     }
 }
@@ -56,4 +58,10 @@ impl fmt::Display for EncodingError {
             }
         }
     }
+}
+
+#[derive(Copy, Clone)]
+pub enum EncodingOptions {
+    Simple,
+    QrCode,
 }

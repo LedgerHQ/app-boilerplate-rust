@@ -20,6 +20,9 @@ def test_get_public_key_no_confirm(backend):
 
 
 # In this test we check that the GET_PUBLIC_KEY works in confirmation mode
+# 0xFD2095A37E72BE2CD575D18FE8F16E78C51EAFA3  eth address
+# 0x1D2095A37E72BE2CD575D18FE8F16E78C51EAFA3  cfx core hex address
+# cfx:aaswbfrdt33n6ngzs1j294hvr36pmhztypumh8c62t cfx core base32 address
 def test_get_public_key_confirm_accepted(backend, scenario_navigator):
     client = ConfluxCommandSender(backend)
     path = "m/44'/1'/0'/0/0"

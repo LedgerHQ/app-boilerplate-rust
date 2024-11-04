@@ -1,5 +1,5 @@
+use alloc::{format, string::String, vec::Vec};
 use lazy_static::lazy_static;
-use alloc::{string::String, vec::Vec, format};
 
 pub const CHARSET_SIZE: usize = 32;
 

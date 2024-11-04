@@ -16,7 +16,9 @@
  *****************************************************************************/
 
 use crate::AppSW;
-use alloc::format;
+use crate::consts::ADDRRESS_BYTES_LEN;
+use crate::cfx_addr::{cfx_addr_encode, Network};
+// use alloc::format;
 
 #[cfg(not(any(target_os = "stax", target_os = "flex")))]
 use ledger_device_sdk::ui::{
@@ -30,20 +32,23 @@ use ledger_device_sdk::nbgl::{NbglAddressReview, NbglGlyph};
 #[cfg(any(target_os = "stax", target_os = "flex"))]
 use include_gif::include_gif;
 
-// Display only the last 20 bytes of the address
-const DISPLAY_ADDR_BYTES_LEN: usize = 20;
-
 pub fn ui_display_pk(addr: &[u8]) -> Result<bool, AppSW> {
-    let addr_hex = format!(
-        "0x{}",
-        hex::encode(&addr[addr.len() - DISPLAY_ADDR_BYTES_LEN..]).to_uppercase()
-    );
+    let addr = &addr[addr.len() - ADDRRESS_BYTES_LEN..]; // last 20 bytes
+    // let addr_hex = format!(
+    //     "0x{}",
+    //     hex::encode(addr).to_uppercase()
+    // );
+    // let cfx_addr = addr_hex;
+
+    let network = Network::from_network_id(1029);
+    let cfx_addr = cfx_addr_encode(addr, network)
+        .map_err(|_e| AppSW::AddrDisplayFail)?;
 
     #[cfg(not(any(target_os = "stax", target_os = "flex")))]
     {
         let my_field = [Field {
             name: "Address",
-            value: addr_hex.as_str(),
+            value: cfx_addr.as_str(),
         }];
 
         let my_review = MultiFieldReview::new(
@@ -67,6 +72,6 @@ pub fn ui_display_pk(addr: &[u8]) -> Result<bool, AppSW> {
         Ok(NbglAddressReview::new()
             .glyph(&FERRIS)
             .verify_str("Verify CFX address")
-            .show(&addr_hex))
+            .show(&cfx_addr))
     }
 }

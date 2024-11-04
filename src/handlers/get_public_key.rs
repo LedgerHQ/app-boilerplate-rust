@@ -16,6 +16,7 @@
  *****************************************************************************/
 
 use crate::app_ui::address::ui_display_pk;
+use crate::consts::{ADDRRESS_BYTES_LEN, HASH_BYTES_LEN};
 use crate::utils::Bip32Path;
 use crate::AppSW;
 use ledger_device_sdk::ecc::{Secp256k1, SeedDerive};
@@ -32,9 +33,13 @@ pub fn handler_get_public_key(comm: &mut Comm, display: bool) -> Result<(), AppS
     // Display address on device if requested
     if display {
         let mut keccak256 = Keccak256::new();
-        let mut address: [u8; 32] = [0u8; 32];
+        let mut address: [u8; 32] = [0u8; HASH_BYTES_LEN];
 
         let _ = keccak256.hash(&pk.pubkey[1..], &mut address);
+
+        // Conflux user addresses start with b0001
+        address[HASH_BYTES_LEN - ADDRRESS_BYTES_LEN] &= 0x0f;
+        address[HASH_BYTES_LEN - ADDRRESS_BYTES_LEN] |= 0x10;
 
         if !ui_display_pk(&address)? {
             return Err(AppSW::Deny);

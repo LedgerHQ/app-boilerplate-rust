@@ -21,30 +21,13 @@ use alloc::vec::Vec;
 use ledger_device_sdk::ecc::{Secp256k1, SeedDerive};
 use ledger_device_sdk::hash::{sha3::Keccak256, HashInit};
 use ledger_device_sdk::io::Comm;
-use alloy_primitives::{U256, Bytes};
+use alloy_rlp::Decodable;
+use crate::types::Transaction;
 
 #[cfg(any(target_os = "stax", target_os = "flex"))]
 use ledger_device_sdk::nbgl::NbglHomeAndSettings;
 
-use serde::Deserialize;
-use serde_json_core::from_slice;
-
-const MAX_TRANSACTION_LEN: usize = 510;
-
-#[derive(Deserialize)]
-pub struct Tx {
-    #[serde(with = "hex::serde")] // Allows JSON deserialization from hex string
-    pub to: [u8; 20], // to can not be null, which means contract deployment is not supported
-    pub value: U256,
-    #[allow(dead_code)]
-    pub nonce: u64,
-    pub data: Bytes,
-    pub gas: u64,
-    pub gas_price: U256,
-    pub storage_limit: u64,
-    pub epoch_height: u64,
-    pub chain_id: u64,
-}
+const MAX_TRANSACTION_LEN: usize = 1024 * 2; // 2KB
 
 pub struct TxContext {
     raw_tx: Vec<u8>,
@@ -111,7 +94,7 @@ pub fn handler_sign_tx(
         // Otherwise, try to parse the transaction
         } else {
             // Try to deserialize the transaction
-            let (tx, _): (Tx, usize) = from_slice(&ctx.raw_tx).map_err(|_| AppSW::TxParsingFail)?;
+            let tx: Transaction  = Transaction::decode(&mut ctx.raw_tx.as_slice()).map_err(|_| AppSW::TxParsingFail)?;
             // Display transaction. If user approves
             // the transaction, sign it. Otherwise,
             // return a "deny" status word.

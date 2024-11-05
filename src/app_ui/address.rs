@@ -18,7 +18,6 @@
 use crate::AppSW;
 use crate::consts::ADDRRESS_BYTES_LEN;
 use crate::cfx_addr::{cfx_addr_encode, Network};
-// use alloc::format;
 
 #[cfg(not(any(target_os = "stax", target_os = "flex")))]
 use ledger_device_sdk::ui::{
@@ -34,12 +33,6 @@ use include_gif::include_gif;
 
 pub fn ui_display_pk(addr: &[u8]) -> Result<bool, AppSW> {
     let addr = &addr[addr.len() - ADDRRESS_BYTES_LEN..]; // last 20 bytes
-    // let addr_hex = format!(
-    //     "0x{}",
-    //     hex::encode(addr).to_uppercase()
-    // );
-    // let cfx_addr = addr_hex;
-
     let network = Network::from_network_id(1029);
     let cfx_addr = cfx_addr_encode(addr, network)
         .map_err(|_e| AppSW::AddrDisplayFail)?;

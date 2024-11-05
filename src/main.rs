@@ -31,6 +31,7 @@ mod handlers {
 }
 mod cfx_addr;
 mod consts;
+mod types;
 
 mod settings;
 

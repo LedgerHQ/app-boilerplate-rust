@@ -14,7 +14,7 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  *****************************************************************************/
-use crate::handlers::sign_tx::Tx;
+use crate::types::Transaction;
 use crate::AppSW;
 
 #[cfg(not(any(target_os = "stax", target_os = "flex")))]
@@ -39,10 +39,10 @@ use alloc::format;
 /// # Arguments
 ///
 /// * `tx` - Transaction to be displayed for validation
-pub fn ui_display_tx(tx: &Tx) -> Result<bool, AppSW> {
+pub fn ui_display_tx(tx: &Transaction) -> Result<bool, AppSW> {
     let value_str = format!("{} {}", "CFX", tx.value); // TODO convert Drip to CFX
     let to_str = format!("0x{}", hex::encode(tx.to).to_uppercase());
-    let data_str = format!("0x{}", hex::encode(tx.data).to_uppercase());
+    let data_str = format!("0x{}", hex::encode(tx.data.clone()).to_uppercase());
 
     // Define transaction review fields
     let my_fields = [
@@ -56,7 +56,7 @@ pub fn ui_display_tx(tx: &Tx) -> Result<bool, AppSW> {
         },
         Field {
             name: "Data",
-            value: data_str,
+            value: data_str.as_str(),
         },
     ];
 

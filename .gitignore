@@ -23,3 +23,4 @@ ledger/
 # Build directory
 build/
 .vscode
+compile.sh

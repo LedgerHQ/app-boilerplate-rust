@@ -15,14 +15,14 @@
  *  limitations under the License.
  *****************************************************************************/
 use crate::app_ui::sign::ui_display_tx;
+use crate::types::Transaction;
 use crate::utils::Bip32Path;
 use crate::AppSW;
 use alloc::vec::Vec;
 use ledger_device_sdk::ecc::{Secp256k1, SeedDerive};
 use ledger_device_sdk::hash::{sha3::Keccak256, HashInit};
 use ledger_device_sdk::io::Comm;
-use alloy_rlp::Decodable;
-use crate::types::Transaction;
+use rlp::decode;
 
 #[cfg(any(target_os = "stax", target_os = "flex"))]
 use ledger_device_sdk::nbgl::NbglHomeAndSettings;
@@ -94,7 +94,8 @@ pub fn handler_sign_tx(
         // Otherwise, try to parse the transaction
         } else {
             // Try to deserialize the transaction
-            let tx: Transaction  = Transaction::decode(&mut ctx.raw_tx.as_slice()).map_err(|_| AppSW::TxParsingFail)?;
+            let tx: Transaction =
+                decode(&mut ctx.raw_tx.as_slice()).map_err(|_| AppSW::TxParsingFail)?;
             // Display transaction. If user approves
             // the transaction, sign it. Otherwise,
             // return a "deny" status word.

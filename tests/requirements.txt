@@ -5,3 +5,4 @@ safe-pysha3>=1.0.0,<2.0.0
 tomli>=2.0.1
 web3>=7.0.0,<8.0.0
 cfx-account>=1.2.1
+cfx-address>=1.2.3

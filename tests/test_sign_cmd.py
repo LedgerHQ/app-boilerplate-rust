@@ -7,6 +7,7 @@ from ragger.error import ExceptionRAPDU
 from ragger.navigator import NavIns, NavInsID
 from utils import ROOT_SCREENSHOT_PATH, check_signature_validity
 from web3 import Web3
+from cfx_address import Base32Address
 
 # In these tests we check the behavior of the device when asked to sign a transaction
 
@@ -25,11 +26,18 @@ def test_sign_tx_short_tx(backend, scenario_navigator, firmware, navigator):
 
     # Create the transaction that will be sent to the device for signing
     transaction = Transaction(
+        to=Base32Address("0x1123456789012345678901234567890123456789", network_id=1029),
+        value=1,
         nonce=1,
-        value=777,
-        to="de0b295669a9fd93d5f28d9ec85e40f4cb697bae",
-        data=Web3.to_hex("For u EthDev")
+        gas=1,
+        gasPrice=1,
+        storageLimit=1,
+        epochHeight=1,
+        chainId=1,
+        data="".encode("utf-8")
     ).serialize()
+
+    print(transaction)
     
     # Enable display of transaction data (NBGL devices only)
     if not firmware.device.startswith("nano"):
@@ -70,10 +78,15 @@ def test_sign_tx_short_tx_no_memo(backend, scenario_navigator, firmware):
 
     # Create the transaction that will be sent to the device for signing
     transaction = Transaction(
+        to=Base32Address("0x1123456789012345678901234567890123456789", network_id=1029),
+        value=1,
         nonce=1,
-        value=777,
-        to="de0b295669a9fd93d5f28d9ec85e40f4cb697bae",
-        data=Web3.to_hex("For u EthDev")
+        gas=1,
+        gasPrice=1,
+        storageLimit=1,
+        epochHeight=1,
+        chainId=1,
+        data="".encode("utf-8")
     ).serialize()
 
     # Send the sign device instruction.
@@ -103,13 +116,15 @@ def test_sign_tx_long_tx(backend, scenario_navigator, firmware, navigator):
     _, public_key, _, _ = unpack_get_public_key_response(rapdu.data)
 
     transaction = Transaction(
+        to=Base32Address("0x1123456789012345678901234567890123456789", network_id=1029),
+        value=1,
         nonce=1,
-        value=666,
-        to="de0b295669a9fd93d5f28d9ec85e40f4cb697bae",
-        data=Web3.to_hex("This is a very long data. "
-              "It will force the app client to send the serialized transaction to be sent in chunk. "
-              "As the maximum chunk size is 255 bytes we will make this data greater than 255 characters. "
-              "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed non risus. Suspendisse lectus tortor, dignissim sit amet, adipiscing nec, ultricies sed, dolor. Cras elementum ultrices diam.")
+        gas=1,
+        gasPrice=1,
+        storageLimit=1,
+        epochHeight=1,
+        chainId=1,
+        data="".encode("utf-8")  # todo this should be a long string
     ).serialize()
     
     # Enable display of transaction data (NBGL devices only)
@@ -143,10 +158,15 @@ def test_sign_tx_refused(backend, scenario_navigator):
     _, pub_key, _, _ = unpack_get_public_key_response(rapdu.data)
 
     transaction = Transaction(
+        to=Base32Address("0x1123456789012345678901234567890123456789", network_id=1029),
+        value=1,
         nonce=1,
-        value=666,
-        to="de0b295669a9fd93d5f28d9ec85e40f4cb697bae",
-        data=Web3.to_hex("This transaction will be refused by the user")
+        gas=1,
+        gasPrice=1,
+        storageLimit=1,
+        epochHeight=1,
+        chainId=1,
+        data="This transaction will be refused by the user".encode("utf-8")  # todo this should be a long string
     ).serialize()
 
     with pytest.raises(ExceptionRAPDU) as e:

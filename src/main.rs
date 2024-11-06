@@ -28,6 +28,7 @@ mod handlers {
     pub mod get_public_key;
     pub mod get_version;
     pub mod sign_tx;
+    pub mod personal_sign;
 }
 mod cfx_addr;
 mod consts;
@@ -40,6 +41,7 @@ use handlers::{
     get_public_key::handler_get_public_key,
     get_version::handler_get_version,
     sign_tx::{handler_sign_tx, TxContext},
+    personal_sign::handler_personal_sign,
 };
 use ledger_device_sdk::io::{ApduHeader, Comm, Reply, StatusWords};
 #[cfg(feature = "pending_review_screen")]
@@ -98,6 +100,7 @@ pub enum Instruction {
     GetAppName,
     GetPubkey { display: bool },
     SignTx { chunk: u8, more: bool },
+    PersonalSign { chunk: u8, more: bool },
 }
 
 impl TryFrom<ApduHeader> for Instruction {
@@ -128,6 +131,10 @@ impl TryFrom<ApduHeader> for Instruction {
                     more: value.p2 == P2_SIGN_TX_MORE,
                 })
             }
+            (7, 0, 0) => Ok(Instruction::PersonalSign{
+                chunk: 0,
+                more: false,
+            }),
             (3..=6, _, _) => Err(AppSW::WrongP1P2),
             (_, _, _) => Err(AppSW::InsNotSupported),
         }
@@ -214,5 +221,6 @@ fn handle_apdu(comm: &mut Comm, ins: &Instruction, ctx: &mut TxContext) -> Resul
         Instruction::GetVersion => handler_get_version(comm),
         Instruction::GetPubkey { display } => handler_get_public_key(comm, *display),
         Instruction::SignTx { chunk, more } => handler_sign_tx(comm, *chunk, *more, ctx),
+        Instruction::PersonalSign {chunk: _, more: _} => handler_personal_sign(),
     }
 }

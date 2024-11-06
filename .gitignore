@@ -24,3 +24,4 @@ ledger/
 build/
 .vscode
 compile.sh
+.DS_Store

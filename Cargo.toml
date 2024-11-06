@@ -35,13 +35,13 @@ path = ["44'/503'"]
 name = "Conflux"
 
 [package.metadata.ledger.nanox]
-icon = "crab_14x14.gif"
+icon = "icons/cfx_14.gif"
 
 [package.metadata.ledger.nanosplus]
-icon = "crab_14x14.gif"
+icon = "icons/cfx_14.gif"
 
 [package.metadata.ledger.stax]
-icon = "crab_32x32.gif"
+icon = "icons/cfx_32.gif"
 
 [package.metadata.ledger.flex]
-icon = "crab_40x40.gif"
+icon = "icons/cfx_40.gif"

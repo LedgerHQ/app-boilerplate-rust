@@ -20,18 +20,21 @@ impl Settings {
     #[inline(never)]
     #[allow(unused)]
     pub fn get_mut(&mut self) -> &mut AtomicStorage<[u8; SETTINGS_SIZE]> {
-        return unsafe { DATA.get_mut() };
+        let data = &raw mut DATA;
+        unsafe { (*data).get_mut() }
     }
 
     #[inline(never)]
     #[allow(unused)]
     pub fn get_ref(&mut self) -> &AtomicStorage<[u8; SETTINGS_SIZE]> {
-        return unsafe { DATA.get_ref() };
+        let data = &raw const DATA;
+        unsafe { (*data).get_ref() }
     }
 
     #[allow(unused)]
     pub fn get_element(&self, index: usize) -> u8 {
-        let storage = unsafe { DATA.get_ref() };
+        let data = &raw const DATA;
+        let storage = unsafe { (*data).get_ref() };
         let settings = storage.get_ref();
         settings[index]
     }
@@ -39,7 +42,8 @@ impl Settings {
     #[allow(unused)]
     // Not used in this boilerplate, but can be used to set a value in the settings
     pub fn set_element(&self, index: usize, value: u8) {
-        let storage = unsafe { DATA.get_mut() };
+        let data = &raw mut DATA;
+        let storage = unsafe { (*data).get_mut() };
         let mut updated_data = *storage.get_ref();
         updated_data[index] = value;
         unsafe {

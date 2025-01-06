@@ -1,11 +1,11 @@
 [package]
 name = "app-boilerplate-rust"
-version = "1.6.2"
+version = "1.6.3"
 authors = ["yhql", "agrojean-ledger"]
 edition = "2021"
 
 [dependencies]
-ledger_device_sdk = "1.18.4"
+ledger_device_sdk = "1.19.1"
 include_gif = "1.2.0"
 serde = {version="1.0.192", default_features = false, features = ["derive"]}
 serde-json-core = { git = "https://github.com/rust-embedded-community/serde-json-core"}
@@ -37,3 +37,6 @@ icon = "crab_32x32.gif"
 
 [package.metadata.ledger.flex]
 icon = "crab_40x40.gif"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("stax", "flex", "nanos", "nanox", "nanosplus"))'] }

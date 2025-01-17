@@ -95,13 +95,14 @@ You can also run the app directly on the [Speculos emulator](https://github.com/
 ```bash
 speculos --apdu-port 9999 --api-port 5001 --display headless --model nanosp target/nanosplus/release/app-boilerplate-rust
 ```
-:warning: UI is displayed on `localhost::5001`
+:warning: UI is displayed on `localhost:5001`
 #### Stax or Flex
 ```bash
 speculos --apdu-port 9999 --api-port 5001 --model stax target/stax/release/app-boilerplate-rust
 ```
 :warning: UI is displayed by your X server
-You can then send APDU using `ledgercomm`:
+
+You can then send APDU using `ledgercomm` (`pip install ledgercomm`):
 ```
 ledgercomm-send file test.apdu
 ```
@@ -110,9 +111,11 @@ ledgercomm-send file test.apdu
 ```shell
 pip3 install ledgerwallet
 ````
-ℹ️ Your device must be connected, unlocked and the screen showing the dashboard (not inside an application). For instance, for Flex:
+ℹ️ Your device must be connected, unlocked and the screen showing the dashboard (not inside an application). 
+
+For instance, for Flex:
 ```bash
-ledgerctl install -f target/stax/release/app_flex.json
+ledgerctl install -f target/flex/release/app_flex.json
 ```
 
 ## Continuous Integration

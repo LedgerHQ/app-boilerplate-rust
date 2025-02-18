@@ -18,17 +18,8 @@
 use crate::AppSW;
 use alloc::format;
 
-#[cfg(not(any(target_os = "stax", target_os = "flex")))]
-use ledger_device_sdk::ui::{
-    bitmaps::{CROSSMARK, EYE, VALIDATE_14},
-    gadgets::{Field, MultiFieldReview},
-};
-
-#[cfg(any(target_os = "stax", target_os = "flex"))]
-use ledger_device_sdk::nbgl::{NbglAddressReview, NbglGlyph};
-
-#[cfg(any(target_os = "stax", target_os = "flex"))]
 use include_gif::include_gif;
+use ledger_device_sdk::nbgl::{NbglAddressReview, NbglGlyph};
 
 // Display only the last 20 bytes of the address
 const DISPLAY_ADDR_BYTES_LEN: usize = 20;
@@ -39,34 +30,15 @@ pub fn ui_display_pk(addr: &[u8]) -> Result<bool, AppSW> {
         hex::encode(&addr[addr.len() - DISPLAY_ADDR_BYTES_LEN..]).to_uppercase()
     );
 
-    #[cfg(not(any(target_os = "stax", target_os = "flex")))]
-    {
-        let my_field = [Field {
-            name: "Address",
-            value: addr_hex.as_str(),
-        }];
-
-        let my_review = MultiFieldReview::new(
-            &my_field,
-            &["Confirm Address"],
-            Some(&EYE),
-            "Approve",
-            Some(&VALIDATE_14),
-            "Reject",
-            Some(&CROSSMARK),
-        );
-
-        Ok(my_review.show())
-    }
-
+    // Load glyph from 64x64 4bpp gif file with include_gif macro. Creates an NBGL compatible glyph.
     #[cfg(any(target_os = "stax", target_os = "flex"))]
-    {
-        // Load glyph from 64x64 4bpp gif file with include_gif macro. Creates an NBGL compatible glyph.
-        const FERRIS: NbglGlyph = NbglGlyph::from_include(include_gif!("crab_64x64.gif", NBGL));
-        // Display the address confirmation screen.
-        Ok(NbglAddressReview::new()
-            .glyph(&FERRIS)
-            .verify_str("Verify CRAB address")
-            .show(&addr_hex))
-    }
+    const FERRIS: NbglGlyph = NbglGlyph::from_include(include_gif!("crab_64x64.gif", NBGL));
+    #[cfg(any(target_os = "nanosplus", target_os = "nanox"))]
+    const FERRIS: NbglGlyph = NbglGlyph::from_include(include_gif!("crab_16x16.gif", NBGL));
+
+    // Display the address confirmation screen.
+    Ok(NbglAddressReview::new()
+        .glyph(&FERRIS)
+        .verify_str("Verify CRAB address")
+        .show(&addr_hex))
 }

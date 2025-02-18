@@ -17,17 +17,8 @@
 use crate::handlers::sign_tx::Tx;
 use crate::AppSW;
 
-#[cfg(not(any(target_os = "stax", target_os = "flex")))]
-use ledger_device_sdk::ui::{
-    bitmaps::{CROSSMARK, EYE, VALIDATE_14},
-    gadgets::{Field, MultiFieldReview},
-};
-
-#[cfg(any(target_os = "stax", target_os = "flex"))]
 use crate::settings::Settings;
-#[cfg(any(target_os = "stax", target_os = "flex"))]
 use include_gif::include_gif;
-#[cfg(any(target_os = "stax", target_os = "flex"))]
 use ledger_device_sdk::nbgl::{Field, NbglGlyph, NbglReview};
 
 use alloc::format;
@@ -60,41 +51,28 @@ pub fn ui_display_tx(tx: &Tx) -> Result<bool, AppSW> {
     ];
 
     // Create transaction review
-    #[cfg(not(any(target_os = "stax", target_os = "flex")))]
-    {
-        let my_review = MultiFieldReview::new(
-            &my_fields,
-            &["Review ", "Transaction"],
-            Some(&EYE),
-            "Approve",
-            Some(&VALIDATE_14),
-            "Reject",
-            Some(&CROSSMARK),
-        );
 
-        Ok(my_review.show())
-    }
-
+    // Load glyph from 64x64 4bpp gif file with include_gif macro. Creates an NBGL compatible glyph.
     #[cfg(any(target_os = "stax", target_os = "flex"))]
-    {
-        // Load glyph from 64x64 4bpp gif file with include_gif macro. Creates an NBGL compatible glyph.
-        const FERRIS: NbglGlyph = NbglGlyph::from_include(include_gif!("crab_64x64.gif", NBGL));
-        // Create NBGL review. Maximum number of fields and string buffer length can be customised
-        // with constant generic parameters of NbglReview. Default values are 32 and 1024 respectively.
-        let review: NbglReview = NbglReview::new()
-            .titles(
-                "Review transaction\nto send CRAB",
-                "",
-                "Sign transaction\nto send CRAB",
-            )
-            .glyph(&FERRIS);
+    const FERRIS: NbglGlyph = NbglGlyph::from_include(include_gif!("crab_64x64.gif", NBGL));
+    #[cfg(any(target_os = "nanosplus", target_os = "nanox"))]
+    const FERRIS: NbglGlyph = NbglGlyph::from_include(include_gif!("crab_16x16.gif", NBGL));
 
-        // If first setting switch is disabled do not display the transaction memo
-        let settings: Settings = Default::default();
-        if settings.get_element(0) == 0 {
-            Ok(review.show(&my_fields[0..2]))
-        } else {
-            Ok(review.show(&my_fields))
-        }
+    // Create NBGL review. Maximum number of fields and string buffer length can be customised
+    // with constant generic parameters of NbglReview. Default values are 32 and 1024 respectively.
+    let review: NbglReview = NbglReview::new()
+        .titles(
+            "Review transaction\nto send CRAB",
+            "",
+            "Sign transaction\nto send CRAB",
+        )
+        .glyph(&FERRIS);
+
+    // If first setting switch is disabled do not display the transaction memo
+    let settings: Settings = Default::default();
+    if settings.get_element(0) == 0 {
+        Ok(review.show(&my_fields[0..2]))
+    } else {
+        Ok(review.show(&my_fields))
     }
 }

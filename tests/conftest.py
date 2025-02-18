@@ -20,12 +20,12 @@ pytest_plugins = ("ragger.conftest.base_conftest", )
 # 2. This fixture clears the pending review screen before each test
 # 3. The scope should be the same as the one configured by BACKEND_SCOPE in 
 # ragger/conftest/configuration.py
-@pytest.fixture(scope="class", autouse=True)
-def clear_pending_review(firmware, navigator):
-    # Press a button to clear the pending review
-    if firmware.device.startswith("nano"):
-        print("Clearing pending review")
-        instructions = [
-            NavInsID.BOTH_CLICK,
-        ]
-        navigator.navigate(instructions,screen_change_before_first_instruction=False)
+# @pytest.fixture(scope="class", autouse=True)
+# def clear_pending_review(firmware, navigator):
+#     # Press a button to clear the pending review
+#     if firmware.device.startswith("nano"):
+#         print("Clearing pending review")
+#         instructions = [
+#             NavInsID.BOTH_CLICK,
+#         ]
+#         navigator.navigate(instructions,screen_change_before_first_instruction=False)

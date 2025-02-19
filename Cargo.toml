@@ -1,11 +1,11 @@
 [package]
 name = "app-boilerplate-rust"
-version = "1.6.3"
-authors = ["yhql", "agrojean-ledger"]
+version = "1.7.0"
+authors = ["Ledger"]
 edition = "2021"
 
 [dependencies]
-ledger_device_sdk = "1.20.3"
+ledger_device_sdk = "1.21.0"
 include_gif = "1.2.0"
 serde = { version="1.0.192", default-features = false, features = ["derive"] }
 serde-json-core = { git = "https://github.com/rust-embedded-community/serde-json-core" }
@@ -17,8 +17,8 @@ opt-level = 'z'
 lto = true
 
 [features]
-default = ["pending_review_screen"]
-pending_review_screen = []
+default = ["ledger_device_sdk/nbgl"]
+debug = ["ledger_device_sdk/debug"]
 
 [package.metadata.ledger]
 curve = ["secp256k1"]

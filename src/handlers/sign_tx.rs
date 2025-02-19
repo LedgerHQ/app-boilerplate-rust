@@ -21,8 +21,6 @@ use alloc::vec::Vec;
 use ledger_device_sdk::ecc::{Secp256k1, SeedDerive};
 use ledger_device_sdk::hash::{sha3::Keccak256, HashInit};
 use ledger_device_sdk::io::Comm;
-
-#[cfg(any(target_os = "stax", target_os = "flex"))]
 use ledger_device_sdk::nbgl::NbglHomeAndSettings;
 
 use serde::Deserialize;
@@ -45,7 +43,6 @@ pub struct TxContext {
     raw_tx: Vec<u8>,
     path: Bip32Path,
     review_finished: bool,
-    #[cfg(any(target_os = "stax", target_os = "flex"))]
     pub home: NbglHomeAndSettings,
 }
 
@@ -57,7 +54,6 @@ impl TxContext {
             raw_tx: Vec::new(),
             path: Default::default(),
             review_finished: false,
-            #[cfg(any(target_os = "stax", target_os = "flex"))]
             home: Default::default(),
         }
     }

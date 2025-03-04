@@ -5,7 +5,7 @@ authors = ["Ledger"]
 edition = "2021"
 
 [dependencies]
-ledger_device_sdk = "1.21.0"
+ledger_device_sdk = "1.21.3"
 include_gif = "1.2.0"
 serde = { version="1.0.192", default-features = false, features = ["derive"] }
 serde-json-core = { git = "https://github.com/rust-embedded-community/serde-json-core" }
@@ -17,7 +17,7 @@ opt-level = 'z'
 lto = true
 
 [features]
-default = ["ledger_device_sdk/nbgl"]
+default = ["ledger_device_sdk/nano_nbgl"]
 debug = ["ledger_device_sdk/debug"]
 
 [package.metadata.ledger]
@@ -40,3 +40,6 @@ icon = "crab_40x40.gif"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("stax", "flex", "nanos", "nanox", "nanosplus"))'] }
+
+[patch.crates-io]
+ledger_device_sdk = { path = "../ledger-device-rust-sdk/ledger_device_sdk" }

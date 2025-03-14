@@ -5,7 +5,7 @@ authors = ["Ledger"]
 edition = "2021"
 
 [dependencies]
-ledger_device_sdk = "1.21.4"
+ledger_device_sdk = "1.21.5"
 include_gif = "1.2.0"
 serde = { version="1.0.192", default-features = false, features = ["derive"] }
 serde-json-core = { git = "https://github.com/rust-embedded-community/serde-json-core" }

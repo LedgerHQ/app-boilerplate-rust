@@ -1,11 +1,11 @@
 [package]
 name = "app-boilerplate-rust"
-version = "1.7.0"
+version = "1.7.1"
 authors = ["Ledger"]
 edition = "2021"
 
 [dependencies]
-ledger_device_sdk = "1.22.3"
+ledger_device_sdk = "1.22.7"
 include_gif = "1.2.0"
 serde = { version="1.0.192", default-features = false, features = ["derive"] }
 serde-json-core = { git = "https://github.com/rust-embedded-community/serde-json-core" }
@@ -40,3 +40,6 @@ icon = "crab_40x40.gif"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("stax", "flex", "nanos", "nanox", "nanosplus"))'] }
+
+[patch.crates-io]
+ledger_device_sdk = { path = "../ledger-device-rust-sdk/ledger_device_sdk" }

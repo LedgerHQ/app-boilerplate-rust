@@ -40,6 +40,3 @@ icon = "crab_40x40.gif"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("stax", "flex", "nanos", "nanox", "nanosplus"))'] }
-
-[patch.crates-io]
-ledger_device_sdk = { path = "../ledger-device-rust-sdk/ledger_device_sdk" }

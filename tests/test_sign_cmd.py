@@ -12,7 +12,7 @@ from utils import ROOT_SCREENSHOT_PATH, check_signature_validity
 # In this test a transaction is sent to the device to be signed and validated on screen.
 # The transaction is short and will be sent in one chunk.
 # We will ensure that the displayed information is correct by using screenshots comparison.
-def test_sign_tx_short_tx(backend, scenario_navigator, firmware, navigator):
+def test_sign_tx_short_tx(backend, scenario_navigator, device, navigator):
     # Use the app interface instead of raw interface
     client = BoilerplateCommandSender(backend)
     # The path used for this entire test
@@ -32,7 +32,7 @@ def test_sign_tx_short_tx(backend, scenario_navigator, firmware, navigator):
     ).serialize()
     
     # Enable display of transaction memo (NBGL devices only)
-    if not firmware.device.startswith("nano"):
+    if not device.is_nano:
         navigator.navigate([NavInsID.USE_CASE_HOME_SETTINGS,
                             NavIns(NavInsID.TOUCH, (200, 113)),
                             NavInsID.USE_CASE_SUB_SETTINGS_EXIT],
@@ -55,8 +55,8 @@ def test_sign_tx_short_tx(backend, scenario_navigator, firmware, navigator):
 # The transaction is short and will be sent in one chunk
 # We will ensure that the displayed information is correct by using screenshots comparison
 # The transaction memo should not be displayed as we have not enabled it in the app settings.
-def test_sign_tx_short_tx_no_memo(backend, scenario_navigator, firmware):
-    if firmware.device.startswith("nano"):
+def test_sign_tx_short_tx_no_memo(backend, scenario_navigator, device):
+    if device.is_nano:
         pytest.skip("Skipping this test for Nano devices")
     
     # Use the app interface instead of raw interface
@@ -95,7 +95,7 @@ def test_sign_tx_short_tx_no_memo(backend, scenario_navigator, firmware):
 # This test is mostly the same as the previous one but with different values.
 # In particular the long memo will force the transaction to be sent in multiple chunks
 # def test_sign_tx_long_tx(firmware, backend, navigator, test_name):
-def test_sign_tx_long_tx(backend, scenario_navigator, firmware, navigator):
+def test_sign_tx_long_tx(backend, scenario_navigator, device, navigator):
     # Use the app interface instead of raw interface
     client = BoilerplateCommandSender(backend)
     path: str = "m/44'/1'/0'/0/0"
@@ -115,7 +115,7 @@ def test_sign_tx_long_tx(backend, scenario_navigator, firmware, navigator):
     ).serialize()
     
     # Enable display of transaction memo (NBGL devices only)
-    if not firmware.device.startswith("nano"):
+    if not device.is_nano:
         navigator.navigate([NavInsID.USE_CASE_HOME_SETTINGS,
                             NavIns(NavInsID.TOUCH, (200, 113)),
                             NavInsID.USE_CASE_SUB_SETTINGS_EXIT],

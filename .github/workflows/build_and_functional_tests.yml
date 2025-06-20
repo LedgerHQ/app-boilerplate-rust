@@ -30,10 +30,11 @@ on:
 jobs:
   build_application:
     name: Build application using the reusable workflow
-    uses: LedgerHQ/ledger-app-workflows/.github/workflows/reusable_build.yml@v1
+    uses: LedgerHQ/ledger-app-workflows/.github/workflows/reusable_build.yml@c_sdk_config_for_rust
     with:
       upload_app_binaries_artifact: "compiled_app_binaries"
       builder: ledger-app-builder
+      sdk_reference: feat/iar/clangrt_22_from_apa
 
   ragger_tests:
     name: Run ragger tests using the reusable workflow

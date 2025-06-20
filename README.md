@@ -1,13 +1,13 @@
-# Ledger Rust Boilerplate Application
+# Quantus Ledger App
 
-![Rule enforcer](https://github.com/LedgerHQ/app-boilerplate-rust/actions/workflows/guidelines_enforcer.yml/badge.svg) ![Build and tests](https://github.com/LedgerHQ/app-boilerplate-rust/actions/workflows/build_and_functional_tests.yml/badge.svg)
+![Rule enforcer](https://github.com/LedgerHQ/ledger-app-rs/actions/workflows/guidelines_enforcer.yml/badge.svg) ![Build and tests](https://github.com/LedgerHQ/ledger-app-rs/actions/workflows/build_and_functional_tests.yml/badge.svg)
 
-This is a boilerplate application written in Rust which can be forked to start a new project for the Ledger Nano X, S+, Stax and Flex devices.
+This is a quantus ledger application written in Rust which can be forked to start a new project for the Ledger Nano X, S+, Stax and Flex devices.
 
 :warning: Nano S is not supported
 
 * Implements standard features (display address, transaction signature...),
-* Has functional tests using [Ragger](https://github.com/LedgerHQ/ragger),
+* Has functional tests using [Ragger](https://github.com/Quantus-Network/ragger),
 * Has CI workflows mandatory for app deployment in the Ledger store.
 
 ### Links
@@ -29,8 +29,8 @@ By using Ledger's own developer tools [Docker image](https://github.com/LedgerHQ
   * On macOS, install and launch [XQuartz](https://www.xquartz.org/) (make sure to go to XQuartz > Preferences > Security and check "Allow client connections").
   * On Windows, install and launch [VcXsrv](https://sourceforge.net/projects/vcxsrv/) (make sure to configure it to disable access control).
 * Install [VScode](https://code.visualstudio.com/download) and add [Ledger's extension](https://marketplace.visualstudio.com/items?itemName=LedgerHQ.ledger-dev-tools).
-* Open a terminal and clone `app-boilerplate-rust` with `git clone git@github.com:LedgerHQ/app-boilerplate-rust.git`.
-* Open the `app-boilerplate-rust` folder with VSCode.
+* Open a terminal and clone `ledger-app-rs` with `git clone git@github.com:Quantus-Network/ledger-app-rs.git`.
+* Open the `ledger-app-rs` folder with VSCode.
 * Use Ledger extension's sidebar menu or open the tasks menu with `ctrl + shift + b` (`command + shift + b` on a Mac) to conveniently execute actions :
   * **Build** the app for the device model of your choice with `Build`.
   * **Test** your binary on the [Speculos emulator](https://github.com/LedgerHQ/speculos) with `Run with emulator`.
@@ -93,12 +93,12 @@ pytest tests/ --tb=short -v --device {nanosp | nanox | stax | flex}
 You can also run the app directly on the [Speculos emulator](https://github.com/LedgerHQ/speculos) from the Docker container
 #### Nano S+ or X
 ```bash
-speculos --apdu-port 9999 --api-port 5001 --display headless --model nanosp target/nanosplus/release/app-boilerplate-rust
+speculos --apdu-port 9999 --api-port 5001 --display headless --model nanosp target/nanosplus/release/ledger-app-rs
 ```
 :warning: UI is displayed on `localhost:5001`
 #### Stax or Flex
 ```bash
-speculos --apdu-port 9999 --api-port 5001 --model stax target/stax/release/app-boilerplate-rust
+speculos --apdu-port 9999 --api-port 5001 --model stax target/stax/release/ledger-app-rs
 ```
 :warning: UI is displayed by your X server
 

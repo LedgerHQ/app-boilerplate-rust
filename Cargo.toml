@@ -1,15 +1,18 @@
 [package]
-name = "app-boilerplate-rust"
+name = "ledger-app-rs"
 version = "1.7.1"
-authors = ["Ledger"]
+authors = ["Quantus Network"]
 edition = "2021"
 
 [dependencies]
 ledger_device_sdk = "1.22.7"
 include_gif = "1.2.0"
-serde = { version="1.0.192", default-features = false, features = ["derive"] }
+serde = { version = "1.0.192", default-features = false, features = ["derive"] }
 serde-json-core = { git = "https://github.com/rust-embedded-community/serde-json-core" }
-hex = { version = "0.4.3", default-features = false, features = ["serde", "alloc"] }
+hex = { version = "0.4.3", default-features = false, features = [
+    "serde",
+    "alloc",
+] }
 numtoa = "0.2.4"
 
 [profile.release]
@@ -24,7 +27,7 @@ debug = ["ledger_device_sdk/debug"]
 curve = ["secp256k1"]
 flags = "0"
 path = ["44'/1'"]
-name = "Rust Boilerplate"
+name = "Quantus Network"
 
 [package.metadata.ledger.nanox]
 icon = "crab_14x14.gif"
@@ -39,4 +42,6 @@ icon = "crab_32x32.gif"
 icon = "crab_40x40.gif"
 
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("stax", "flex", "nanos", "nanox", "nanosplus"))'] }
+unexpected_cfgs = { level = "warn", check-cfg = [
+    'cfg(target_os, values("stax", "flex", "nanos", "nanox", "nanosplus"))',
+] }

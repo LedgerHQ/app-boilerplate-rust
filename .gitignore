@@ -16,8 +16,9 @@ __pycache__/
 *.egg-info/
 .eggs/
 .python-version
-
+.idea
 # Related to the Ledger VSCode extension
+# Don't exclude .vscode/settings.json - we had to define our app name in it
 # Virtual env for sideload (macOS and Windows)
 ledger/
 # Build directory

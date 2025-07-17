@@ -26,7 +26,7 @@ pub fn ui_menu_main(_: &mut Comm) -> NbglHomeAndSettings {
     #[cfg(any(target_os = "stax", target_os = "flex"))]
     const FERRIS: NbglGlyph = NbglGlyph::from_include(include_gif!("crab_64x64.gif", NBGL));
     #[cfg(any(target_os = "nanosplus", target_os = "nanox"))]
-    const FERRIS: NbglGlyph = NbglGlyph::from_include(include_gif!("crab_16x16.gif", NBGL));
+    const FERRIS: NbglGlyph = NbglGlyph::from_include(include_gif!("crab_14x14.gif", NBGL));
 
     let settings_strings = [["Display Memo", "Allow display of transaction memo."]];
     let mut settings: Settings = Default::default();

@@ -31,7 +31,7 @@ pub fn ui_display_pk(addr: &[u8]) -> Result<bool, AppSW> {
     );
 
     // Load glyph from 64x64 4bpp gif file with include_gif macro. Creates an NBGL compatible glyph.
-    #[cfg(any(target_os = "stax", target_os = "flex"))]
+    #[cfg(any(target_os = "stax", target_os = "flex", target_os = "apex_p"))]
     const FERRIS: NbglGlyph = NbglGlyph::from_include(include_gif!("crab_64x64.gif", NBGL));
     #[cfg(any(target_os = "nanosplus", target_os = "nanox"))]
     const FERRIS: NbglGlyph = NbglGlyph::from_include(include_gif!("crab_14x14.gif", NBGL));

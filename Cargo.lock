@@ -464,17 +464,10 @@ dependencies = [
 ]
 
 [[package]]
-<<<<<<< HEAD
 name = "indexmap"
 version = "2.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2481980430f9f78649238835720ddccc57e52df14ffce1c6f37391d61b563e9"
-=======
-name = "include_gif"
-version = "1.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e142022621634b2f37faa976d6210d07fa804b0efa49e32a542b6532077d89a6"
->>>>>>> 27d9521 (apex_p target support)
 dependencies = [
  "flate2",
  "image",
@@ -511,12 +504,16 @@ checksum = "03087c2bad5e1034e8cace5926dec053fb3790248370865f5117a7d0213354c8"
 [[package]]
 name = "ledger_device_sdk"
 <<<<<<< HEAD
+<<<<<<< HEAD
 version = "1.24.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "29544d88a9190ba6aeca69123b1cb6c4082758c6c11bfefe1214d73b15c495d5"
 =======
 version = "1.23.0"
 >>>>>>> 27d9521 (apex_p target support)
+=======
+version = "1.24.1"
+>>>>>>> 30e9183 (Ragger test with current ragger (not supporting apex_p yet))
 dependencies = [
  "const-zero",
  "include_gif 1.2.2",
@@ -530,12 +527,16 @@ dependencies = [
 [[package]]
 name = "ledger_secure_sdk_sys"
 <<<<<<< HEAD
+<<<<<<< HEAD
 version = "1.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8e484986fd20c0e260507ad2125e1acaf8b12d670b64a66d5b88228b9f906f20"
 =======
 version = "1.9.0"
 >>>>>>> 27d9521 (apex_p target support)
+=======
+version = "1.10.0"
+>>>>>>> 30e9183 (Ragger test with current ragger (not supporting apex_p yet))
 dependencies = [
  "bindgen",
  "cc",

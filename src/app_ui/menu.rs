@@ -23,7 +23,7 @@ use ledger_device_sdk::nbgl::{NbglGlyph, NbglHomeAndSettings};
 
 pub fn ui_menu_main(_: &mut Comm) -> NbglHomeAndSettings {
     // Load glyph from 64x64 4bpp gif file with include_gif macro. Creates an NBGL compatible glyph.
-    #[cfg(any(target_os = "apex_p"))]
+    #[cfg(target_os = "apex_p")]
     const FERRIS: NbglGlyph = NbglGlyph::from_include(include_gif!("crab_48x48.png", NBGL));
     #[cfg(any(target_os = "stax", target_os = "flex"))]
     const FERRIS: NbglGlyph = NbglGlyph::from_include(include_gif!("glyphs/crab_64x64.gif", NBGL));

@@ -19,7 +19,7 @@ fn main() {
 
     for (x, y, mask_pixel) in mask.enumerate_pixels() {
         let mask_value = mask_pixel[0];
-        let mut gray_pixel = gray.get_pixel(x, y).clone();
+        let mut gray_pixel = *gray.get_pixel(x, y);
         if mask_value == 0 {
             gray_pixel = image::Luma([0]);
         } else {

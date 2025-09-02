@@ -5,12 +5,15 @@ authors = ["Ledger"]
 edition = "2021"
 
 [dependencies]
-ledger_device_sdk = "1.23.0"
-include_gif = "1.2.2"
+ledger_device_sdk = "1.24.7"
+include_gif = "1.2.4"
 serde = { version="1.0.192", default-features = false, features = ["derive"] }
 serde-json-core = { git = "https://github.com/rust-embedded-community/serde-json-core" }
 hex = { version = "0.4.3", default-features = false, features = ["serde", "alloc"] }
 numtoa = "0.2.4"
+
+[build-dependencies]
+image = "0.25.7"
 
 [profile.release]
 opt-level = 'z'
@@ -27,16 +30,16 @@ path = ["44'/1'"]
 name = "Rust Boilerplate"
 
 [package.metadata.ledger.nanox]
-icon = "crab_14x14.gif"
+icon = "icons/crab_14x14.gif"
 
 [package.metadata.ledger.nanosplus]
-icon = "crab_14x14.gif"
+icon = "icons/crab_14x14.gif"
 
 [package.metadata.ledger.stax]
-icon = "crab_32x32.gif"
+icon = "icons/crab_32x32.gif"
 
 [package.metadata.ledger.flex]
-icon = "crab_40x40.gif"
+icon = "icons/crab_40x40.gif"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("stax", "flex", "nanos", "nanox", "nanosplus"))'] }

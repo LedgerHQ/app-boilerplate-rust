@@ -6,6 +6,9 @@ app_nanox.json
 app_stax.json
 app_flex.json
 
+# Automatic generated NBGL glyphs
+glyphs/home_nano_nbgl.png
+
 # Temporary directory with snapshots taken during test runs
 tests/snapshots-tmp/
 

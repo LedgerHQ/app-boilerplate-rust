@@ -1,6 +1,6 @@
 [package]
 name = "app-boilerplate-rust"
-version = "1.7.2"
+version = "1.7.3"
 authors = ["Ledger"]
 edition = "2021"
 

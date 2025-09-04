@@ -34,7 +34,7 @@ checksum = "b0674a1ddeecb70197781e945de4b3b8ffb61fa939a5597bcf48503737663100"
 
 [[package]]
 name = "app-boilerplate-rust"
-version = "1.7.3"
+version = "1.7.4"
 dependencies = [
  "hex",
  "image 0.25.7",

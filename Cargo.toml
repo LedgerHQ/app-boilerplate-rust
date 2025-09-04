@@ -1,6 +1,6 @@
 [package]
 name = "app-boilerplate-rust"
-version = "1.7.3"
+version = "1.7.4"
 authors = ["Ledger"]
 edition = "2021"
 
@@ -42,7 +42,7 @@ icon = "icons/crab_32x32.gif"
 icon = "icons/crab_40x40.gif"
 
 [package.metadata.ledger.apex_p]
-icon = "crab_32x32.png"
+icon = "icons/crab_32x32.png"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("apex_p", "stax", "flex", "nanos", "nanox", "nanosplus"))'] }

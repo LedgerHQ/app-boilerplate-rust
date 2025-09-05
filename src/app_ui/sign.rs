@@ -52,7 +52,9 @@ pub fn ui_display_tx(tx: &Tx) -> Result<bool, AppSW> {
 
     // Create transaction review
 
-    // Load glyph from 64x64 4bpp gif file with include_gif macro. Creates an NBGL compatible glyph.
+    // Load glyph from file with include_gif macro. Creates an NBGL compatible glyph.
+    #[cfg(target_os = "apex_p")]
+    const FERRIS: NbglGlyph = NbglGlyph::from_include(include_gif!("glyphs/crab_48x48.png", NBGL));
     #[cfg(any(target_os = "stax", target_os = "flex"))]
     const FERRIS: NbglGlyph = NbglGlyph::from_include(include_gif!("glyphs/crab_64x64.gif", NBGL));
     #[cfg(any(target_os = "nanosplus", target_os = "nanox"))]

@@ -1,11 +1,11 @@
 [package]
 name = "app-boilerplate-rust"
-version = "1.7.3"
+version = "1.7.4"
 authors = ["Ledger"]
 edition = "2021"
 
 [dependencies]
-ledger_device_sdk = "1.24.7"
+ledger_device_sdk = "1.24.8"
 include_gif = "1.2.4"
 serde = { version="1.0.192", default-features = false, features = ["derive"] }
 serde-json-core = { git = "https://github.com/rust-embedded-community/serde-json-core" }
@@ -41,5 +41,8 @@ icon = "icons/crab_32x32.gif"
 [package.metadata.ledger.flex]
 icon = "icons/crab_40x40.gif"
 
+[package.metadata.ledger.apex_p]
+icon = "icons/crab_32x32.png"
+
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("stax", "flex", "nanos", "nanox", "nanosplus"))'] }
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("apex_p", "stax", "flex", "nanos", "nanox", "nanosplus"))'] }

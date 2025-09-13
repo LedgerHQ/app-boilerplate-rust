@@ -154,7 +154,7 @@ extern "C" fn sample_main() {
 
 fn handle_apdu(comm: &mut Comm, ins: &Instruction, ctx: &mut TxContext) -> Result<(), AppSW> {
     match ins {
-Instruction::GetAppName => {
+        Instruction::GetAppName => {
             comm.append(env!("CARGO_PKG_NAME").as_bytes());
             Ok(())
         }
@@ -164,15 +164,13 @@ Instruction::GetAppName => {
 
         // NEW: Echo back exactly 32 bytes from the APDU body.
         Instruction::EchoHash => {
-    // Echo back exactly 32 bytes from APDU body without overlapping borrows.
-    let mut buf = [0u8; 32];
-    {
-        let d = comm.get_data().map_err(|_| AppSW::WrongApduLength)?;
-        if d.len() != 32 { return Err(AppSW::WrongApduLength); }
-        buf.copy_from_slice(d);
-    }
-    comm.append(&buf);
-    Ok(())
-},
+            // get_data() -> Result<&[u8], StatusWords>
+            let data = comm.get_data().map_err(|_| AppSW::WrongApduLength)?;
+            if data.len() != 32 {
+                return Err(AppSW::WrongApduLength);
+            }
+            comm.append(data);
+            Ok(())
+        }
     }
 }

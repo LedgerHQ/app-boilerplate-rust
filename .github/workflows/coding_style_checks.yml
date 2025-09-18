@@ -12,7 +12,7 @@ on:
       - main
       - develop
   pull_request:
-  
+
 jobs:
   check_linting:
     name: Check linting using the reusable workflow

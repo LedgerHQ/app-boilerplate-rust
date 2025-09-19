@@ -22,7 +22,7 @@ jobs:
     with:
       run_linter: pylint
       run_type_check: true
-      src_directory: tests/application_client
+      src_directory: application_client
       setup_directory: tests
       req_directory: tests
 

@@ -24,4 +24,8 @@ __pycache__/
 # Virtual env for sideload (macOS and Windows)
 ledger/
 # Build directory
-build/
+build/src/main.rs.bak
+src/main.rs.tmp
+*.apdu
+/tmp/speculos.log
+proofs/

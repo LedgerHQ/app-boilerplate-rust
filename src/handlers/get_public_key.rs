@@ -20,10 +20,13 @@ use crate::utils::Bip32Path;
 use crate::AppSW;
 use ledger_device_sdk::ecc::{Secp256k1, SeedDerive};
 use ledger_device_sdk::hash::{sha3::Keccak256, HashInit};
-use ledger_device_sdk::io::Comm;
+use ledger_device_sdk::io::{self, Command};
 
-pub fn handler_get_public_key(comm: &mut Comm, display: bool) -> Result<(), AppSW> {
-    let data = comm.get_data().map_err(|_| AppSW::WrongApduLength)?;
+pub fn handler_get_public_key(
+    command: Command,
+    display: bool,
+) -> Result<io::CommandResponse, AppSW> {
+    let data = command.get_data();
     let path: Bip32Path = data.try_into()?;
 
     let (k, cc) = Secp256k1::derive_from(path.as_ref());
@@ -41,13 +44,14 @@ pub fn handler_get_public_key(comm: &mut Comm, display: bool) -> Result<(), AppS
         }
     }
 
-    comm.append(&[pk.pubkey.len() as u8]);
-    comm.append(&pk.pubkey);
+    let mut response = command.into_response();
+    response.append(&[pk.pubkey.len() as u8])?;
+    response.append(&pk.pubkey)?;
 
     const CHAINCODE_LEN: u8 = 32;
     let code = cc.unwrap();
-    comm.append(&[CHAINCODE_LEN]);
-    comm.append(&code.value);
+    response.append(&[CHAINCODE_LEN])?;
+    response.append(&code.value)?;
 
-    Ok(())
+    Ok(response)
 }

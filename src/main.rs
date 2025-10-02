@@ -38,7 +38,7 @@ use handlers::{
     get_version::handler_get_version,
     sign_tx::{handler_sign_tx, TxContext},
 };
-use ledger_device_sdk::io::{ApduHeader, Comm, Reply, StatusWords};
+use ledger_device_sdk::io::{self, ApduHeader, Comm, Command, Reply, StatusWords};
 
 ledger_device_sdk::set_panic!(ledger_device_sdk::exiting_panic);
 
@@ -57,32 +57,81 @@ const P1_SIGN_TX_START: u8 = 0x00;
 const P1_SIGN_TX_MAX: u8 = 0x03;
 
 // Application status words.
-#[repr(u16)]
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum AppSW {
-    Deny = 0x6985,
-    WrongP1P2 = 0x6A86,
-    InsNotSupported = 0x6D00,
-    ClaNotSupported = 0x6E00,
-    TxDisplayFail = 0xB001,
-    AddrDisplayFail = 0xB002,
-    TxWrongLength = 0xB004,
-    TxParsingFail = 0xB005,
-    TxHashFail = 0xB006,
-    TxSignFail = 0xB008,
-    KeyDeriveFail = 0xB009,
-    VersionParsingFail = 0xB00A,
-    WrongApduLength = StatusWords::BadLen as u16,
-    Ok = 0x9000,
+    Deny,
+    WrongP1P2,
+    InsNotSupported,
+    ClaNotSupported,
+    CommError,
+    TxDisplayFail,
+    AddrDisplayFail,
+    TxWrongLength,
+    TxParsingFail,
+    TxHashFail,
+    TxSignFail,
+    KeyDeriveFail,
+    VersionParsingFail,
+    WrongApduLength,
+    Ok,
+    Unknown(u16),
 }
 
 impl From<AppSW> for Reply {
     fn from(sw: AppSW) -> Reply {
-        Reply(sw as u16)
+        let code: u16 = match sw {
+            AppSW::Deny => 0x6985,
+            AppSW::WrongP1P2 => 0x6A86,
+            AppSW::InsNotSupported => 0x6D00,
+            AppSW::ClaNotSupported => 0x6E00,
+            AppSW::CommError => 0x6F00,
+            AppSW::TxDisplayFail => 0xB001,
+            AppSW::AddrDisplayFail => 0xB002,
+            AppSW::TxWrongLength => 0xB004,
+            AppSW::TxParsingFail => 0xB005,
+            AppSW::TxHashFail => 0xB006,
+            AppSW::TxSignFail => 0xB008,
+            AppSW::KeyDeriveFail => 0xB009,
+            AppSW::VersionParsingFail => 0xB00A,
+            AppSW::WrongApduLength => StatusWords::BadLen as u16,
+            AppSW::Ok => 0x9000,
+            AppSW::Unknown(x) => x,
+        };
+        Reply(code)
+    }
+}
+
+impl From<Reply> for AppSW {
+    fn from(value: Reply) -> Self {
+        match value.0 {
+            0x6985 => AppSW::Deny,
+            0x6A86 => AppSW::WrongP1P2,
+            0x6D00 => AppSW::InsNotSupported,
+            0x6E00 => AppSW::ClaNotSupported,
+            0x6F00 => AppSW::CommError,
+            0xB001 => AppSW::TxDisplayFail,
+            0xB002 => AppSW::AddrDisplayFail,
+            0xB004 => AppSW::TxWrongLength,
+            0xB005 => AppSW::TxParsingFail,
+            0xB006 => AppSW::TxHashFail,
+            0xB008 => AppSW::TxSignFail,
+            0xB009 => AppSW::KeyDeriveFail,
+            0xB00A => AppSW::VersionParsingFail,
+            x if x == StatusWords::BadLen as u16 => AppSW::WrongApduLength,
+            0x9000 => AppSW::Ok,
+            other => AppSW::Unknown(other),
+        }
+    }
+}
+
+impl From<io::CommError> for AppSW {
+    fn from(_e: io::CommError) -> Self {
+        AppSW::CommError
     }
 }
 
 /// Possible input commands received through APDUs.
+#[derive(Debug)]
 pub enum Instruction {
     GetVersion,
     GetAppName,
@@ -159,15 +208,20 @@ extern "C" fn sample_main() {
     tx_ctx.home.show_and_return();
 
     loop {
-        let ins: Instruction = comm.next_command();
+        let command = comm.next_command();
+        let decoded = command.decode::<Instruction>().map_err(AppSW::from);
+        let Ok(ins) = decoded else {
+            let _ = comm.send(&[], decoded.unwrap_err());
+            continue;
+        };
 
-        let _status = match handle_apdu(&mut comm, &ins, &mut tx_ctx) {
-            Ok(()) => {
-                comm.reply_ok();
+        let _status = match handle_apdu(command, &ins, &mut tx_ctx) {
+            Ok(reply) => {
+                let _ = reply.send(AppSW::Ok);
                 AppSW::Ok
             }
             Err(sw) => {
-                comm.reply(sw);
+                let _ = comm.send(&[], sw);
                 sw
             }
         };
@@ -175,14 +229,19 @@ extern "C" fn sample_main() {
     }
 }
 
-fn handle_apdu(comm: &mut Comm, ins: &Instruction, ctx: &mut TxContext) -> Result<(), AppSW> {
+fn handle_apdu<'a>(
+    command: Command<'a>,
+    ins: &'a Instruction,
+    ctx: &mut TxContext,
+) -> Result<io::CommandResponse<'a>, AppSW> {
     match ins {
         Instruction::GetAppName => {
-            comm.append(env!("CARGO_PKG_NAME").as_bytes());
-            Ok(())
+            let mut response = command.into_response();
+            response.append(env!("CARGO_PKG_NAME").as_bytes())?;
+            Ok(response)
         }
-        Instruction::GetVersion => handler_get_version(comm),
-        Instruction::GetPubkey { display } => handler_get_public_key(comm, *display),
-        Instruction::SignTx { chunk, more } => handler_sign_tx(comm, *chunk, *more, ctx),
+        Instruction::GetVersion => handler_get_version(command),
+        Instruction::GetPubkey { display } => handler_get_public_key(command, *display),
+        Instruction::SignTx { chunk, more } => handler_sign_tx(command, *chunk, *more, ctx),
     }
 }

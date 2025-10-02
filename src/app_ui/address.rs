@@ -41,6 +41,6 @@ pub fn ui_display_pk(addr: &[u8]) -> Result<bool, AppSW> {
     // Display the address confirmation screen.
     Ok(NbglAddressReview::new()
         .glyph(&FERRIS)
-        .verify_str("Verify CRAB address")
+        .review_title("Verify CRAB address")
         .show(&addr_hex))
 }

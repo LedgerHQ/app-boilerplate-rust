@@ -45,7 +45,7 @@ ledger_device_sdk::set_panic!(ledger_device_sdk::exiting_panic);
 // Required for using String, Vec, format!...
 extern crate alloc;
 
-use ledger_device_sdk::nbgl::{init_comm, NbglReviewStatus, StatusType};
+use ledger_device_sdk::nbgl::{NbglReviewStatus, StatusType};
 
 // P2 for last APDU to receive.
 const P2_SIGN_TX_LAST: u8 = 0x00;
@@ -155,9 +155,6 @@ extern "C" fn sample_main() {
 
     let mut tx_ctx = TxContext::new();
 
-    // Initialize reference to Comm instance for NBGL
-    // API calls.
-    init_comm(&mut comm);
     tx_ctx.home = ui_menu_main(&mut comm);
     tx_ctx.home.show_and_return();
 

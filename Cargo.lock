@@ -34,7 +34,7 @@ checksum = "b0674a1ddeecb70197781e945de4b3b8ffb61fa939a5597bcf48503737663100"
 
 [[package]]
 name = "app-boilerplate-rust"
-version = "1.7.4"
+version = "1.7.5"
 dependencies = [
  "hex",
  "image 0.25.7",
@@ -609,9 +609,9 @@ checksum = "03087c2bad5e1034e8cace5926dec053fb3790248370865f5117a7d0213354c8"
 
 [[package]]
 name = "ledger_device_sdk"
-version = "1.24.8"
+version = "1.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a16da805b56948698c4043b8f4931ec29c900bdf67f0c191436ecfe1f71b6f4"
+checksum = "da4db42ef22b2546eae42cf344d723d86433ccabdeefdafc61a412b929b392a1"
 dependencies = [
  "const-zero",
  "include_gif",
@@ -624,9 +624,9 @@ dependencies = [
 
 [[package]]
 name = "ledger_secure_sdk_sys"
-version = "1.11.2"
+version = "1.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf8b843015b73dd2e10d749dd42e7e4c060d5b5b90df0dee90597857d2a6e520"
+checksum = "e1b19cb4b5bcb8125ea4f5f6c0dcd409a4ec9ed9b4af0302e441b4afee379454"
 dependencies = [
  "bindgen",
  "cc",

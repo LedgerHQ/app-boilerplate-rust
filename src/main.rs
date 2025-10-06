@@ -38,7 +38,10 @@ use handlers::{
     get_version::handler_get_version,
     sign_tx::{handler_sign_tx, TxContext},
 };
-use ledger_device_sdk::{io::{ApduHeader, Comm, Reply, StatusWords}, nbgl::init_comm};
+use ledger_device_sdk::{
+    io::{ApduHeader, Comm, Reply, StatusWords},
+    nbgl::init_comm,
+};
 
 ledger_device_sdk::set_panic!(ledger_device_sdk::exiting_panic);
 

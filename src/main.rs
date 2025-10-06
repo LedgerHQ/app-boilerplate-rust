@@ -38,7 +38,7 @@ use handlers::{
     get_version::handler_get_version,
     sign_tx::{handler_sign_tx, TxContext},
 };
-use ledger_device_sdk::io::{ApduHeader, Comm, Reply, StatusWords};
+use ledger_device_sdk::{io::{ApduHeader, Comm, Reply, StatusWords}, nbgl::init_comm};
 
 ledger_device_sdk::set_panic!(ledger_device_sdk::exiting_panic);
 
@@ -152,6 +152,7 @@ extern "C" fn sample_main() {
     // If any APDU with a wrong class value is received, comm will respond automatically with
     // BadCla status word.
     let mut comm = Comm::new().set_expected_cla(0xe0);
+    init_comm(&mut comm);
 
     let mut tx_ctx = TxContext::new();
 

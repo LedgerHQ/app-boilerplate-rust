@@ -18,7 +18,7 @@
 use crate::AppSW;
 use alloc::format;
 
-use include_gif::include_gif;
+use ledger_device_sdk::include_gif;
 use ledger_device_sdk::nbgl::{NbglAddressReview, NbglGlyph};
 
 // Display only the last 20 bytes of the address

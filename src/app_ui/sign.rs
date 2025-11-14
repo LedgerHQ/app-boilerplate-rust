@@ -18,7 +18,7 @@ use crate::handlers::sign_tx::Tx;
 use crate::AppSW;
 
 use crate::settings::Settings;
-use include_gif::include_gif;
+use ledger_device_sdk::include_gif;
 use ledger_device_sdk::nbgl::{Field, NbglGlyph, NbglReview};
 
 use alloc::format;

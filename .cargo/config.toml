@@ -1,8 +1,13 @@
-[target.nanosplus]
-runner = "speculos -a=1 --model=nanosp"
+[target.apex_p]
+runner = "speculos -m apex_p"
 
 [build]
-target = "flex"
+target = "apex_p"
+
+[profile.release]
+opt-level = 'z'
+lto = true
+
 # Uncomment the line below to generate a map file
 # rustflags = ["-Clink-args=-Map=app.map"]
 

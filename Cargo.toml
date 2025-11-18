@@ -14,10 +14,6 @@ numtoa = "0.2.4"
 [build-dependencies]
 image = "0.25.7"
 
-[profile.release]
-opt-level = 'z'
-lto = true
-
 [features]
 default = ["ledger_device_sdk/nano_nbgl"]
 debug = ["ledger_device_sdk/debug"]

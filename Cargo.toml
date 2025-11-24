@@ -1,6 +1,6 @@
 [package]
 name = "app-boilerplate-rust"
-version = "1.7.6"
+version = "1.7.7"
 authors = ["Ledger"]
 edition = "2021"
 
@@ -41,6 +41,3 @@ icon = "icons/crab_32x32.png"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("apex_p", "stax", "flex", "nanos", "nanox", "nanosplus"))'] }
-
-[patch.crates-io]
-ledger_device_sdk = { path = "../ledger-device-rust-sdk/ledger_device_sdk" }

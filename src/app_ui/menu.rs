@@ -15,7 +15,7 @@
  *  limitations under the License.
  *****************************************************************************/
 
-use include_gif::include_gif;
+use ledger_device_sdk::include_gif;
 use ledger_device_sdk::io::Comm;
 
 use crate::settings::Settings;

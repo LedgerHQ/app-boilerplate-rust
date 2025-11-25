@@ -1,12 +1,11 @@
 [package]
 name = "app-boilerplate-rust"
-version = "1.7.6"
+version = "1.7.7"
 authors = ["Ledger"]
 edition = "2021"
 
 [dependencies]
 ledger_device_sdk = "1.*"
-include_gif = "1.*"
 serde = { version="1.0.192", default-features = false, features = ["derive"] }
 serde-json-core = { git = "https://github.com/rust-embedded-community/serde-json-core" }
 hex = { version = "0.4.3", default-features = false, features = ["serde", "alloc"] }
@@ -14,10 +13,6 @@ numtoa = "0.2.4"
 
 [build-dependencies]
 image = "0.25.7"
-
-[profile.release]
-opt-level = 'z'
-lto = true
 
 [features]
 default = ["ledger_device_sdk/nano_nbgl"]

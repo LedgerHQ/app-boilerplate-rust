@@ -1,9 +1,32 @@
 use image::{ImageFormat, ImageReader, Pixel};
 
+
+fn generate_install_parameters() {
+    
+    // call cargo metadata to get ledger.metadata
+    let output = std::process::Command::new("cargo")
+        .args(&["metadata", "--no-deps", "--format-version", "1"])
+        .output()
+        .expect("Failed to execute cargo metadata");
+
+    let metadata: serde_json::Value = serde_json::from_slice(&output.stdout)
+        .expect("Failed to parse cargo metadata output");
+
+    let metadata_ledger = &metadata["packages"][0]["metadata"]["ledger"];
+
+    let app_name = metadata_ledger["name"].as_str().expect("name not found");
+    println!("cargo:rustc-env=APP_NAME={}", app_name);
+    println!("cargo:warning=APP_NAME is {}", app_name);
+
+}
+
+
 fn main() {
     println!("cargo:rerun-if-changed=script.ld");
     println!("cargo:rerun-if-changed=icons/crab_14x14.gif");
     println!("cargo:rerun-if-changed=icons/mask_14x14.gif");
+
+    generate_install_parameters();
 
     let path = std::path::PathBuf::from("icons");
     let reader = ImageReader::open(path.join("crab_14x14.gif")).unwrap();

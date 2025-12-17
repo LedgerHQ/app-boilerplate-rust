@@ -42,7 +42,6 @@ dependencies = [
  "numtoa",
  "serde",
  "serde-json-core",
- "serde_json",
 ]
 
 [[package]]
@@ -587,6 +586,7 @@ dependencies = [
  "num-traits",
  "numtoa",
  "rand_core",
+ "serde_json",
  "zeroize",
 ]
 

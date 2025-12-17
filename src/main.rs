@@ -18,7 +18,6 @@
 #![no_std]
 #![no_main]
 
-mod info;
 mod utils;
 mod app_ui {
     pub mod address;

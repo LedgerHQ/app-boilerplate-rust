@@ -2,7 +2,6 @@ import pytest
 
 from application_client.boilerplate_command_sender import BoilerplateCommandSender, Errors
 from application_client.boilerplate_response_unpacker import unpack_get_public_key_response
-from application_client.utils import ROOT_SCREENSHOT_PATH
 from ragger.bip import calculate_public_key_and_chaincode, CurveChoice
 from ragger.error import ExceptionRAPDU
 from ragger.navigator import NavInsID, NavIns
@@ -23,10 +22,10 @@ def test_get_public_key_no_confirm(backend):
 def test_get_public_key_confirm_accepted(backend, scenario_navigator):
     client = BoilerplateCommandSender(backend)
     path = "m/44'/1'/0'/0/0"
-    
+
     with client.get_public_key_with_confirmation(path=path):
         scenario_navigator.address_review_approve()
-        
+
     response = client.get_async_response().data
     _, public_key, _, _ = unpack_get_public_key_response(response)
 

@@ -574,9 +574,9 @@ checksum = "03087c2bad5e1034e8cace5926dec053fb3790248370865f5117a7d0213354c8"
 
 [[package]]
 name = "ledger_device_sdk"
-version = "1.29.0"
+version = "1.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd619c7297c16fca15868aaa2d5ed2389486a998f44a9be8c5a5bc99c1d03678"
+checksum = "41c1588f1d6e99ed03534edb661977f5853e4af14ca3397aa2f69447d25f093d"
 dependencies = [
  "const-zero",
  "include_gif",
@@ -589,9 +589,9 @@ dependencies = [
 
 [[package]]
 name = "ledger_secure_sdk_sys"
-version = "1.12.0"
+version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01092d78056ad8d81fb475089763153a18f99631c8e77a3c76fe822b00ffdb3c"
+checksum = "38075ebc426861a7768328783e0dc4c4bac1026b1aafca052c6795b8cf398a91"
 dependencies = [
  "bindgen",
  "cc",
@@ -1056,7 +1056,8 @@ dependencies = [
 [[package]]
 name = "serde-json-core"
 version = "0.6.0"
-source = "git+https://github.com/rust-embedded-community/serde-json-core#3b369a01d7d23195f1e0392ffb239e4602470567"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5b81787e655bd59cecadc91f7b6b8651330b2be6c33246039a65e5cd6f4e0828"
 dependencies = [
  "heapless",
  "ryu",

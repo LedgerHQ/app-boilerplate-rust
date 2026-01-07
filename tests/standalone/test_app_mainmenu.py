@@ -1,6 +1,6 @@
 from ragger.navigator import NavInsID
 
-from utils import ROOT_SCREENSHOT_PATH
+from application_client.utils import ROOT_SCREENSHOT_PATH
 
 
 # In this test we check the behavior of the device main menu

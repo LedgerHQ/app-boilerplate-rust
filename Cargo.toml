@@ -10,6 +10,7 @@ serde = { version="1.0.192", default-features = false, features = ["derive"] }
 serde-json-core = "0.6.0"
 hex = { version = "0.4.3", default-features = false, features = ["serde", "alloc"] }
 numtoa = "0.2.4"
+arrayvec = { version = "0.7", default-features = false }
 
 [build-dependencies]
 image = "0.25.7"

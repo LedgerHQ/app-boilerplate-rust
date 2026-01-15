@@ -45,6 +45,7 @@ class Errors(IntEnum):
     SW_TX_HASH_FAIL            = 0xB006
     SW_BAD_STATE               = 0xB007
     SW_SIGNATURE_FAIL          = 0xB008
+    SW_SWAP_FAIL               = 0xC000
 
 
 def split_message(message: bytes, max_size: int) -> List[bytes]:
@@ -125,3 +126,14 @@ class BoilerplateCommandSender:
 
     def get_async_response(self) -> Optional[RAPDU]:
         return self.backend.last_async_response
+
+    # Synchronous versions of sign_tx and sign_token_tx
+    # These functions wait for the response after sending the transaction. They are particularly
+    # useful for tests that do not require user interaction (e.g., when the transaction has already
+    # been approved in the SWAP flow)
+    def sign_tx_sync(self, path: str, transaction: bytes) -> Optional[RAPDU]:
+        with self.sign_tx(path, transaction):
+            pass
+        rapdu = self.get_async_response()
+        assert isinstance(rapdu, RAPDU)
+        return rapdu

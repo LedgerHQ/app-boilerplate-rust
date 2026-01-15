@@ -31,6 +31,7 @@ mod handlers {
 }
 
 mod settings;
+mod swap;
 
 use app_ui::menu::ui_menu_main;
 use handlers::{
@@ -38,6 +39,7 @@ use handlers::{
     get_version::handler_get_version,
     sign_tx::{handler_sign_tx, TxContext},
 };
+use ledger_device_sdk::libcall::swap::CreateTxParams;
 use ledger_device_sdk::{
     io::{ApduHeader, Comm, Reply, StatusWords},
     nbgl::init_comm,
@@ -76,6 +78,7 @@ pub enum AppSW {
     KeyDeriveFail = 0xB009,
     VersionParsingFail = 0xB00A,
     WrongApduLength = StatusWords::BadLen as u16,
+    SwapFail = 0xC000,
     Ok = 0x9000,
 }
 
@@ -128,6 +131,9 @@ impl TryFrom<ApduHeader> for Instruction {
 }
 
 fn show_status_and_home_if_needed(ins: &Instruction, tx_ctx: &mut TxContext, status: &AppSW) {
+    if tx_ctx.swap_params.is_some() {
+        return;
+    }
     let (show_status, status_type) = match (ins, status) {
         (Instruction::GetPubkey { display: true }, AppSW::Deny | AppSW::Ok) => {
             (true, StatusType::Address)
@@ -149,18 +155,48 @@ fn show_status_and_home_if_needed(ins: &Instruction, tx_ctx: &mut TxContext, sta
     }
 }
 
+// --8<-- [start:sample_main]
 #[no_mangle]
-extern "C" fn sample_main() {
+extern "C" fn sample_main(arg0: u32) {
+    if arg0 != 0 {
+        // We have been started by the Exchange application through the os_lib_call API
+        // We need to answer the command instead of starting the normal app main loop
+        swap::swap_main(arg0);
+    } else {
+        // Normal app mode, start the main loop listening for APDU commands
+        normal_main(None);
+    }
+}
+// --8<-- [end:sample_main]
+
+/// Main application entry point.
+///
+/// Handles both standard execution (user opens app) and library mode execution
+/// (Exchange app calls this app for swap).
+///
+/// # Arguments
+///
+/// * `swap_params` - Optional swap parameters. If present, the app runs in "swap mode":
+///   - UI is bypassed (no main menu, no transaction review)
+///   - Transaction is validated against swap params
+///   - Returns `true` if signed successfully, `false` otherwise
+pub fn normal_main(swap_params: Option<&CreateTxParams>) -> bool {
     // Create the communication manager, and configure it to accept only APDU from the 0xe0 class.
     // If any APDU with a wrong class value is received, comm will respond automatically with
     // BadCla status word.
     let mut comm = Comm::new().set_expected_cla(0xe0);
     init_comm(&mut comm);
 
-    let mut tx_ctx = TxContext::new();
+    let mut tx_ctx = if let Some(params) = swap_params {
+        TxContext::new_with_swap(params)
+    } else {
+        TxContext::new()
+    };
 
-    tx_ctx.home = ui_menu_main(&mut comm);
-    tx_ctx.home.show_and_return();
+    if swap_params.is_none() {
+        tx_ctx.home = ui_menu_main(&mut comm);
+        tx_ctx.home.show_and_return();
+    }
 
     loop {
         let ins: Instruction = comm.next_command();
@@ -176,6 +212,11 @@ extern "C" fn sample_main() {
             }
         };
         show_status_and_home_if_needed(&ins, &mut tx_ctx, &_status);
+
+        // In swap mode, exit after transaction is finished (signed or rejected)
+        if tx_ctx.swap_params.is_some() && tx_ctx.finished() {
+            return _status == AppSW::Ok;
+        }
     }
 }
 

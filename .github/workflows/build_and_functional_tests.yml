@@ -25,7 +25,7 @@ on:
       - master
       - main
       - develop
-    tag:
+    tags:
       - '*'
   pull_request:
 

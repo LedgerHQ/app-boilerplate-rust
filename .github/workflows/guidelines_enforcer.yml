@@ -8,6 +8,10 @@ name: Ensure compliance with Ledger guidelines
 # More information on the guidelines can be found in the repository:
 # LedgerHQ/ledger-app-workflows/
 
+permissions:
+  contents: read
+  actions: write
+
 on:
   workflow_dispatch:
   push:

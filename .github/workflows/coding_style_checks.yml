@@ -4,6 +4,9 @@ name: Run coding style check
 #
 # The presence of this workflow is mandatory as a minimal level of linting is required.
 
+permissions:
+  contents: read
+
 on:
   workflow_dispatch:
   push:

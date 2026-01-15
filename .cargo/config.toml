@@ -16,7 +16,7 @@ build-std = ["core", "alloc"]
 build-std-features = ["compiler-builtins-mem"]
 
 [registries.artifactory]
-index = "https://jfrog.ledgerlabs.net/artifactory/api/pypi/embedded-apps-cargo-prod-green"
+index = "sparse+https://jfrog.ledgerlabs.net/artifactory/api/cargo/embedded-apps-cargo-prod-green/index/"
 
 # By default, heap size is enforced to 8192 bytes.
 # Authorized values are [2048, 4096, 8192, 16384, 24576]

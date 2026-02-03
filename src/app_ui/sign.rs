@@ -19,6 +19,7 @@ use crate::AppSW;
 
 use crate::settings::Settings;
 use ledger_device_sdk::include_gif;
+use ledger_device_sdk::io::Comm;
 use ledger_device_sdk::nbgl::{Field, NbglGlyph, NbglReview};
 
 use alloc::format;
@@ -29,8 +30,9 @@ use alloc::format;
 ///
 /// # Arguments
 ///
+/// * `comm` - Reference to the communication object
 /// * `tx` - Transaction to be displayed for validation
-pub fn ui_display_tx(tx: &Tx) -> Result<bool, AppSW> {
+pub fn ui_display_tx(comm: &mut Comm, tx: &Tx) -> Result<bool, AppSW> {
     let value_str = format!("{} {}", tx.coin, tx.value);
     let to_str = format!("0x{}", hex::encode(tx.to).to_uppercase());
 
@@ -73,8 +75,8 @@ pub fn ui_display_tx(tx: &Tx) -> Result<bool, AppSW> {
     // If first setting switch is disabled do not display the transaction memo
     let settings: Settings = Default::default();
     if settings.get_element(0) == 0 {
-        Ok(review.show(&my_fields[0..2]))
+        Ok(review.show(comm, &my_fields[0..2]))
     } else {
-        Ok(review.show(&my_fields))
+        Ok(review.show(comm, &my_fields))
     }
 }

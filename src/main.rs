@@ -39,11 +39,8 @@ use handlers::{
     get_version::handler_get_version,
     sign_tx::{handler_sign_tx, TxContext},
 };
+use ledger_device_sdk::io::{self, init_comm, ApduHeader, Comm, Command, Reply, StatusWords};
 use ledger_device_sdk::libcall::swap::CreateTxParams;
-use ledger_device_sdk::{
-    io::{ApduHeader, Comm, Reply, StatusWords},
-    nbgl::init_comm,
-};
 
 ledger_device_sdk::set_panic!(ledger_device_sdk::exiting_panic);
 
@@ -51,6 +48,8 @@ ledger_device_sdk::set_panic!(ledger_device_sdk::exiting_panic);
 extern crate alloc;
 
 use ledger_device_sdk::nbgl::{NbglReviewStatus, StatusType};
+
+ledger_device_sdk::define_comm!(COMM);
 
 // P2 for last APDU to receive.
 const P2_SIGN_TX_LAST: u8 = 0x00;
@@ -69,6 +68,7 @@ pub enum AppSW {
     WrongP1P2 = 0x6A86,
     InsNotSupported = 0x6D00,
     ClaNotSupported = 0x6E00,
+    CommError = 0x6F00,
     TxDisplayFail = 0xB001,
     AddrDisplayFail = 0xB002,
     TxWrongLength = 0xB004,
@@ -88,7 +88,14 @@ impl From<AppSW> for Reply {
     }
 }
 
+impl From<io::CommError> for AppSW {
+    fn from(_e: io::CommError) -> Self {
+        AppSW::CommError
+    }
+}
+
 /// Possible input commands received through APDUs.
+#[derive(Debug)]
 pub enum Instruction {
     GetVersion,
     GetAppName,
@@ -130,7 +137,12 @@ impl TryFrom<ApduHeader> for Instruction {
     }
 }
 
-fn show_status_and_home_if_needed(ins: &Instruction, tx_ctx: &mut TxContext, status: &AppSW) {
+fn show_status_and_home_if_needed(
+    comm: &mut Comm,
+    ins: &Instruction,
+    tx_ctx: &mut TxContext,
+    status: &AppSW,
+) {
     if tx_ctx.swap_params.is_some() {
         return;
     }
@@ -148,7 +160,7 @@ fn show_status_and_home_if_needed(ins: &Instruction, tx_ctx: &mut TxContext, sta
         let success = *status == AppSW::Ok;
         NbglReviewStatus::new()
             .status_type(status_type)
-            .show(success);
+            .show(comm, success);
 
         // call home.show_and_return() to show home and setting screen
         tx_ctx.home.show_and_return();
@@ -184,8 +196,8 @@ pub fn normal_main(swap_params: Option<&CreateTxParams>) -> bool {
     // Create the communication manager, and configure it to accept only APDU from the 0xe0 class.
     // If any APDU with a wrong class value is received, comm will respond automatically with
     // BadCla status word.
-    let mut comm = Comm::new().set_expected_cla(0xe0);
-    init_comm(&mut comm);
+    let comm = init_comm(&COMM);
+    comm.set_expected_cla(0xe0);
 
     let mut tx_ctx = if let Some(params) = swap_params {
         TxContext::new_with_swap(params)
@@ -194,24 +206,29 @@ pub fn normal_main(swap_params: Option<&CreateTxParams>) -> bool {
     };
 
     if swap_params.is_none() {
-        tx_ctx.home = ui_menu_main(&mut comm);
+        tx_ctx.home = ui_menu_main(comm);
         tx_ctx.home.show_and_return();
     }
 
     loop {
-        let ins: Instruction = comm.next_command();
+        let command = comm.next_command();
+        let decoded = command.decode::<Instruction>();
+        let Ok(ins) = decoded else {
+            let _ = comm.send(&[], decoded.unwrap_err());
+            continue;
+        };
 
-        let _status = match handle_apdu(&mut comm, &ins, &mut tx_ctx) {
-            Ok(()) => {
-                comm.reply_ok();
+        let _status = match handle_apdu(command, &ins, &mut tx_ctx) {
+            Ok(reply) => {
+                let _ = reply.send(AppSW::Ok);
                 AppSW::Ok
             }
             Err(sw) => {
-                comm.reply(sw);
+                let _ = comm.send(&[], sw);
                 sw
             }
         };
-        show_status_and_home_if_needed(&ins, &mut tx_ctx, &_status);
+        show_status_and_home_if_needed(comm, &ins, &mut tx_ctx, &_status);
 
         // In swap mode, exit after transaction is finished (signed or rejected)
         if tx_ctx.swap_params.is_some() && tx_ctx.finished() {
@@ -220,14 +237,19 @@ pub fn normal_main(swap_params: Option<&CreateTxParams>) -> bool {
     }
 }
 
-fn handle_apdu(comm: &mut Comm, ins: &Instruction, ctx: &mut TxContext) -> Result<(), AppSW> {
+fn handle_apdu<'a>(
+    command: Command<'a>,
+    ins: &Instruction,
+    ctx: &mut TxContext,
+) -> Result<io::CommandResponse<'a>, AppSW> {
     match ins {
         Instruction::GetAppName => {
-            comm.append(env!("CARGO_PKG_NAME").as_bytes());
-            Ok(())
+            let mut response = command.into_response();
+            response.append(env!("CARGO_PKG_NAME").as_bytes())?;
+            Ok(response)
         }
-        Instruction::GetVersion => handler_get_version(comm),
-        Instruction::GetPubkey { display } => handler_get_public_key(comm, *display),
-        Instruction::SignTx { chunk, more } => handler_sign_tx(comm, *chunk, *more, ctx),
+        Instruction::GetVersion => handler_get_version(command),
+        Instruction::GetPubkey { display } => handler_get_public_key(command, *display),
+        Instruction::SignTx { chunk, more } => handler_sign_tx(command, *chunk, *more, ctx),
     }
 }

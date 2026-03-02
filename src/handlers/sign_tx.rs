@@ -147,8 +147,6 @@ pub fn handler_sign_tx<'a>(
                     // Use SDK method to append error code and message in standard format
                     let mut response = command.into_response();
                     error.append_to_response(&mut response)?;
-                    // Send the error response with SwapFail status
-                    let _ = response.send(AppSW::SwapFail);
                     Err(AppSW::SwapFail)
                 } else {
                     debug_print("Swap validation success, bypassing UI\n");

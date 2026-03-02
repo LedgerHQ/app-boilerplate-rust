@@ -21,8 +21,8 @@ use alloc::vec::Vec;
 use ledger_device_sdk::ecc::{Secp256k1, SeedDerive};
 use ledger_device_sdk::hash::{sha3::Keccak256, HashInit};
 use ledger_device_sdk::io::{Command, CommandResponse};
+use ledger_device_sdk::log;
 use ledger_device_sdk::nbgl::NbglHomeAndSettings;
-use ledger_device_sdk::testing::debug_print;
 
 use serde::Deserialize;
 use serde_json_core::from_slice;
@@ -105,12 +105,12 @@ pub fn handler_sign_tx<'a>(
     more: bool,
     ctx: &mut TxContext,
 ) -> Result<CommandResponse<'a>, AppSW> {
-    debug_print("=> handler_sign_tx\n");
+    log::debug!("=> handler_sign_tx");
     // Try to get data from command
     let data = command.get_data();
     // First chunk, try to parse the path
     if chunk == 0 {
-        debug_print("Chunk 0: Path parsing\n");
+        log::debug!("Chunk 0: Path parsing");
         // Reset transaction context
         ctx.reset();
         // This will propagate the error if the path is invalid
@@ -133,10 +133,10 @@ pub fn handler_sign_tx<'a>(
         // Otherwise, try to parse the transaction
         } else {
             // --8<-- [start:ui_bypass]
-            debug_print("Last chunk received, parsing tx\n");
+            log::debug!("Last chunk received, parsing tx");
             // Try to deserialize the transaction
             let (tx, _): (Tx, usize) = from_slice(&ctx.raw_tx).map_err(|_| AppSW::TxParsingFail)?;
-            debug_print("Tx parsed successfully\n");
+            log::debug!("Tx parsed successfully");
 
             // Check if in swap mode
             if let Some(params) = ctx.swap_params {
@@ -149,12 +149,12 @@ pub fn handler_sign_tx<'a>(
                     error.append_to_response(&mut response)?;
                     Err(AppSW::SwapFail)
                 } else {
-                    debug_print("Swap validation success, bypassing UI\n");
+                    log::debug!("Swap validation success, bypassing UI");
                     compute_signature_and_append(command.into_response(), ctx)
                 }
                 // --8<-- [end:SwapError_usage]
             } else {
-                debug_print("Normal mode, showing UI\n");
+                log::debug!("Normal mode, showing UI");
                 // Display transaction. If user approves
                 // the transaction, sign it. Otherwise,
                 // return a "deny" status word.
@@ -178,7 +178,7 @@ fn compute_signature_and_append<'a>(
     mut response: CommandResponse<'a>,
     ctx: &mut TxContext,
 ) -> Result<CommandResponse<'a>, AppSW> {
-    debug_print("Signing transaction\n");
+    log::debug!("Signing transaction");
     let mut keccak256 = Keccak256::new();
     let mut message_hash: [u8; 32] = [0u8; 32];
 

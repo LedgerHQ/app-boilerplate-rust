@@ -37,7 +37,10 @@ use ledger_device_sdk::io::{Command, CommandResponse};
 ///
 /// This handler uses the same address derivation logic as `swap::check_address()`
 /// via the shared `get_address_hash_from_pubkey()` helper, ensuring consistency.
-pub fn handler_get_public_key(command: Command, display: bool) -> Result<CommandResponse, AppSW> {
+pub fn handler_get_public_key(
+    command: Command<'_>,
+    display: bool,
+) -> Result<CommandResponse<'_>, AppSW> {
     let data = command.get_data();
     let path: Bip32Path = data.try_into()?;
 

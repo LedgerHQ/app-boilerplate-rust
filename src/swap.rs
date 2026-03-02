@@ -54,7 +54,7 @@ use ledger_device_sdk::{
         },
         SwapAppErrorCodeTrait,
     },
-    testing::debug_print,
+    log,
 };
 
 use crate::handlers::sign_tx::Tx;
@@ -145,7 +145,7 @@ pub fn check_swap_params(
     params: &CreateTxParams,
     tx: &Tx,
 ) -> Result<(), SwapError<SwapAppErrorCode>> {
-    debug_print("Swap mode detected\n");
+    log::debug!("Swap mode detected\n");
 
     // Validate amount
     // Parse amount (u64 from big-endian bytes, right aligned in 16-byte buffer)
@@ -161,7 +161,7 @@ pub fn check_swap_params(
 
     //  --8<-- [start:SwapError_example]
     if tx.value != swap_amount {
-        debug_print("Swap amount mismatch\n");
+        log::debug!("Swap amount mismatch\n");
         debug_u64("Tx: ", tx.value);
         debug_u64("Swap: ", swap_amount);
         // Error detected, we return the error with detailed message in common SDK defined format
@@ -186,7 +186,7 @@ pub fn check_swap_params(
 
     let mut swap_dest = [0u8; 20];
     if hex::decode_to_slice(dest_hex, &mut swap_dest).is_err() {
-        debug_print("Swap dest hex decode fail\n");
+        log::error!("Swap dest hex decode fail");
         return Err(SwapError::with_message(
             SwapErrorCommonCode::ErrorWrongDestination,
             SwapAppErrorCode::DestinationDecodeFail,
@@ -195,9 +195,9 @@ pub fn check_swap_params(
     }
 
     if tx.to != swap_dest {
-        debug_print("Swap destination mismatch\n");
-        debug_hex("Tx: ", &tx.to);
-        debug_hex("Swap: ", &swap_dest);
+        log::error!("Swap destination mismatch");
+        log::error!("Tx: {:x?}", &tx.to);
+        log::error!("Swap: {:x?}", &swap_dest);
         // Only build hex strings for error message (not on happy path)
         let tx_hex = hex::encode(tx.to);
         let swap_hex = hex::encode(swap_dest);
@@ -208,7 +208,7 @@ pub fn check_swap_params(
         ));
     }
 
-    debug_print("Swap validation success, bypassing UI\n");
+    log::debug!("Swap validation success, bypassing UI");
     Ok(())
 }
 //  --8<-- [end:check_swap_params]
@@ -217,19 +217,19 @@ pub fn check_swap_params(
 pub fn debug_u64(label: &str, val: u64) {
     let mut buf = ArrayString::<64>::new();
     let _ = writeln!(&mut buf, "{}{}", label, val);
-    debug_print(buf.as_str());
+    log::debug!("{}", buf.as_str());
 }
 
 /// Helper function to print hex-encoded bytes for debugging.
 /// Uses stack-allocated buffer to avoid BSS writes.
 pub fn debug_hex(label: &str, data: &[u8]) {
-    debug_print(label);
+    log::debug!("{}", label);
     let mut buf = ArrayString::<140>::new();
     for b in data {
         let _ = write!(&mut buf, "{:02x}", b);
     }
     let _ = writeln!(&mut buf);
-    debug_print(buf.as_str());
+    log::debug!("{}", buf.as_str());
 }
 
 // --8<-- [start:swap_main]
@@ -244,19 +244,19 @@ pub fn debug_hex(label: &str, data: &[u8]) {
 /// - `SwapGetPrintableAmount`: Format amounts/fees for display
 /// - `SwapSignTransaction`: Sign the final transaction
 pub fn swap_main(arg0: u32) {
-    debug_print("swap_main called\n");
+    log::debug!("swap_main called\n");
     let cmd = libcall::get_command(arg0);
 
     match cmd {
         libcall::LibCallCommand::SwapCheckAddress => {
-            debug_print("Received SwapCheckAddress command\n");
+            log::debug!("Received SwapCheckAddress command\n");
             let mut params = swap::get_check_address_params(arg0);
             let res = check_address(&params);
             // Return to Exchange, forwarding the result
             swap::swap_return(swap::SwapResult::CheckAddressResult(&mut params, res));
         }
         libcall::LibCallCommand::SwapGetPrintableAmount => {
-            debug_print("Received SwapGetPrintableAmount command\n");
+            log::debug!("Received SwapGetPrintableAmount command\n");
             let mut params = swap::get_printable_amount_params(arg0);
             let amount_str = get_printable_amount(&params);
             // Return to Exchange, forwarding the result
@@ -266,7 +266,7 @@ pub fn swap_main(arg0: u32) {
             ));
         }
         libcall::LibCallCommand::SwapSignTransaction => {
-            debug_print("Received SwapSignTransaction command\n");
+            log::debug!("Received SwapSignTransaction command\n");
             let mut params = swap::sign_tx_params(arg0);
             // Call normal_main with Swap parameter set to enter the special Swap flow
             let success = crate::normal_main(Some(&params));
@@ -320,7 +320,7 @@ fn check_address(params: &CheckAddressParams) -> i32 {
     let mut path: [u32; 10] = [0; 10]; // Max 10 derivation levels
 
     if params.dpath_len > 10 {
-        debug_print("Path too long\n");
+        log::error!("Path too long\n");
         return 0;
     }
 
@@ -339,7 +339,7 @@ fn check_address(params: &CheckAddressParams) -> i32 {
     let pubkey = match k.public_key() {
         Ok(pk) => pk.pubkey,
         Err(_) => {
-            debug_print("Key derivation failed\n");
+            log::error!("Key derivation failed\n");
             return 0;
         }
     };
@@ -367,14 +367,12 @@ fn check_address(params: &CheckAddressParams) -> i32 {
 
     // Compare hex strings
     if our_hex.as_str() == ref_hex {
-        debug_print("Check address successful, derived and received addresses match\n");
+        log::debug!("Check address successful, derived and received addresses match\n");
         1 // Success
     } else {
-        debug_print("Derived and received addresses do NOT match\n");
-        debug_hex("Derived address: ", address);
-        debug_print("Reference (hex): ");
-        debug_print(ref_hex);
-        debug_print("\n");
+        log::debug!("Derived and received addresses do NOT match\n");
+        log::debug!("Derived address: {:x?}", address);
+        log::debug!("Reference (hex): {}", ref_hex);
         0 // Failure
     }
 }
@@ -426,7 +424,7 @@ fn get_printable_amount(params: &PrintableAmountParams) -> ArrayString<40> {
     let dst_start = 32 - params.amount_len;
     amount_u256[dst_start..].copy_from_slice(&params.amount[src_start..]);
 
-    debug_print("Amount bytes (u256): ");
+    log::debug!("Amount bytes (u256): ");
     debug_hex("", &amount_u256);
 
     // CRAB uses 9 decimals (similar to SUI, which also uses 9 decimals)
@@ -441,9 +439,7 @@ fn get_printable_amount(params: &PrintableAmountParams) -> ArrayString<40> {
     let mut printable = ArrayString::<40>::new();
     let _ = write!(&mut printable, "{} {}", CRAB_TICKER, amount_str.as_str());
 
-    debug_print("Formatted amount: ");
-    debug_print(printable.as_str());
-    debug_print("\n");
+    log::debug!("Formatted amount: {}", printable.as_str());
 
     printable
 }

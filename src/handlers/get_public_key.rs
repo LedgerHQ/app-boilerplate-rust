@@ -19,7 +19,7 @@ use crate::app_ui::address::ui_display_pk;
 use crate::utils::{get_address_hash_from_pubkey, get_pubkey_from_path, Bip32Path};
 use crate::AppSW;
 use ledger_device_sdk::ecc::{Secp256k1, SeedDerive};
-use ledger_device_sdk::io::Comm;
+use ledger_device_sdk::io::{Command, CommandResponse};
 
 /// Handler for GET_PUBLIC_KEY APDU command.
 ///
@@ -37,33 +37,38 @@ use ledger_device_sdk::io::Comm;
 ///
 /// This handler uses the same address derivation logic as `swap::check_address()`
 /// via the shared `get_address_hash_from_pubkey()` helper, ensuring consistency.
-pub fn handler_get_public_key(comm: &mut Comm, display: bool) -> Result<(), AppSW> {
-    let data = comm.get_data().map_err(|_| AppSW::WrongApduLength)?;
+pub fn handler_get_public_key(
+    command: Command<'_>,
+    display: bool,
+) -> Result<CommandResponse<'_>, AppSW> {
+    let data = command.get_data();
     let path: Bip32Path = data.try_into()?;
 
     // Derive public key using shared helper (also used by swap)
     let pubkey = get_pubkey_from_path(&path)?;
     let (_, cc) = Secp256k1::derive_from(path.as_ref());
 
+    let comm = command.into_comm();
     // Display address on device if requested
     if display {
         // Compute address using shared helper (same as swap::check_address)
         let address_hash = get_address_hash_from_pubkey(&pubkey);
 
-        if !ui_display_pk(&address_hash)? {
+        if !ui_display_pk(comm, &address_hash)? {
             return Err(AppSW::Deny);
         }
     }
 
     // Return public key to client (65 bytes uncompressed)
-    comm.append(&[pubkey.len() as u8]);
-    comm.append(&pubkey);
+    let mut response = comm.begin_response();
+    response.append(&[pubkey.len() as u8])?;
+    response.append(&pubkey)?;
 
     // Return chaincode
     const CHAINCODE_LEN: u8 = 32;
     let code = cc.unwrap();
-    comm.append(&[CHAINCODE_LEN]);
-    comm.append(&code.value);
+    response.append(&[CHAINCODE_LEN])?;
+    response.append(&code.value)?;
 
-    Ok(())
+    Ok(response)
 }

@@ -20,9 +20,9 @@ use crate::AppSW;
 use alloc::vec::Vec;
 use ledger_device_sdk::ecc::{Secp256k1, SeedDerive};
 use ledger_device_sdk::hash::{sha3::Keccak256, HashInit};
-use ledger_device_sdk::io::Comm;
+use ledger_device_sdk::io::{Command, CommandResponse};
+use ledger_device_sdk::log;
 use ledger_device_sdk::nbgl::NbglHomeAndSettings;
-use ledger_device_sdk::testing::debug_print;
 
 use serde::Deserialize;
 use serde_json_core::from_slice;
@@ -99,23 +99,23 @@ impl<'a> TxContext<'a> {
 /// 1. Validates the parsed transaction against the swap parameters (amount, destination).
 /// 2. If valid, bypasses the UI and signs immediately.
 /// 3. If invalid, returns an error.
-pub fn handler_sign_tx(
-    comm: &mut Comm,
+pub fn handler_sign_tx<'a>(
+    command: Command<'a>,
     chunk: u8,
     more: bool,
     ctx: &mut TxContext,
-) -> Result<(), AppSW> {
-    debug_print("=> handler_sign_tx\n");
-    // Try to get data from comm
-    let data = comm.get_data().map_err(|_| AppSW::WrongApduLength)?;
+) -> Result<CommandResponse<'a>, AppSW> {
+    log::debug!("=> handler_sign_tx");
+    // Try to get data from command
+    let data = command.get_data();
     // First chunk, try to parse the path
     if chunk == 0 {
-        debug_print("Chunk 0: Path parsing\n");
+        log::debug!("Chunk 0: Path parsing");
         // Reset transaction context
         ctx.reset();
         // This will propagate the error if the path is invalid
         ctx.path = data.try_into()?;
-        Ok(())
+        Ok(command.into_response())
     // Next chunks, append data to raw_tx and return or parse
     // the transaction if it is the last chunk.
     } else {
@@ -129,14 +129,14 @@ pub fn handler_sign_tx(
         // If we expect more chunks, return
         if more {
             ctx.review_finished = false;
-            Ok(())
+            Ok(command.into_response())
         // Otherwise, try to parse the transaction
         } else {
             // --8<-- [start:ui_bypass]
-            debug_print("Last chunk received, parsing tx\n");
+            log::debug!("Last chunk received, parsing tx");
             // Try to deserialize the transaction
             let (tx, _): (Tx, usize) = from_slice(&ctx.raw_tx).map_err(|_| AppSW::TxParsingFail)?;
-            debug_print("Tx parsed successfully\n");
+            log::debug!("Tx parsed successfully");
 
             // Check if in swap mode
             if let Some(params) = ctx.swap_params {
@@ -145,21 +145,25 @@ pub fn handler_sign_tx(
                 if let Err(error) = crate::swap::check_swap_params(params, &tx) {
                     // The swap validation failed and returned us the common format error defined by the SDK
                     // Use SDK method to append error code and message in standard format
-                    error.append_to_comm(comm);
+                    let mut response = command.into_response();
+                    error.append_to_response(&mut response)?;
                     Err(AppSW::SwapFail)
                 } else {
-                    debug_print("Swap validation success, bypassing UI\n");
-                    compute_signature_and_append(comm, ctx)
+                    log::debug!("Swap validation success, bypassing UI");
+                    compute_signature_and_append(command.into_response(), ctx)
                 }
                 // --8<-- [end:SwapError_usage]
             } else {
-                debug_print("Normal mode, showing UI\n");
+                log::debug!("Normal mode, showing UI");
                 // Display transaction. If user approves
                 // the transaction, sign it. Otherwise,
                 // return a "deny" status word.
-                if ui_display_tx(&tx)? {
+
+                let comm = command.into_comm();
+
+                if ui_display_tx(comm, &tx)? {
                     ctx.review_finished = true;
-                    compute_signature_and_append(comm, ctx)
+                    compute_signature_and_append(comm.begin_response(), ctx)
                 } else {
                     ctx.review_finished = true;
                     Err(AppSW::Deny)
@@ -170,8 +174,11 @@ pub fn handler_sign_tx(
     }
 }
 
-fn compute_signature_and_append(comm: &mut Comm, ctx: &mut TxContext) -> Result<(), AppSW> {
-    debug_print("Signing transaction\n");
+fn compute_signature_and_append<'a>(
+    mut response: CommandResponse<'a>,
+    ctx: &mut TxContext,
+) -> Result<CommandResponse<'a>, AppSW> {
+    log::debug!("Signing transaction");
     let mut keccak256 = Keccak256::new();
     let mut message_hash: [u8; 32] = [0u8; 32];
 
@@ -180,8 +187,10 @@ fn compute_signature_and_append(comm: &mut Comm, ctx: &mut TxContext) -> Result<
     let (sig, siglen, parity) = Secp256k1::derive_from_path(ctx.path.as_ref())
         .deterministic_sign(&message_hash)
         .map_err(|_| AppSW::TxSignFail)?;
-    comm.append(&[siglen as u8]);
-    comm.append(&sig[..siglen as usize]);
-    comm.append(&[parity as u8]);
-    Ok(())
+
+    response
+        .append(&[siglen as u8])?
+        .append(&sig[..siglen as usize])?
+        .append(&[parity as u8])?;
+    Ok(response)
 }

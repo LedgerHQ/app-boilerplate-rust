@@ -19,12 +19,13 @@ use crate::AppSW;
 use alloc::format;
 
 use ledger_device_sdk::include_gif;
+use ledger_device_sdk::io::Comm;
 use ledger_device_sdk::nbgl::{NbglAddressReview, NbglGlyph};
 
 // Display only the last 20 bytes of the address
 const DISPLAY_ADDR_BYTES_LEN: usize = 20;
 
-pub fn ui_display_pk(addr: &[u8]) -> Result<bool, AppSW> {
+pub fn ui_display_pk(comm: &mut Comm, addr: &[u8]) -> Result<bool, AppSW> {
     let addr_hex = format!(
         "0x{}",
         hex::encode(&addr[addr.len() - DISPLAY_ADDR_BYTES_LEN..]).to_uppercase()
@@ -42,5 +43,5 @@ pub fn ui_display_pk(addr: &[u8]) -> Result<bool, AppSW> {
     Ok(NbglAddressReview::new()
         .glyph(&FERRIS)
         .review_title("Verify CRAB address")
-        .show(&addr_hex))
+        .show(comm, &addr_hex))
 }

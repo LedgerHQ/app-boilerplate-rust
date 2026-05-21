@@ -2,9 +2,7 @@
 
 ![Rule enforcer](https://github.com/LedgerHQ/app-boilerplate-rust/actions/workflows/guidelines_enforcer.yml/badge.svg) ![Build and tests](https://github.com/LedgerHQ/app-boilerplate-rust/actions/workflows/build_and_functional_tests.yml/badge.svg)
 
-This is a boilerplate application written in Rust which can be forked to start a new project for the Ledger Nano X, S+, Stax and Flex devices.
-
-:warning: Nano S is not supported
+This is a boilerplate application written in Rust which can be forked to start a new project for the Ledger devices.
 
 * Implements standard features (display address, transaction signature...),
 * Has functional tests using [Ragger](https://github.com/LedgerHQ/ragger),
@@ -12,7 +10,7 @@ This is a boilerplate application written in Rust which can be forked to start a
 
 ### Links
 
-* 📚 [Developer's documentation](https://developers.ledger.com/)<br/>
+* 📚 [Developer's documentation](https://developers.ledger.com/docs/device-app/getting-started)<br/>
 * 🗣️ [Ledger's Discord server](https://discord.gg/Ledger)
 
 ## Quick start guide

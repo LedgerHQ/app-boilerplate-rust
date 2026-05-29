@@ -44,7 +44,7 @@ If you do not wish to use the [VS Code extension](#with-vs-code), you can follow
 
 * The [ledger-app-dev-tools](https://github.com/LedgerHQ/ledger-app-builder/pkgs/container/ledger-app-builder%2Fledger-app-dev-tools) Docker image contains all the required tools and libraries to build, test and load an application on a device. You can download it from the ghcr.io docker repository:
 ```shell
-sudo docker pull ghcr.io/ledgerhq/ledger-app-builder/ledger-app-dev-tools:latest
+docker pull ghcr.io/ledgerhq/ledger-app-builder/ledger-app-dev-tools:latest
 ```
 * Make sure you have an X11 server running :
   * On Ubuntu Linux, it should be running by default.
@@ -55,7 +55,7 @@ There are two ways to use the container, depending on what you are doing.
 
 #### Interactive shell (recommended for development)
 
-Drop into a shell inside the container once, then run as many `cargo ledger build` / `pytest` commands as you like. The bind-mount (`-v .../app`) keeps the build artifacts on your host. The extra `--privileged`, `--publish` and X11 (`DISPLAY`, `/tmp/.X11-unix`) flags are only needed if you intend to run Speculos or load onto a physical device — they are harmless otherwise.
+Drop into a shell inside the container once, then run as many `cargo ledger build` / `pytest` commands as you like. The bind-mount (`-v .../app`) keeps the build artifacts on your host. The extra `--privileged`, `--publish` and X11 (`DISPLAY`, `/tmp/.X11-unix`) flags are only needed if you intend to run Speculos — they are harmless otherwise.
 
 Run the command matching your OS from the directory of the application (`git` repository):
   * Linux (Ubuntu): 
@@ -64,7 +64,7 @@ Run the command matching your OS from the directory of the application (`git` re
   ```
   * macOS:
   ```shell
-  sudo docker run  --rm -ti --privileged -v "$(pwd -P):/app" --publish 5001:5001 --publish 9999:9999 -e DISPLAY='host.docker.internal:0' -v '/tmp/.X11-unix:/tmp/.X11-unix' ghcr.io/ledgerhq/ledger-app-builder/ledger-app-dev-tools:latest
+  docker run  --rm -ti -v "$(pwd -P):/app" --publish 5001:5001 --publish 9999:9999 -e DISPLAY='host.docker.internal:0' ghcr.io/ledgerhq/ledger-app-builder/ledger-app-dev-tools:latest
   ```
   * Windows (with PowerShell):
   ```shell
@@ -114,14 +114,13 @@ pytest tests/standalone/ --tb=short -v --device {nanosp | nanox | stax | flex | 
 You can also run the app directly on the [Speculos emulator](https://github.com/LedgerHQ/speculos) from the Docker container
 #### Nano S+ or X
 ```bash
-speculos --apdu-port 9999 --api-port 5001 --display headless --model nanosp target/nanosplus/release/app-boilerplate-rust
+speculos --apdu-port 9999 --api-port 5001 --display headless target/nanosplus/release/app-boilerplate-rust
 ```
 :warning: UI is displayed on `localhost:5001`
 #### Stax, Flex or Apex P
 ```bash
-speculos --apdu-port 9999 --api-port 5001 --model stax target/stax/release/app-boilerplate-rust
+speculos --apdu-port 9999 --api-port 5001 target/stax/release/app-boilerplate-rust
 ```
-(use `--model flex` / `--model apex_p` with the matching `target/<device>/release/` binary)
 
 :warning: UI is displayed by your X server
 
@@ -138,16 +137,16 @@ Recent versions of [cargo-ledger](https://github.com/LedgerHQ/cargo-ledger) no l
 ```shell
 pip3 install ledgerblue
 ```
-* Build **and** load in one step, e.g. for Flex:
+* Load on device, e.g. for Flex:
 ```bash
-cargo ledger build flex --load
+python3 -m ledgerblue.runScript --targetId <id> --fileName target/flex/release/app-boilerplate-rust.apdu --apdu --scp
 ```
 
 ℹ️ Your device must be connected, unlocked and the screen showing the dashboard (not inside an application).
 
 #### About the device target ID
 
-ledgerblue needs the device's `targetId`. `cargo ledger build <device> --load` resolves it automatically from the build parameters, so for the one-step command above you don't have to provide anything.
+ledgerblue needs the device's `targetId`. 
 
 If you call ledgerblue manually, note that its `--targetId` defaults to `0x31100002` (Nano S) — wrong for every other device, and it is **not** auto-detected from the connected device. The cleanest option is to let ledgerblue read the id straight from the ELF with `--elfFile`, which overrides `--targetId`:
 ```bash

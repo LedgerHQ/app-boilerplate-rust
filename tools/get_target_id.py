@@ -4,8 +4,12 @@
 import argparse
 import sys
 
-from elftools.elf.elffile import ELFFile
-
+try:
+    from elftools.elf.elffile import ELFFile
+except ModuleNotFoundError as e:
+    raise SystemExit("Missing dependency 'pyelftools'. Install it with:
+                     python3 -m pip install pyelftools") from e
+                     
 
 def get_target_id(elf_path: str) -> str:
     with open(elf_path, "rb") as f:

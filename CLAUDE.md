@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Boilerplate Ledger hardware-wallet application written in Rust, targeting Nano X, Nano S+, Stax, Flex, and Apex P. It is a `#![no_std]` / `#![no_main]` embedded binary built against `ledger_device_sdk`, and is intended to be forked as the starting point for new coin apps. Nano S is **not** supported.
 
-Supported devices and the test directory layout are declared in `ledger_app.toml` — read this file rather than hard-coding device names or test paths. `README.md` is partly stale (it still references `pytest tests/` / `tests/requirements.txt` and omits `apex_p`); trust this file, `ledger_app.toml`, and `.cargo/config.toml` for build/test commands.
+Supported devices and the test directory layout are declared in `ledger_app.toml` — read this file rather than hard-coding device names or test paths. Use `README.md`, `ledger_app.toml`, and `.cargo/config.toml` as the sources of truth for build/test commands.
 
 ## Build, lint, test
 

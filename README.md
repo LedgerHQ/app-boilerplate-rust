@@ -44,27 +44,44 @@ If you do not wish to use the [VS Code extension](#with-vs-code), you can follow
 
 * The [ledger-app-dev-tools](https://github.com/LedgerHQ/ledger-app-builder/pkgs/container/ledger-app-builder%2Fledger-app-dev-tools) Docker image contains all the required tools and libraries to build, test and load an application on a device. You can download it from the ghcr.io docker repository:
 ```shell
-sudo docker pull ghcr.io/ledgerhq/ledger-app-builder/ledger-app-dev-tools:latest
+docker pull ghcr.io/ledgerhq/ledger-app-builder/ledger-app-dev-tools:latest
 ```
 * Make sure you have an X11 server running :
   * On Ubuntu Linux, it should be running by default.
   * On macOS, install and launch [XQuartz](https://www.xquartz.org/) (make sure to go to XQuartz > Preferences > Security and check "Allow client connections").
   * On Windows, install and launch [VcXsrv](https://sourceforge.net/projects/vcxsrv/) (make sure to configure it to disable access control).
-* You can then enter into this development environment by executing the following command from the directory of the application (`git` repository):
+
+There are two ways to use the container, depending on what you are doing.
+
+#### Interactive shell (recommended for development)
+
+Drop into a shell inside the container once, then run as many `cargo ledger build` / `pytest` commands as you like. The bind-mount (`-v .../app`) keeps the build artifacts on your host. The extra `--privileged`, `--publish` and X11 (`DISPLAY`, `/tmp/.X11-unix`) flags are only needed if you intend to run Speculos — they are harmless otherwise.
+
+Run the command matching your OS from the directory of the application (`git` repository):
   * Linux (Ubuntu): 
   ```shell
   sudo docker run --rm -ti --privileged -v "/dev/bus/usb:/dev/bus/usb" -v "$(realpath .):/app" --publish 5001:5001 --publish 9999:9999 -e DISPLAY=$DISPLAY -v '/tmp/.X11-unix:/tmp/.X11-unix' ghcr.io/ledgerhq/ledger-app-builder/ledger-app-dev-tools:latest
   ```
   * macOS:
   ```shell
-  sudo docker run  --rm -ti --privileged -v "$(pwd -P):/app" --publish 5001:5001 --publish 9999:9999 -e DISPLAY='host.docker.internal:0' -v '/tmp/.X11-unix:/tmp/.X11-unix' ghcr.io/ledgerhq/ledger-app-builder/ledger-app-dev-tools:latest
+  docker run  --rm -ti -v "$(pwd -P):/app" --publish 5001:5001 --publish 9999:9999 -e DISPLAY='host.docker.internal:0' ghcr.io/ledgerhq/ledger-app-builder/ledger-app-dev-tools:latest
   ```
   * Windows (with PowerShell):
   ```shell
   docker run --rm -ti --privileged -v "$(Get-Location):/app" -e DISPLAY='host.docker.internal:0' --publish 5001:5001 --publish 9999:9999 ghcr.io/ledgerhq/ledger-app-builder/ledger-app-dev-tools:latest
   ```
 
-The application's code will be available from inside the docker container, you can proceed to the following compilation steps to build your app.
+The application's code is mounted at `/app` inside the container. Once in the shell, proceed to the [Building](#building) and [Testing](#testing) steps below — run those commands inside the container.
+
+#### One-shot command (handy for CI or a quick build)
+
+Instead of opening a shell, append the command to run to `docker run` and the container exits when it finishes. The repository is still mounted at `/app`, so artifacts land in your host `target/` directory. For example, to build for Flex (macOS / Linux):
+
+```shell
+docker run --rm -v "$(pwd -P):/app" ghcr.io/ledgerhq/ledger-app-builder/ledger-app-dev-tools:latest cargo ledger build flex
+```
+
+Any of the commands from [Building](#building) and [Testing](#testing) can be run this way. Add the `--privileged`, `--publish` and X11 flags shown above if the command needs Speculos (e.g. functional tests).
 
 ### Building
 
@@ -72,32 +89,39 @@ You can build the boilerplate with the following command executed in the root di
 ```bash
 cargo ledger build nanox
 ```
-This command will build the app for the Nano X, but you can use any supported device (`nanox`, `nanosplus`, `stax`, `flex`)
+This command will build the app for the Nano X, but you can use any supported device (`nanox`, `nanosplus`, `stax`, `flex`, `apex_p`).
+
+> ℹ️ `.cargo/config.toml` sets `apex_p` as the default cargo target, so a bare `cargo ledger build` builds for Apex P. Always pass the device explicitly to be sure.
 
 ### Testing
 #### Ragger functional tests
-This boilerplate app comes with functional tests implemented with Ledger's [Ragger](https://github.com/LedgerHQ/ragger) test framework.
+This boilerplate app comes with functional tests implemented with Ledger's [Ragger](https://github.com/LedgerHQ/ragger) test framework. There are two suites:
+* `tests/standalone/` — normal app launch (dashboard → app).
+* `tests/swap/` — the Exchange-driven swap flow (requires Exchange + Ethereum app binaries, see [tests/swap/README.md](tests/swap/README.md)).
 
 * Install the tests requirements
 ```bash
-pip install -r tests/requirements.txt 
+pip install -r tests/standalone/requirements.txt
 ```
-* Run the functional tests :
+* Run the standalone functional tests :
 
 ```shell
-pytest tests/ --tb=short -v --device {nanosp | nanox | stax | flex}
+pytest tests/standalone/ --tb=short -v --device {nanosp | nanox | stax | flex | apex_p}
 ```
+
+> ℹ️ Speculos uses `nanosp` for Nano S+ (whereas `ledger_app.toml` lists it as `nanos+`).
 #### Emulator
 You can also run the app directly on the [Speculos emulator](https://github.com/LedgerHQ/speculos) from the Docker container
 #### Nano S+ or X
 ```bash
-speculos --apdu-port 9999 --api-port 5001 --display headless --model nanosp target/nanosplus/release/app-boilerplate-rust
+speculos --apdu-port 9999 --api-port 5001 --display headless target/nanosplus/release/app-boilerplate-rust
 ```
 :warning: UI is displayed on `localhost:5001`
-#### Stax or Flex
+#### Stax, Flex or Apex P
 ```bash
-speculos --apdu-port 9999 --api-port 5001 --model stax target/stax/release/app-boilerplate-rust
+speculos --apdu-port 9999 --api-port 5001 target/stax/release/app-boilerplate-rust
 ```
+
 :warning: UI is displayed by your X server
 
 You can then send APDU using `ledgercomm` (`pip install ledgercomm`):
@@ -105,15 +129,33 @@ You can then send APDU using `ledgercomm` (`pip install ledgercomm`):
 ledgercomm-send file test.apdu
 ```
 ### Loading on device
-:warning: Loading the built application on a device shall be performed out of the Docker container, by using [ledgerctl](https://github.com/LedgerHQ/ledgerctl):
-```shell
-pip3 install ledgerwallet
-````
-ℹ️ Your device must be connected, unlocked and the screen showing the dashboard (not inside an application). 
+Recent versions of [cargo-ledger](https://github.com/LedgerHQ/cargo-ledger) no longer emit a `ledgerctl` JSON manifest. Instead, loading is handled through [ledgerblue](https://pypi.org/project/ledgerblue/): the build generates an APDU install script and, when `--load` (or `-l`) is passed, runs it on the connected device with `python3 -m ledgerblue.runScript --targetId <id> --fileName <script> --apdu --scp`.
 
-For instance, for Flex:
+:warning: Loading must be performed **out of the Docker container** (it needs USB access to the device).
+
+* Install `ledgerblue`:
+```shell
+pip3 install ledgerblue
+```
+* Load on device, e.g. for Flex:
 ```bash
-ledgerctl install -f target/flex/release/app_flex.json
+python3 -m ledgerblue.runScript --targetId <id> --fileName target/flex/release/app-boilerplate-rust.apdu --apdu --scp
+```
+
+ℹ️ Your device must be connected, unlocked and the screen showing the dashboard (not inside an application).
+
+#### About the device target ID
+
+ledgerblue needs the device's `targetId`. 
+
+If you call ledgerblue manually, note that its `--targetId` defaults to `0x31100002` (Nano S) — wrong for every other device, and it is **not** auto-detected from the connected device. The cleanest option is to let ledgerblue read the id straight from the ELF with `--elfFile`, which overrides `--targetId`:
+```bash
+python3 -m ledgerblue.runScript --elfFile target/flex/release/app-boilerplate-rust --fileName <install_script> --apdu --scp
+```
+
+If you instead need the raw target ID value (e.g. for a CI script), the [`tools/get_target_id.py`](tools/get_target_id.py) helper extracts it from the `ledger.target_id` ELF section:
+```bash
+python3 tools/get_target_id.py target/flex/release/app-boilerplate-rust   # -> 0x33300004
 ```
 
 ## Continuous Integration

@@ -17,7 +17,7 @@ All builds run inside the `ghcr.io/ledgerhq/ledger-app-builder/ledger-app-dev-to
 cargo ledger build nanox          # one of: nanox | nanosplus | stax | flex | apex_p
 
 # Build with debug logging enabled
-cargo ledger build nanox -- --features debug -Zunstable-options
+cargo ledger build nanox -- --features debug
 
 # Lint (CI runs cargo fmt over ./src)
 cargo fmt --check
@@ -37,8 +37,8 @@ Notes:
 - `.cargo/config.toml` sets `apex_p` as the **default cargo target**; commands without an explicit `--target` or `cargo ledger build <device>` will build for Apex P.
 - Toolchain is pinned in `rust-toolchain.toml` (currently `nightly-2025-12-05`); `build-std` is required for `core`/`alloc`.
 - Heap is 8192 bytes by default. Override via `HEAP_SIZE` env var; allowed values: 2048, 4096, 8192, 16384, 24576.
-- Tests use Ragger's snapshot navigation. **Never delete `snapshots/` or `snapshots-tmp/` manually.** Regenerate snapshots with `pytest ... --golden_run` only when a screen change is intentional.
-- Speculos device name mapping: `ledger_app.toml` lists `nanos+` but pytest expects `--device nanosp`.
+
+(Docker setup, the `nanos+`→`nanosp` device mapping, and snapshot handling are documented in `.github/instructions/` — see the TEST instruction files.)
 
 ## Architecture
 
@@ -79,7 +79,7 @@ The `Bip32Path` wrapper in `src/utils.rs` uses `Vec` and is therefore only legal
 
 ### UI (NBGL)
 
-All supported devices use the New Borrowed Graphics Library:
+All supported devices use the New Bolos Graphics Library:
 - Home + settings: `NbglHomeAndSettings` constructed in `src/app_ui/menu.rs`. The same `home` handle is stored on `TxContext` and re-shown via `home.show_and_return()` after each review.
 - Address / transaction review: `NbglReview` + `Field` arrays in `src/app_ui/address.rs` and `src/app_ui/sign.rs`.
 - Glyphs are loaded with `include_gif!()` gated by `#[cfg(target_os = "...")]`. `build.rs` pre-processes `icons/crab_14x14.gif` + `icons/mask_14x14.gif` into `glyphs/home_nano_nbgl.png` at compile time.
@@ -90,21 +90,17 @@ All supported devices use the New Borrowed Graphics Library:
 
 ## Embedded constraints (when editing Rust code)
 
-- `#![no_std]` — `extern crate alloc` is declared in `main.rs`; use `alloc::{vec::Vec, string::String, format}`. Never reference `std::`.
-- ~24 KB RAM total, default 8 KB heap. Avoid deep recursion, large stack arrays, and gratuitous `clone()`/`collect()`. Prefer iterators and borrowing.
-- Handlers return `Result<_, AppSW>` and map SDK errors with `.map_err(|_| AppSW::SomeVariant)`. **Do not** `unwrap()` outside `build.rs`.
-- All cryptographic operations go through `ledger_device_sdk` (`Secp256k1::derive_from_path`, `Keccak256`). Never roll your own crypto.
-- Treat APDU bytes as untrusted input — validate lengths and structure before parsing.
-- Secrets derived from the seed must never be stored, exported, or shown to the user. Sensitive buffers should be zeroed after use.
-- Use `ledger_device_sdk::log::debug!` (or `testing::debug_print`) liberally around APDU entry points, crypto calls, and parsing — these are the only way to debug on Speculos.
-- Any signing or pubkey-export flow must be gated by an explicit user-validation screen. Do not introduce blind-signing paths.
+The generic embedded/Rust rules — RAM budget, no-`unwrap`/no-`panic`, crypto only through the SDK, treating APDUs as untrusted, secret hygiene, and the blind-signing ban — live in `.github/instructions/` (`EMBEDDED.instructions.md`, `RUST.instructions.md`). App-specific points only:
+
+- `#![no_std]`: `extern crate alloc` is declared in `src/main.rs` — import collections from `alloc::` (e.g. `alloc::vec::Vec`).
+- Handlers return `Result<_, AppSW>` and map SDK errors with `.map_err(|_| AppSW::SomeVariant)`; `unwrap()` is tolerated only in `build.rs`.
+- Debug on Speculos with `ledger_device_sdk::log::debug!` (or `testing::debug_print`) around APDU entry points, crypto calls, and parsing — built in via `--features debug` (see above).
 
 ## Test client layout
 
 - `tests/application_client/` — Python `BoilerplateCommandSender` (APDU construction) and response unpacker, shared by both test suites.
 - `tests/standalone/` — pytest suite for normal app launch (dashboard → app).
 - `tests/swap/` — pytest suite for the Exchange-driven swap flow; requires Exchange + Ethereum app binaries built into `tests/swap/.test_dependencies/` via `helper_tool_clone_dependencies.py` (host) then `helper_tool_build_dependencies.py` (Docker).
-- Tests must construct APDU payloads with named variables and `struct.pack` — no raw hex literals.
 
 ## Ledger AI instructions
 

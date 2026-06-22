@@ -18,6 +18,8 @@ image = "0.25.7"
 [features]
 default = ["ledger_device_sdk/nano_nbgl"]
 debug = ["ledger_device_sdk/debug"]
+variant_testnet = ["ledger_device_sdk/variant_0"]
+variant_betanet = ["ledger_device_sdk/variant_1"]
 
 [package.metadata.ledger]
 curve = ["secp256k1"]
@@ -40,5 +42,14 @@ icon = "icons/crab_40x40.gif"
 [package.metadata.ledger.apex_p]
 icon = "icons/crab_32x32.png"
 
+[package.metadata.ledger.variants.0]
+name = "Rust Testnet BP"
+
+[package.metadata.ledger.variants.1]
+name = "Rust Betanet BP"
+
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("apex_p", "stax", "flex", "nanos", "nanox", "nanosplus"))'] }
+
+[patch.crates-io]
+ledger_device_sdk = { git = "https://github.com/LedgerHQ/ledger-device-rust-sdk.git", branch = "y333/variants" }

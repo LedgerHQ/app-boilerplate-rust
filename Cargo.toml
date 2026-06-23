@@ -18,8 +18,8 @@ image = "0.25.7"
 [features]
 default = ["ledger_device_sdk/nano_nbgl"]
 debug = ["ledger_device_sdk/debug"]
-variant_testnet = ["ledger_device_sdk/variant_0"]
-variant_betanet = ["ledger_device_sdk/variant_1"]
+testnet = ["ledger_device_sdk/variant_0"]
+betanet = ["ledger_device_sdk/variant_1"]
 
 [package.metadata.ledger]
 curve = ["secp256k1"]

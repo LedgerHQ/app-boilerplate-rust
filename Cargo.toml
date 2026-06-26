@@ -13,7 +13,11 @@ numtoa = "0.2.4"
 arrayvec = { version = "0.7", default-features = false }
 
 [build-dependencies]
-image = "0.25.7"
+# Decode the source GIFs and write the processed grayscale PNG glyph without
+# pulling the full `image` crate (and its color-management stack). The luma
+# conversion in build.rs reproduces `image::into_luma8()`.
+gif = "0.14"
+png = "0.18"
 
 [features]
 default = ["ledger_device_sdk/nano_nbgl"]

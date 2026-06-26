@@ -26,21 +26,11 @@ curve = ["secp256k1"]
 flags = "0"
 path = ["44'/1'"]
 name = "Rust Boilerplate"
-
-[package.metadata.ledger.nanox]
-icon = "icons/crab_14x14.gif"
-
-[package.metadata.ledger.nanosplus]
-icon = "icons/crab_14x14.gif"
-
-[package.metadata.ledger.stax]
-icon = "icons/crab_32x32.gif"
-
-[package.metadata.ledger.flex]
-icon = "icons/crab_40x40.gif"
-
-[package.metadata.ledger.apex_p]
-icon = "icons/crab_32x32.png"
+nanosplus = { icon = "icons/crab_14x14.gif" }
+nanox = { icon = "icons/crab_14x14.gif" }
+stax = { icon = "icons/crab_32x32.gif" }
+flex = { icon = "icons/crab_40x40.gif" }
+apex_p = { icon = "icons/crab_32x32.png" }
 
 [package.metadata.ledger.variants.0]
 name = "Rust Testnet BP"

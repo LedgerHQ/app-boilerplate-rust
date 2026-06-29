@@ -51,7 +51,7 @@ jobs:
 
   build_application:
     name: Build application using the reusable workflow
-    uses: LedgerHQ/ledger-app-workflows/.github/workflows/reusable_build.yml@y333/rust_variant_support
+    uses: LedgerHQ/ledger-app-workflows/.github/workflows/reusable_build.yml@v1
     with:
       upload_app_binaries_artifact: "app_boilerplate_binaries"
       builder: ledger-app-builder

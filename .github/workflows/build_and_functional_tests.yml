@@ -33,6 +33,22 @@ on:
   pull_request:
 
 jobs:
+  build_variant_testnet:
+    name: Build Testnet application using the reusable workflow
+    uses: LedgerHQ/ledger-app-workflows/.github/workflows/reusable_build.yml@v1
+    with:
+      upload_app_binaries_artifact: "app_boilerplate_testnet_binaries"
+      builder: ledger-app-builder
+      features: variant_testnet
+  
+  build_variant_betanet:
+    name: Build Betanet application using the reusable workflow
+    uses: LedgerHQ/ledger-app-workflows/.github/workflows/reusable_build.yml@v1
+    with:
+      upload_app_binaries_artifact: "app_boilerplate_betanet_binaries"
+      builder: ledger-app-builder
+      features: variant_betanet
+
   build_application:
     name: Build application using the reusable workflow
     uses: LedgerHQ/ledger-app-workflows/.github/workflows/reusable_build.yml@v1

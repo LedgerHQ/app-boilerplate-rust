@@ -34,13 +34,17 @@ pub fn ui_menu_main(_: &mut Comm) -> NbglHomeAndSettings {
     let settings_strings = [["Display Memo", "Allow display of transaction memo."]];
     let mut settings: Settings = Default::default();
 
+    let title = if cfg!(feature = "variant_testnet") {
+        "Testnet Boilerplate"
+    } else if cfg!(feature = "variant_betanet") {
+        "Betanet Boilerplate"
+    } else {
+        "Boilerplate"
+    };
+
     // Display the home screen.
     NbglHomeAndSettings::new()
         .glyph(&FERRIS)
         .settings(settings.get_mut(), &settings_strings)
-        .infos(
-            "Boilerplate",
-            env!("CARGO_PKG_VERSION"),
-            env!("CARGO_PKG_AUTHORS"),
-        )
+        .infos(title, env!("CARGO_PKG_VERSION"), env!("CARGO_PKG_AUTHORS"))
 }

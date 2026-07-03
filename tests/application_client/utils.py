@@ -1,4 +1,3 @@
-from pathlib import Path
 from hashlib import sha256
 from sha3 import keccak_256
 

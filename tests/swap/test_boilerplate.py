@@ -1,8 +1,5 @@
 import pytest
 from ledger_app_clients.exchange.test_runner import ExchangeTestRunner, ALL_TESTS_EXCEPT_MEMO_THORSWAP_AND_FEES
-from ledger_app_clients.exchange.cal_helper import CurrencyConfiguration
-from ragger.error import ExceptionRAPDU
-from ragger.utils import create_currency_config
 
 from application_client.boilerplate_currency_utils import BOL_PATH
 from application_client.boilerplate_command_sender import BoilerplateCommandSender, Errors as BoilerplateErrors

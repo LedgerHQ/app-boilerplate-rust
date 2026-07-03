@@ -81,7 +81,7 @@ def clone_or_pull(repo_url: str, clone_dir: str):
         run_cmd("git submodule update --init --recursive", cwd=Path(clone_dir))
 
 def build_app(clone_dir: str, flags: str):
-    cmd = f"make clean"
+    cmd = "make clean"
     run_cmd(cmd, cwd=Path(clone_dir))
     for d in DEVICES_CONF.values():
         sdk = d["sdk"]

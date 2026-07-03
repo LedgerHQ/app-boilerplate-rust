@@ -7,13 +7,12 @@ from ecdsa.util import sigdecode_der
 
 
 # Check if a signature of a given message is valid
-def check_signature_validity(public_key: bytes, signature: bytes, message: bytes) -> bool:
+def check_signature_validity(
+    public_key: bytes, signature: bytes, message: bytes
+) -> bool:
     pk: VerifyingKey = VerifyingKey.from_string(
-        public_key,
-        curve=SECP256k1,
-        hashfunc=sha256
+        public_key, curve=SECP256k1, hashfunc=sha256
     )
-    return pk.verify(signature=signature,
-                     data=message,
-                     hashfunc=keccak_256,
-                     sigdecode=sigdecode_der)
+    return pk.verify(
+        signature=signature, data=message, hashfunc=keccak_256, sigdecode=sigdecode_der
+    )

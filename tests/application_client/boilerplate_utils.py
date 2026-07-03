@@ -2,9 +2,9 @@ from io import BytesIO
 from typing import Optional, Literal
 
 
-UINT64_MAX: int = 2**64-1
-UINT32_MAX: int = 2**32-1
-UINT16_MAX: int = 2**16-1
+UINT64_MAX: int = 2**64 - 1
+UINT32_MAX: int = 2**32 - 1
+UINT16_MAX: int = 2**16 - 1
 
 
 def write_varint(n: int) -> bytes:
@@ -12,19 +12,18 @@ def write_varint(n: int) -> bytes:
         return n.to_bytes(1, byteorder="little")
 
     if n <= UINT16_MAX:
-        return b"\xFD" + n.to_bytes(2, byteorder="little")
+        return b"\xfd" + n.to_bytes(2, byteorder="little")
 
     if n <= UINT32_MAX:
-        return b"\xFE" + n.to_bytes(4, byteorder="little")
+        return b"\xfe" + n.to_bytes(4, byteorder="little")
 
     if n <= UINT64_MAX:
-        return b"\xFF" + n.to_bytes(8, byteorder="little")
+        return b"\xff" + n.to_bytes(8, byteorder="little")
 
     raise ValueError(f"Can't write to varint: '{n}'!")
 
 
-def read_varint(buf: BytesIO,
-                prefix: Optional[bytes] = None) -> int:
+def read_varint(buf: BytesIO, prefix: Optional[bytes] = None) -> int:
     b: bytes = prefix if prefix else buf.read(1)
 
     if not b:
@@ -49,9 +48,9 @@ def read(buf: BytesIO, size: int) -> bytes:
     return b
 
 
-def read_uint(buf: BytesIO,
-              bit_len: int,
-              byteorder: Literal['big', 'little'] = 'little') -> int:
+def read_uint(
+    buf: BytesIO, bit_len: int, byteorder: Literal["big", "little"] = "little"
+) -> int:
     size: int = bit_len // 8
     b: bytes = buf.read(size)
 

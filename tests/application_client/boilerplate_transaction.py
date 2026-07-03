@@ -2,8 +2,10 @@ import json
 from dataclasses import dataclass
 from .boilerplate_utils import UINT64_MAX
 
+
 class TransactionError(Exception):
     pass
+
 
 @dataclass
 class Transaction:
@@ -21,10 +23,12 @@ class Transaction:
             raise TransactionError(f"Bad address: '{self.to}'!")
 
         # Serialize the transaction data to a JSON-formatted string
-        return json.dumps({
-            "nonce": self.nonce,
-            "coin": self.coin,
-            "value": self.value,
-            "to": self.to,
-            "memo": self.memo
-        }).encode('utf-8')
+        return json.dumps(
+            {
+                "nonce": self.nonce,
+                "coin": self.coin,
+                "value": self.value,
+                "to": self.to,
+                "memo": self.memo,
+            }
+        ).encode("utf-8")

@@ -8,13 +8,17 @@ def test_app_mainmenu(device, navigator, test_name, default_screenshot_path):
         instructions = [
             NavInsID.RIGHT_CLICK,
             NavInsID.RIGHT_CLICK,
-            NavInsID.RIGHT_CLICK
+            NavInsID.RIGHT_CLICK,
         ]
     else:
         instructions = [
             NavInsID.USE_CASE_HOME_SETTINGS,
             NavInsID.USE_CASE_SUB_SETTINGS_NEXT,
-            NavInsID.USE_CASE_SUB_SETTINGS_EXIT
+            NavInsID.USE_CASE_SUB_SETTINGS_EXIT,
         ]
-    navigator.navigate_and_compare(default_screenshot_path, test_name, instructions,
-                                   screen_change_before_first_instruction=False)
+    navigator.navigate_and_compare(
+        default_screenshot_path,
+        test_name,
+        instructions,
+        screen_change_before_first_instruction=False,
+    )

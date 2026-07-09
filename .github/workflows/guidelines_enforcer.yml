@@ -7,7 +7,7 @@ name: Ensure compliance with Ledger guidelines
 #
 # More information on the guidelines can be found in the repository:
 # LedgerHQ/ledger-app-workflows/
-
+#
 on:
   workflow_dispatch:
   push:
@@ -20,4 +20,4 @@ on:
 jobs:
   guidelines_enforcer:
     name: Call Ledger guidelines_enforcer
-    uses: LedgerHQ/ledger-app-workflows/.github/workflows/reusable_guidelines_enforcer.yml@v1
+    uses: LedgerHQ/ledger-app-workflows/.github/workflows/reusable_guidelines_enforcer.yml@y333/run_cargo_audit

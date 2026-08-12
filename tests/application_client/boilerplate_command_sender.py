@@ -1,10 +1,9 @@
-from enum import IntEnum
-from typing import Generator, List, Optional
+from collections.abc import Generator
 from contextlib import contextmanager
+from enum import IntEnum
 
-from ragger.backend.interface import BackendInterface, RAPDU
+from ragger.backend.interface import RAPDU, BackendInterface
 from ragger.bip import pack_derivation_path
-
 
 MAX_APDU_LEN: int = 255
 
@@ -52,7 +51,7 @@ class Errors(IntEnum):
     SW_SWAP_FAIL = 0xC000
 
 
-def split_message(message: bytes, max_size: int) -> List[bytes]:
+def split_message(message: bytes, max_size: int) -> list[bytes]:
     return [message[x : x + max_size] for x in range(0, len(message), max_size)]
 
 
@@ -70,14 +69,10 @@ class BoilerplateCommandSender:
         )
 
     def get_version(self) -> RAPDU:
-        return self.backend.exchange(
-            cla=CLA, ins=InsType.GET_VERSION, p1=P1.P1_START, p2=P2.P2_LAST, data=b""
-        )
+        return self.backend.exchange(cla=CLA, ins=InsType.GET_VERSION, p1=P1.P1_START, p2=P2.P2_LAST, data=b"")
 
     def get_app_name(self) -> RAPDU:
-        return self.backend.exchange(
-            cla=CLA, ins=InsType.GET_APP_NAME, p1=P1.P1_START, p2=P2.P2_LAST, data=b""
-        )
+        return self.backend.exchange(cla=CLA, ins=InsType.GET_APP_NAME, p1=P1.P1_START, p2=P2.P2_LAST, data=b"")
 
     def get_public_key(self, path: str) -> RAPDU:
         return self.backend.exchange(
@@ -89,9 +84,7 @@ class BoilerplateCommandSender:
         )
 
     @contextmanager
-    def get_public_key_with_confirmation(
-        self, path: str
-    ) -> Generator[None, None, None]:
+    def get_public_key_with_confirmation(self, path: str) -> Generator[None, None, None]:
         with self.backend.exchange_async(
             cla=CLA,
             ins=InsType.GET_PUBLIC_KEY,
@@ -114,24 +107,20 @@ class BoilerplateCommandSender:
         idx: int = P1.P1_START + 1
 
         for msg in messages[:-1]:
-            self.backend.exchange(
-                cla=CLA, ins=InsType.SIGN_TX, p1=idx, p2=P2.P2_MORE, data=msg
-            )
+            self.backend.exchange(cla=CLA, ins=InsType.SIGN_TX, p1=idx, p2=P2.P2_MORE, data=msg)
             idx += 1
 
-        with self.backend.exchange_async(
-            cla=CLA, ins=InsType.SIGN_TX, p1=idx, p2=P2.P2_LAST, data=messages[-1]
-        ) as response:
+        with self.backend.exchange_async(cla=CLA, ins=InsType.SIGN_TX, p1=idx, p2=P2.P2_LAST, data=messages[-1]) as response:
             yield response
 
-    def get_async_response(self) -> Optional[RAPDU]:
+    def get_async_response(self) -> RAPDU | None:
         return self.backend.last_async_response
 
     # Synchronous versions of sign_tx and sign_token_tx
     # These functions wait for the response after sending the transaction. They are particularly
     # useful for tests that do not require user interaction (e.g., when the transaction has already
     # been approved in the SWAP flow)
-    def sign_tx_sync(self, path: str, transaction: bytes) -> Optional[RAPDU]:
+    def sign_tx_sync(self, path: str, transaction: bytes) -> RAPDU | None:
         with self.sign_tx(path, transaction):
             pass
         rapdu = self.get_async_response()

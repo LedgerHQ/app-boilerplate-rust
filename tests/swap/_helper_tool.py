@@ -36,9 +36,7 @@ DEVICES_CONF = {
 }
 
 
-def run_cmd(
-    cmd: str, cwd: Path = Path("."), print_output: bool = False, no_throw: bool = False
-) -> str:
+def run_cmd(cmd: str, cwd: Path = Path("."), print_output: bool = False, no_throw: bool = False) -> str:
 
     print(f"[run_cmd] Running: '{cmd}'' inside '{cwd}'")
 
@@ -47,7 +45,7 @@ def run_cmd(
         shell=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
-        universal_newlines=True,
+        text=True,
         cwd=cwd,
     )
     if no_throw is False and ret.returncode:
@@ -120,6 +118,6 @@ def clone_and_pull_ethereum():
 def build_and_copy_ethereum():
     build_app(
         APP_ETHEREUM_CLONE_DIR,
-        flags="COIN=ethereum CHAIN=ethereum CAL_TEST_KEY=1 DOMAIN_NAME_TEST_KEY=1 SET_PLUGIN_TEST_KEY=1 NFT_TEST_KEY=1 TRUSTED_NAME_TEST_KEY=1",
+        flags="COIN=ethereum CHAIN=ethereum CAL_TEST_KEY=1 DOMAIN_NAME_TEST_KEY=1 SET_PLUGIN_TEST_KEY=1 NFT_TEST_KEY=1 TRUSTED_NAME_TEST_KEY=1",  # noqa: E501
     )
     copy_build_output(APP_ETHEREUM_CLONE_DIR, APP_ETHEREUM_DIR)

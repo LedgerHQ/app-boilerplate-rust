@@ -1,26 +1,24 @@
 import pytest
-from ledger_app_clients.exchange.test_runner import (
-    ExchangeTestRunner,
-    ALL_TESTS_EXCEPT_MEMO_THORSWAP_AND_FEES,
-)
-
-from application_client.boilerplate_currency_utils import BOL_PATH
 from application_client.boilerplate_command_sender import (
     BoilerplateCommandSender,
+)
+from application_client.boilerplate_command_sender import (
     Errors as BoilerplateErrors,
 )
+from application_client.boilerplate_currency_utils import BOL_PATH
 from application_client.boilerplate_transaction import Transaction
+from ledger_app_clients.exchange.test_runner import (
+    ALL_TESTS_EXCEPT_MEMO_THORSWAP_AND_FEES,
+    ExchangeTestRunner,
+)
 
 from . import cal_helper as cal
-
 
 # Token addresses from the hardcoded database in src/token/token_db.c
 # USDC token with 12 decimals
 TOKEN_USDC_ADDRESS = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 TOKEN_LINK_ADDRESS = "ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100"
-UNKNOWN_TOKEN_ADDRESS = (
-    "00ffeeddccbbaa99887766554433221100ffeeddccbbaa998877665544332211"
-)
+UNKNOWN_TOKEN_ADDRESS = "00ffeeddccbbaa99887766554433221100ffeeddccbbaa998877665544332211"
 
 # CAL dynamic token address (not in hardcoded database, will be provided dynamically)
 TOKEN_DYNAMIC_USDT_ADDRESS = cal.TOKEN_DYNAMIC_USDT_ADDRESS
@@ -67,14 +65,10 @@ class BoilerplateTests(ExchangeTestRunner):
     # This function will be called by the ExchangeTestRunner in a callback like way
     def perform_final_tx(self, destination, send_amount, fees, memo):
         # Create the transaction that will be sent to the device for signing
-        tx = Transaction(
-            nonce=1, coin="CRAB", to=destination, value=send_amount, memo=memo
-        ).serialize()
+        tx = Transaction(nonce=1, coin="CRAB", to=destination, value=send_amount, memo=memo).serialize()
 
         # Send the TX
-        BoilerplateCommandSender(self.backend).sign_tx_sync(
-            path=BOL_PATH, transaction=tx
-        )
+        BoilerplateCommandSender(self.backend).sign_tx_sync(path=BOL_PATH, transaction=tx)
 
         # TODO : assert signature validity. Not required but recommended
 

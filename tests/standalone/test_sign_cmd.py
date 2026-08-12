@@ -1,6 +1,4 @@
 import pytest
-
-from application_client.boilerplate_transaction import Transaction
 from application_client.boilerplate_command_sender import (
     BoilerplateCommandSender,
     Errors,
@@ -9,6 +7,7 @@ from application_client.boilerplate_response_unpacker import (
     unpack_get_public_key_response,
     unpack_sign_tx_response,
 )
+from application_client.boilerplate_transaction import Transaction
 from application_client.utils import check_signature_validity
 from ragger.error import ExceptionRAPDU
 from ragger.navigator import NavIns, NavInsID
@@ -124,7 +123,8 @@ def test_sign_tx_long_tx(backend, scenario_navigator, device, navigator):
             "This is a very long memo. "
             "It will force the app client to send the serialized transaction to be sent in chunk. "
             "As the maximum chunk size is 255 bytes we will make this memo greater than 255 characters. "
-            "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed non risus. Suspendisse lectus tortor, dignissim sit amet, adipiscing nec, ultricies sed, dolor. Cras elementum ultrices diam."
+            "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed non risus. Suspendisse lectus tortor, "
+            "dignissim sit amet, adipiscing nec, ultricies sed, dolor. Cras elementum ultrices diam."
         ),
     ).serialize()
 
@@ -160,7 +160,7 @@ def test_sign_tx_refused(backend, scenario_navigator):
     path: str = "m/44'/1'/0'/0/0"
 
     rapdu = client.get_public_key(path=path)
-    _, pub_key, _, _ = unpack_get_public_key_response(rapdu.data)
+    _, _, _, _ = unpack_get_public_key_response(rapdu.data)
 
     transaction = Transaction(
         nonce=1,

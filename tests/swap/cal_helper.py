@@ -1,7 +1,7 @@
+from application_client.boilerplate_currency_utils import BOL_PATH
 from ledger_app_clients.exchange.cal_helper import CurrencyConfiguration
 from ragger.bip import pack_derivation_path
 from ragger.utils import create_currency_config
-from application_client.boilerplate_currency_utils import BOL_PATH
 
 # Define a configuration for each currency used in our tests: native coins and tokens
 
@@ -15,9 +15,7 @@ BOL_CURRENCY_CONFIGURATION = CurrencyConfiguration(
 )
 
 # BOL USDC token configuration - USDC with 12 decimals as defined in token_db.c
-BOL_USDC_CONF = create_currency_config(
-    "USDC", "Boilerplate", sub_coin_config=("USDC", 12)
-)
+BOL_USDC_CONF = create_currency_config("USDC", "Boilerplate", sub_coin_config=("USDC", 12))
 BOL_USDC_PACKED_DERIVATION_PATH = BOL_PACKED_DERIVATION_PATH
 BOL_USDC_CURRENCY_CONFIGURATION = CurrencyConfiguration(
     ticker="USDC",
@@ -26,9 +24,7 @@ BOL_USDC_CURRENCY_CONFIGURATION = CurrencyConfiguration(
 )
 
 # BOL Dynamic USDT token configuration - USDT with 6 decimals provided via CAL
-BOL_DYNAMIC_USDT_CONF = create_currency_config(
-    "USDT", "Boilerplate", sub_coin_config=("USDT", 6)
-)
+BOL_DYNAMIC_USDT_CONF = create_currency_config("USDT", "Boilerplate", sub_coin_config=("USDT", 6))
 BOL_DYNAMIC_USDT_PACKED_DERIVATION_PATH = BOL_PACKED_DERIVATION_PATH
 BOL_DYNAMIC_USDT_CURRENCY_CONFIGURATION = CurrencyConfiguration(
     ticker="USDT",
@@ -37,9 +33,5 @@ BOL_DYNAMIC_USDT_CURRENCY_CONFIGURATION = CurrencyConfiguration(
 )
 
 # Token addresses
-TOKEN_DYNAMIC_USDT_ADDRESS = (
-    "cafebabedeadbeefcafebabedeadbeefcafebabedeadbeefcafebabedeadbeef"
-)
-TOKEN_HARDCODED_USDC_ADDRESS = (
-    "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-)
+TOKEN_DYNAMIC_USDT_ADDRESS = "cafebabedeadbeefcafebabedeadbeefcafebabedeadbeefcafebabedeadbeef"
+TOKEN_HARDCODED_USDC_ADDRESS = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"

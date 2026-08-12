@@ -1,14 +1,13 @@
-from typing import Tuple
 from struct import unpack
 
 
 # remainder, data_len, data
-def pop_sized_buf_from_buffer(buffer: bytes, size: int) -> Tuple[bytes, bytes]:
+def pop_sized_buf_from_buffer(buffer: bytes, size: int) -> tuple[bytes, bytes]:
     return buffer[size:], buffer[0:size]
 
 
 # remainder, data_len, data
-def pop_size_prefixed_buf_from_buf(buffer: bytes) -> Tuple[bytes, int, bytes]:
+def pop_size_prefixed_buf_from_buf(buffer: bytes) -> tuple[bytes, int, bytes]:
     data_len = buffer[0]
     return buffer[1 + data_len :], data_len, buffer[1 : data_len + 1]
 
@@ -23,7 +22,7 @@ def unpack_get_app_name_response(response: bytes) -> str:
 # response = MAJOR (1)
 #            MINOR (1)
 #            PATCH (1)
-def unpack_get_version_response(response: bytes) -> Tuple[int, int, int]:
+def unpack_get_version_response(response: bytes) -> tuple[int, int, int]:
     assert len(response) == 3
     major, minor, patch = unpack("BBB", response)
     return (major, minor, patch)
@@ -37,7 +36,7 @@ def unpack_get_version_response(response: bytes) -> Tuple[int, int, int]:
 #            version_raw (var)
 #            unused_len (1)
 #            unused (var)
-def unpack_get_app_and_version_response(response: bytes) -> Tuple[str, str]:
+def unpack_get_app_and_version_response(response: bytes) -> tuple[str, str]:
     response, _ = pop_sized_buf_from_buffer(response, 1)
     response, _, app_name_raw = pop_size_prefixed_buf_from_buf(response)
     response, _, version_raw = pop_size_prefixed_buf_from_buf(response)
@@ -53,7 +52,7 @@ def unpack_get_app_and_version_response(response: bytes) -> Tuple[str, str]:
 #            pub_key (var)
 #            chain_code_len (1)
 #            chain_code (var)
-def unpack_get_public_key_response(response: bytes) -> Tuple[int, bytes, int, bytes]:
+def unpack_get_public_key_response(response: bytes) -> tuple[int, bytes, int, bytes]:
     response, pub_key_len, pub_key = pop_size_prefixed_buf_from_buf(response)
     response, chain_code_len, chain_code = pop_size_prefixed_buf_from_buf(response)
 
@@ -67,7 +66,7 @@ def unpack_get_public_key_response(response: bytes) -> Tuple[int, bytes, int, by
 # response = der_sig_len (1)
 #            der_sig (var)
 #            v (1)
-def unpack_sign_tx_response(response: bytes) -> Tuple[int, bytes, int]:
+def unpack_sign_tx_response(response: bytes) -> tuple[int, bytes, int]:
     response, der_sig_len, der_sig = pop_size_prefixed_buf_from_buf(response)
     response, v = pop_sized_buf_from_buffer(response, 1)
 

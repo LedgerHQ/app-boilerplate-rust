@@ -1,10 +1,8 @@
-import pytest
-
 from pathlib import Path
 
-from ragger.conftest import configuration
-
+import pytest
 from ledger_app_clients.exchange.navigation_helper import ExchangeNavigationHelper
+from ragger.conftest import configuration
 
 ###########################
 ### CONFIGURATION START ###

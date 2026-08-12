@@ -1,4 +1,5 @@
 from pathlib import Path
+
 import tomli
 from application_client.boilerplate_command_sender import BoilerplateCommandSender
 from application_client.boilerplate_response_unpacker import unpack_get_version_response

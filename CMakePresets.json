@@ -1,0 +1,49 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": { "major": 3, "minor": 21, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/cmake/${presetName}"
+    },
+    {
+      "name": "nanox",
+      "inherits": "base",
+      "displayName": "Nano X",
+      "cacheVariables": { "DEVICE": "nanox" }
+    },
+    {
+      "name": "nanosplus",
+      "inherits": "base",
+      "displayName": "Nano S+",
+      "cacheVariables": { "DEVICE": "nanosplus" }
+    },
+    {
+      "name": "stax",
+      "inherits": "base",
+      "displayName": "Stax",
+      "cacheVariables": { "DEVICE": "stax" }
+    },
+    {
+      "name": "flex",
+      "inherits": "base",
+      "displayName": "Flex",
+      "cacheVariables": { "DEVICE": "flex" }
+    },
+    {
+      "name": "apex_p",
+      "inherits": "base",
+      "displayName": "Apex P",
+      "cacheVariables": { "DEVICE": "apex_p" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "nanox", "configurePreset": "nanox" },
+    { "name": "nanosplus", "configurePreset": "nanosplus" },
+    { "name": "stax", "configurePreset": "stax" },
+    { "name": "flex", "configurePreset": "flex" },
+    { "name": "apex_p", "configurePreset": "apex_p" }
+  ]
+}

@@ -1,0 +1,30 @@
+name: Clean up development sideload installers
+
+# Deletes the rolling pre-release published by a manual run of sideload_installer.yml once its branch
+# is deleted, so that stale development builds are not left for download.
+
+on:
+  delete:
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    name: Delete the development pre-release
+    if: ${{ github.event.ref_type == 'branch' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete pre-release and tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DELETED_BRANCH: ${{ github.event.ref }}
+        run: |
+          # Same naming as the publish_tag computed in sideload_installer.yml.
+          tag="build-$(printf '%s' "${DELETED_BRANCH}" | tr -c 'A-Za-z0-9._-' '-')"
+          if gh release view "${tag}" --repo "${GITHUB_REPOSITORY}" > /dev/null 2>&1; then
+            gh release delete "${tag}" --cleanup-tag --yes --repo "${GITHUB_REPOSITORY}"
+            echo "Deleted ${tag}"
+          else
+            echo "No pre-release ${tag} to delete"
+          fi

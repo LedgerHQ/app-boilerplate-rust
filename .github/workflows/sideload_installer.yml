@@ -23,6 +23,10 @@ on:
         default: ''
         type: string
   workflow_dispatch:
+  # TEMPORARY: lets the workflow run before it reaches the default branch. Remove before merging.
+  push:
+    branches:
+      - feat/sideload-installer
 
 permissions:
   contents: read

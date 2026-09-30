@@ -22,6 +22,8 @@ jobs:
       actions: write
       id-token: write
       attestations: write
+      # Checked statically for the nested reusable_build.yml call, even though it is skipped here.
+      pull-requests: write
     with:
       # Package the exact binaries published by github-release rather than rebuilding them.
       binaries_artifact: app_binaries

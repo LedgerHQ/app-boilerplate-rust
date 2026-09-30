@@ -74,9 +74,11 @@ jobs:
     name: Build application using the reusable workflow
     needs: context
     if: ${{ !inputs.binaries_artifact }}
+    # Must cover every permission reusable_build.yml declares, even those it only uses on pull requests.
     permissions:
       contents: read
       actions: write
+      pull-requests: write
     uses: LedgerHQ/ledger-app-workflows/.github/workflows/reusable_build.yml@v1
     with:
       app_branch_name: ${{ needs.context.outputs.build_sha }}

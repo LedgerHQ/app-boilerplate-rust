@@ -158,6 +158,10 @@ If you instead need the raw target ID value (e.g. for a CI script), the [`tools/
 python3 tools/get_target_id.py target/flex/release/app-boilerplate-rust   # -> 0x33300004
 ```
 
+#### For end users: standalone installer
+
+Each GitHub release ships ready-to-run installers (Linux, Windows, macOS) that embed the release binaries and sideload the app without git, Docker or Python. See [`tools/sideload/README.md`](tools/sideload/README.md).
+
 ## Continuous Integration
 The following workflows are executed in [GitHub Actions](https://github.com/features/actions) :
 

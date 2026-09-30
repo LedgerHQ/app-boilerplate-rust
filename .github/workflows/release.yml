@@ -12,3 +12,19 @@ jobs:
     with:
       app_ref_name: ${{ github.ref_name }}
       builder: 'ledger-app-builder'
+
+  sideload-installer:
+    name: Attach the sideload installers to the release
+    needs: github-release
+    uses: ./.github/workflows/sideload_installer.yml
+    permissions:
+      contents: write
+      actions: write
+      id-token: write
+      attestations: write
+      # Checked statically for the nested reusable_build.yml call, even though it is skipped here.
+      pull-requests: write
+    with:
+      # Package the exact binaries published by github-release rather than rebuilding them.
+      binaries_artifact: app_binaries
+      release_tag: ${{ github.ref_name }}

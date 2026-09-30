@@ -1,0 +1,4 @@
+# Runtime: device communication and secure channel used to load the app.
+ledgerblue==0.1.56
+# Build only: freezes ledger_installer.py into a standalone executable.
+pyinstaller==6.22.3

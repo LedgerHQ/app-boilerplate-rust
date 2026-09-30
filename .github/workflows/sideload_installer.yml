@@ -1,0 +1,230 @@
+name: Build the sideload installer
+
+# This workflow packages the built application into standalone installer executables (Linux, Windows,
+# macOS) that end users run to sideload the app on their device, without any developer tooling.
+# See tools/sideload/README.md.
+#
+# Where the installers are published:
+# - Release tag (called from release.yml): attached to that GitHub release.
+# - Manual run on any branch: rolling pre-release `build-<branch>`, replaced on each run and deleted by
+#   sideload_cleanup.yml when the branch is deleted.
+
+on:
+  workflow_call:
+    inputs:
+      binaries_artifact:
+        description: "Existing app binaries artifact of this run to package (the app is built if empty)"
+        required: false
+        default: ''
+        type: string
+      release_tag:
+        description: "GitHub release to attach the installers to (a development pre-release is used if empty)"
+        required: false
+        default: ''
+        type: string
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  BUNDLE_ARTIFACT: sideload_bundle
+  INSTALLER_NAME: ${{ github.event.repository.name }}-installer
+
+jobs:
+  context:
+    name: Resolve build source and publication target
+    runs-on: ubuntu-latest
+    outputs:
+      build_sha: ${{ steps.resolve.outputs.build_sha }}
+      source_ref: ${{ steps.resolve.outputs.source_ref }}
+      official: ${{ steps.resolve.outputs.official }}
+      publish_tag: ${{ steps.resolve.outputs.publish_tag }}
+    steps:
+      - name: Resolve
+        id: resolve
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          official=false
+          if [ -n "${RELEASE_TAG}" ]; then
+            build_sha="${GITHUB_SHA}"
+            source_ref="release ${RELEASE_TAG}"
+            official=true
+            publish_tag="${RELEASE_TAG}"
+          else
+            build_sha="${GITHUB_SHA}"
+            source_ref="branch ${REF_NAME}"
+            publish_tag="build-$(printf '%s' "${REF_NAME}" | tr -c 'A-Za-z0-9._-' '-')"
+          fi
+          {
+            echo "build_sha=${build_sha}"
+            echo "source_ref=${source_ref}"
+            echo "official=${official}"
+            echo "publish_tag=${publish_tag}"
+          } >> "${GITHUB_OUTPUT}"
+          echo "Building ${source_ref} at ${build_sha}, publishing to '${publish_tag}'"
+
+  build_application:
+    name: Build application using the reusable workflow
+    needs: context
+    if: ${{ !inputs.binaries_artifact }}
+    # Must cover every permission reusable_build.yml declares, even those it only uses on pull requests.
+    permissions:
+      contents: read
+      actions: write
+      pull-requests: write
+    uses: LedgerHQ/ledger-app-workflows/.github/workflows/reusable_build.yml@v1
+    with:
+      app_branch_name: ${{ needs.context.outputs.build_sha }}
+      upload_app_binaries_artifact: sideload_app_binaries
+      builder: ledger-app-builder
+
+  bundle:
+    name: Package the sideload bundle
+    needs: [context, build_application]
+    # build_application is skipped when the caller provides the binaries.
+    if: ${{ !cancelled() && needs.context.result == 'success' && (needs.build_application.result == 'success' || needs.build_application.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r tools/sideload/requirements.txt
+
+      - name: Download app binaries
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ inputs.binaries_artifact || 'sideload_app_binaries' }}
+          path: binaries
+
+      - name: Make bundle
+        env:
+          SOURCE_REF: ${{ needs.context.outputs.source_ref }}
+          BUILD_SHA: ${{ needs.context.outputs.build_sha }}
+          OFFICIAL: ${{ needs.context.outputs.official }}
+        run: |
+          python tools/sideload/make_bundle.py binaries bundle \
+            --source-ref "${SOURCE_REF}" --commit "${BUILD_SHA}" \
+            $([ "${OFFICIAL}" = "true" ] && echo --official)
+
+      - name: Upload bundle
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ env.BUNDLE_ARTIFACT }}
+          path: bundle
+          if-no-files-found: error
+
+  installer:
+    name: Build installer (${{ matrix.suffix }})
+    needs: bundle
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Oldest supported runner, so that the binary runs on older glibc versions.
+          - { os: ubuntu-22.04, suffix: linux-x86_64 }
+          - { os: windows-latest, suffix: windows-x86_64 }
+          - { os: macos-latest, suffix: macos-arm64 }
+          - { os: macos-15-intel, suffix: macos-x86_64 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r tools/sideload/requirements.txt
+
+      - name: Download bundle
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ env.BUNDLE_ARTIFACT }}
+          path: bundle
+
+      - name: Freeze installer
+        shell: bash
+        env:
+          # PyInstaller expects the platform path separator between source and destination.
+          DATA_SEP: ${{ runner.os == 'Windows' && ';' || ':' }}
+        run: |
+          pyinstaller --onefile --clean \
+            --name "${INSTALLER_NAME}-${{ matrix.suffix }}" \
+            --add-data "bundle${DATA_SEP}bundle" \
+            tools/sideload/ledger_installer.py
+
+      - name: Smoke test
+        shell: bash
+        run: ./dist/${INSTALLER_NAME}-${{ matrix.suffix }} --list
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v6
+        with:
+          name: sideload_installer-${{ matrix.suffix }}
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    name: Publish installers
+    needs: [context, installer]
+    runs-on: ubuntu-latest
+    # Serialize runs targeting the same pre-release, which is deleted and recreated.
+    concurrency:
+      group: sideload-publish-${{ needs.context.outputs.publish_tag }}
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PUBLISH_TAG: ${{ needs.context.outputs.publish_tag }}
+      SOURCE_REF: ${{ needs.context.outputs.source_ref }}
+      BUILD_SHA: ${{ needs.context.outputs.build_sha }}
+    steps:
+      - name: Download installers
+        uses: actions/download-artifact@v8
+        with:
+          pattern: sideload_installer-*
+          path: installers
+          merge-multiple: true
+
+      - name: Compute checksums
+        working-directory: installers
+        run: sha256sum * > SHA256SUMS && cat SHA256SUMS
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: 'installers/*'
+
+      - name: Upload to release
+        if: ${{ needs.context.outputs.official == 'true' }}
+        run: gh release upload "${PUBLISH_TAG}" installers/* --clobber --repo "${GITHUB_REPOSITORY}"
+
+      - name: Replace development pre-release
+        if: ${{ needs.context.outputs.official != 'true' }}
+        run: |
+          if gh release view "${PUBLISH_TAG}" --repo "${GITHUB_REPOSITORY}" > /dev/null 2>&1; then
+            gh release delete "${PUBLISH_TAG}" --cleanup-tag --yes --repo "${GITHUB_REPOSITORY}"
+          fi
+          cat > notes.md <<EOF
+          > [!WARNING]
+          > **Development build, not an official release.** Built from ${SOURCE_REF} at commit ${BUILD_SHA}.
+          > It may contain unfinished, untested or unreviewed code: install it on a test device only.
+
+          Download the installer for your computer below and follow [the instructions](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/blob/${BUILD_SHA}/tools/sideload/README.md).
+          This pre-release is replaced on every new build of ${SOURCE_REF}.
+          EOF
+          gh release create "${PUBLISH_TAG}" installers/* \
+            --repo "${GITHUB_REPOSITORY}" \
+            --target "${BUILD_SHA}" \
+            --prerelease --latest=false \
+            --title "Development build: ${SOURCE_REF}" \
+            --notes-file notes.md

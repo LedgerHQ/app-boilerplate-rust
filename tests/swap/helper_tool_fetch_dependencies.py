@@ -6,25 +6,25 @@ GitHub pre-release tagged `test-binaries`. It holds one zip per use case (`<use_
 `build/<device>/bin/app.elf` files of all devices. The zip is extracted where ragger expects it:
 `.test_dependencies/main/<repo>/` for Exchange, `.test_dependencies/libraries/<repo>/` otherwise.
 
-Nothing is built. Python standard library only: it runs on the host or inside the Docker image.
+Nothing is built. It needs Python 3.11 or newer and the standard library only: it runs on the host or
+inside the Docker image.
 For private repositories, set GH_TOKEN (or GITHUB_TOKEN), or log in with `gh auth login`.
 """
 
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
+import tomllib
 import urllib.error
+import urllib.parse
 import urllib.request
 import zipfile
 from io import BytesIO
 from pathlib import Path
-
-try:
-    import tomllib
-except ImportError:  # Python < 3.11
-    import tomli as tomllib
 
 RELEASE_TAG = "test-binaries"
 MAIN_APP_REPO = re.compile(r"^app-exchange(-dev)?$")
@@ -32,6 +32,7 @@ MAIN_APP_REPO = re.compile(r"^app-exchange(-dev)?$")
 APP_DIR = Path(__file__).parent.parent.parent.resolve()
 BASE_DIR = Path(__file__).parent.resolve() / ".test_dependencies"
 COMMIT_FILE = ".test-binaries-commit"
+TIMEOUT_SECONDS = 60
 
 
 def get_token() -> str | None:
@@ -45,12 +46,25 @@ def get_token() -> str | None:
         return None
 
 
+class _DropAuthOnRedirect(urllib.request.HTTPRedirectHandler):
+    """Do not send the GitHub token to another host (release assets are served from a CDN)."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        new = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if new is not None and urllib.parse.urlparse(newurl).netloc != urllib.parse.urlparse(req.full_url).netloc:
+            new.headers.pop("Authorization", None)
+        return new
+
+
+_OPENER = urllib.request.build_opener(_DropAuthOnRedirect)
+
+
 def github(api_path: str, token: str | None, accept: str = "application/vnd.github+json") -> bytes:
     headers = {"Accept": accept}
     if token:
         headers["Authorization"] = f"Bearer {token}"
     request = urllib.request.Request(f"https://api.github.com/{api_path}", headers=headers)
-    with urllib.request.urlopen(request) as response:
+    with _OPENER.open(request, timeout=TIMEOUT_SECONDS) as response:
         return response.read()
 
 
@@ -67,30 +81,37 @@ def read_dependencies() -> list[tuple[str, str]]:
 
 
 def extract(content: bytes, dest: Path) -> None:
-    with zipfile.ZipFile(BytesIO(content)) as archive:
-        for name in archive.namelist():
-            if not (dest / name).resolve().is_relative_to(dest.resolve()):
-                raise ValueError(f"Unsafe path in zip: {name}")
-        archive.extractall(dest)
+    """Extract the zip in a temporary directory, then replace `dest`, so no stale file remains."""
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=dest.parent, prefix=f".{dest.name}-") as tmp:
+        staging = Path(tmp) / "content"
+        with zipfile.ZipFile(BytesIO(content)) as archive:
+            for name in archive.namelist():
+                if not (staging / name).resolve().is_relative_to(staging.resolve()):
+                    raise ValueError(f"Unsafe path in zip: {name}")
+            archive.extractall(staging)
+        if dest.exists():
+            shutil.rmtree(dest)
+        staging.rename(dest)
 
 
 def fetch(repo_slug: str, use_case: str, token: str | None) -> None:
-    repo_name = repo_slug.split("/")[-1]
+    repo_name = repo_slug.rsplit("/", maxsplit=1)[-1]
     dest = BASE_DIR / ("main" if MAIN_APP_REPO.match(repo_name) else "libraries") / repo_name
     asset_name = f"{use_case}.zip"
 
     # The release tag points to the commit the binaries were built from.
     commit = json.loads(github(f"repos/{repo_slug}/git/ref/tags/{RELEASE_TAG}", token))["object"]["sha"]
     release = json.loads(github(f"repos/{repo_slug}/releases/tags/{RELEASE_TAG}", token))
-    fetched = f"{asset_name}@{commit}"
+    asset = next((a for a in release["assets"] if a["name"] == asset_name), None)
+    if asset is None:
+        raise ValueError(f"asset {asset_name} not found in the '{RELEASE_TAG}' release of {repo_slug}")
+    fetched = f"{asset_name}@{commit}@{asset['id']}"
     commit_file = dest / COMMIT_FILE
     if commit_file.exists() and commit_file.read_text() == fetched:
         print(f"{repo_slug}: {asset_name} is up to date ({commit[:8]})")
         return
 
-    asset = next((a for a in release["assets"] if a["name"] == asset_name), None)
-    if asset is None:
-        raise ValueError(f"asset {asset_name} not found in the '{RELEASE_TAG}' release of {repo_slug}")
     print(f"{repo_slug}: downloading {asset_name} ({commit[:8]}) into {dest.relative_to(APP_DIR)}")
     extract(github(f"repos/{repo_slug}/releases/assets/{asset['id']}", token, "application/octet-stream"), dest)
     commit_file.write_text(fetched)
@@ -103,7 +124,11 @@ def main() -> int:
         try:
             fetch(repo_slug, use_case, token)
         except (urllib.error.URLError, ValueError, zipfile.BadZipFile, OSError) as error:
-            hint = " (private repository? set GH_TOKEN or run 'gh auth login')" if isinstance(error, urllib.error.HTTPError) else ""
+            hint = (
+                " (private repository? set GH_TOKEN or run 'gh auth login')"
+                if isinstance(error, urllib.error.HTTPError)
+                else ""
+            )
             print(f"{repo_slug}: failed: {error}{hint}", file=sys.stderr)
             failed = True
     return 1 if failed else 0

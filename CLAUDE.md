@@ -80,6 +80,6 @@ The generic embedded/Rust rules are imported above; the points below are this ap
 
 - `tests/application_client/` — Python `BoilerplateCommandSender` (APDU construction) and response unpacker, shared by both test suites.
 - `tests/standalone/` — pytest suite for normal app launch (dashboard → app).
-- `tests/swap/` — pytest suite for the Exchange-driven swap flow; requires Exchange + Ethereum app binaries built into `tests/swap/.test_dependencies/` via `helper_tool_clone_dependencies.py` (host) then `helper_tool_build_dependencies.py` (Docker).
+- `tests/swap/` — pytest suite for the Exchange-driven swap flow; requires Exchange + Ethereum app binaries downloaded into `tests/swap/.test_dependencies/` with `helper_tool_fetch_dependencies.py`.
 - Tests must construct APDU payloads with named variables and `struct.pack` — no raw hex literals.
 

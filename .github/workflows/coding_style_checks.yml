@@ -6,6 +6,7 @@ name: Run coding style check
 
 permissions:
   contents: read
+  packages: read  # Needed by reusable_lint.yml to pull the app-builder image
 
 on:
   workflow_dispatch:

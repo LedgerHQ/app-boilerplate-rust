@@ -17,6 +17,13 @@ on:
       - develop
   pull_request:
 
+# Must cover every permission reusable_guidelines_enforcer.yml declares.
+permissions:
+  contents: read
+  actions: write        # Needed for upload-artifact
+  pull-requests: write  # Needed for the nested reusable_build.yml call
+  packages: read        # Needed to pull the app-builder image
+
 jobs:
   guidelines_enforcer:
     name: Call Ledger guidelines_enforcer

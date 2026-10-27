@@ -75,6 +75,7 @@ jobs:
       contents: read
       actions: write
       pull-requests: write
+      packages: read  # Needed to pull the app-builder image
     uses: LedgerHQ/ledger-app-workflows/.github/workflows/reusable_build.yml@v1
     with:
       app_branch_name: ${{ needs.context.outputs.build_sha }}

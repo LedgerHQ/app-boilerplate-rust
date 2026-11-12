@@ -45,6 +45,7 @@ pub fn ui_menu_main(_: &mut Comm) -> NbglHomeAndSettings {
     // Display the home screen.
     NbglHomeAndSettings::new()
         .glyph(&FERRIS)
-        .settings(settings.get_mut(), &settings_strings)
+        // SAFETY: the only reference to the settings storage while the home screen is shown.
+        .nvm_settings(unsafe { settings.get_mut() }, &settings_strings)
         .infos(title, env!("CARGO_PKG_VERSION"), env!("CARGO_PKG_AUTHORS"))
 }

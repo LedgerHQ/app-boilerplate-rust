@@ -50,7 +50,7 @@ use ledger_device_sdk::{
         string::uint256_to_float,
         swap::{
             self, CheckAddressParams, CreateTxParams, PrintableAmountParams, SwapError,
-            SwapErrorCommonCode,
+            SwapErrorCommonCode, DEFAULT_COIN_CONFIG_BUF_SIZE,
         },
         SwapAppErrorCodeTrait,
     },
@@ -60,6 +60,11 @@ use ledger_device_sdk::{
 use crate::handlers::sign_tx::Tx;
 use crate::utils::get_address_hash_from_pubkey;
 use alloc::{format, string::ToString};
+
+/// Longest amount string the SDK forwards to the Exchange app (`MAX_PRINTABLE_AMOUNT_SIZE - 2`
+/// in the C SDK).
+const MAX_PRINTABLE_AMOUNT_LEN: usize = 48;
+type PrintableAmount = ArrayString<MAX_PRINTABLE_AMOUNT_LEN>;
 
 /// Application-specific swap error codes.
 ///
@@ -259,10 +264,10 @@ pub fn swap_main(arg0: u32) {
             log::debug!("Received SwapGetPrintableAmount command\n");
             let mut params = swap::get_printable_amount_params(arg0);
             let amount_str = get_printable_amount(&params);
-            // Return to Exchange, forwarding the result
+            // Return to Exchange, forwarding the result. An empty string reports the failure.
             swap::swap_return(swap::SwapResult::PrintableAmountResult(
                 &mut params,
-                amount_str.as_str(),
+                amount_str.as_ref().map_or("", PrintableAmount::as_str),
             ));
         }
         libcall::LibCallCommand::SwapSignTransaction => {
@@ -379,6 +384,54 @@ fn check_address(params: &CheckAddressParams) -> i32 {
 // --8<-- [end:check_address]
 
 // --8<-- [start:get_printable_amount]
+/// Ticker of the coin handled natively by this app.
+const NATIVE_TICKER: &str = "CRAB";
+/// Decimals of the coin handled natively by this app.
+const NATIVE_DECIMALS: u8 = 9;
+/// Bound on asset decimals, well within what the 79-byte output of `uint256_to_float` allows.
+const MAX_DECIMALS: u8 = 30;
+
+/// Asset a swap operates on, as described by the Exchange coin configuration.
+pub struct SwapAsset {
+    /// Ticker displayed next to amounts and expected in the signed transaction.
+    pub ticker: ArrayString<DEFAULT_COIN_CONFIG_BUF_SIZE>,
+    /// Number of decimals of the asset's base unit.
+    pub decimals: u8,
+}
+
+/// Parses the coin configuration that the Exchange app forwards from its trusted currency
+/// configuration.
+///
+/// An empty configuration designates the native coin. Otherwise the layout is
+/// `[ticker_len: u8][ticker][decimals: u8]`, which must fill the configuration exactly.
+///
+/// Returns `None` for any malformed or unsupported configuration: an asset that cannot be
+/// identified must never be displayed or signed under assumed metadata.
+///
+/// Does not allocate, as it runs while the Exchange app shares BSS memory.
+pub fn parse_coin_config(config: &[u8]) -> Option<SwapAsset> {
+    if config.is_empty() {
+        return Some(SwapAsset {
+            ticker: ArrayString::from(NATIVE_TICKER).ok()?,
+            decimals: NATIVE_DECIMALS,
+        });
+    }
+
+    let (&ticker_len, rest) = config.split_first()?;
+    let (ticker, decimals) = rest.split_at_checked(usize::from(ticker_len))?;
+    let &[decimals] = decimals else {
+        return None;
+    };
+    if ticker.is_empty() || !ticker.iter().all(u8::is_ascii_graphic) || decimals > MAX_DECIMALS {
+        return None;
+    }
+
+    Some(SwapAsset {
+        ticker: ArrayString::from(core::str::from_utf8(ticker).ok()?).ok()?,
+        decimals,
+    })
+}
+
 /// Format an amount for display in the Exchange app UI.
 ///
 /// The Exchange app calls this to get human-readable strings for amounts and fees.
@@ -392,30 +445,21 @@ fn check_address(params: &CheckAddressParams) -> i32 {
 /// - Actual length is in `params.amount_len`
 /// - Padded to 32 bytes (uint256) for SDK formatting helpers
 ///
-/// # Arguments
-///
-/// * `params` - Contains:
-///   - `amount`: Big-endian encoded amount bytes (right-aligned in 16-byte buffer)
-///   - `amount_len`: Actual number of significant bytes
-///   - `coin_config`: Coin configuration (unused - hardcoded to CRAB in this template)
-///   - `is_fee`: Whether this is a fee amount
+/// The ticker and decimals come from `params.coin_config` (see [`parse_coin_config`]).
 ///
 /// # Returns
 ///
-/// Stack-allocated string formatted as "CRAB {value}" (e.g., "CRAB 1.5")
+/// Stack-allocated string formatted as "{ticker} {value}" (e.g., "CRAB 1.5"), or `None` if the
+/// coin configuration is not supported or the result does not fit the Exchange buffer. The
+/// caller reports `None` to the Exchange app as a failure.
 ///
 /// # Memory Safety
 ///
 /// Uses `ArrayString` (stack-allocated) to avoid heap allocation, as this function
 /// runs under BSS memory restrictions.
-///
-/// # Production Notes
-///
-/// For a production app, you should:
-/// - Parse `coin_config` to extract ticker and decimals dynamically
-/// - Handle different coin types
-/// - Support both u64 and u128 amounts
-fn get_printable_amount(params: &PrintableAmountParams) -> ArrayString<40> {
+fn get_printable_amount(params: &PrintableAmountParams) -> Option<PrintableAmount> {
+    let asset = parse_coin_config(&params.coin_config[..params.coin_config_len])?;
+
     // Convert amount from 16-byte buffer to 32-byte buffer (uint256 format)
     // The amount is right-aligned in params.amount, we need to copy it to a
     // 32-byte buffer that's also right-aligned (big-endian)
@@ -427,20 +471,13 @@ fn get_printable_amount(params: &PrintableAmountParams) -> ArrayString<40> {
     log::debug!("Amount bytes (u256): ");
     debug_hex("", &amount_u256);
 
-    // CRAB uses 9 decimals (similar to SUI, which also uses 9 decimals)
-    // For production: parse decimals from params.coin_config
-    const CRAB_DECIMALS: usize = 9;
-    const CRAB_TICKER: &str = "CRAB";
+    let amount_str = uint256_to_float(&amount_u256, usize::from(asset.decimals));
 
-    // Use SDK helper to format amount with decimals
-    let amount_str = uint256_to_float(&amount_u256, CRAB_DECIMALS);
-
-    // Format as "CRAB {value}" using stack-allocated ArrayString
-    let mut printable = ArrayString::<40>::new();
-    let _ = write!(&mut printable, "{} {}", CRAB_TICKER, amount_str.as_str());
+    let mut printable = PrintableAmount::new();
+    write!(&mut printable, "{} {}", asset.ticker, amount_str.as_str()).ok()?;
 
     log::debug!("Formatted amount: {}", printable.as_str());
 
-    printable
+    Some(printable)
 }
 // --8<-- [end:get_printable_amount]

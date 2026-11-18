@@ -120,6 +120,8 @@ pub enum SwapAppErrorCode {
     /// Other error codes, don't hesitate to add your own for more granularity.
     AmountCastFail = 0x01,
     DestinationDecodeFail = 0x02,
+    CoinConfigFail = 0x03,
+    ExtraIdMismatch = 0x04,
 }
 
 impl SwapAppErrorCodeTrait for SwapAppErrorCode {
@@ -132,37 +134,47 @@ impl SwapAppErrorCodeTrait for SwapAppErrorCode {
 //  --8<-- [start:check_swap_params]
 /// This function performs a strict validation of the transaction to be signed
 /// against the reference transaction parameters provided by the Exchange app.
+/// The UI is bypassed in swap mode, so every field of the signed transaction must be checked here.
 /// It checks that:
-/// 1. The transaction type matches the expected one (Only one type of Tx implemented so auto true).
+/// 1. The transaction asset matches the coin configuration of the swap.
 /// 2. The transaction amount matches the swap amount exactly.
-/// 3. The transaction fees matches the swap fees exactly. (fees are not implemented so auto true).
+/// 3. The swap fees are zero, as transactions of this app carry no fee field.
 /// 4. The destination address matches the swap destination address exactly.
+/// 5. The memo matches the swap destination extra ID exactly.
+///
+/// The nonce is the only field left unchecked: it orders the account's transactions and does not
+/// affect what is transferred.
 ///
 /// # Errors
 ///
 /// Returns error if:
-/// - Amount parsing fails (AmountCastFail)
+/// - Coin configuration is malformed or unsupported (ErrorWrongMethod / CoinConfigFail)
+/// - Asset doesn't match the coin configuration (ErrorWrongMethod)
+/// - Amount does not fit in a u64 (AmountCastFail)
 /// - Amount doesn't match between tx and swap params (ErrorWrongAmount)
+/// - Fees are not zero (ErrorWrongFees)
 /// - Destination address has invalid UTF-8 (DestinationDecodeFail)
 /// - Destination address hex decode fails (DestinationDecodeFail)
 /// - Destination address doesn't match (ErrorWrongDestination)
+/// - Memo doesn't match the destination extra ID (ErrorWrongDestination / ExtraIdMismatch)
 pub fn check_swap_params(
     params: &CreateTxParams,
     tx: &Tx,
 ) -> Result<(), SwapError<SwapAppErrorCode>> {
     log::debug!("Swap mode detected\n");
 
+    check_swap_asset(params, tx)?;
+
     // Validate amount
-    // Parse amount (u64 from big-endian bytes, right aligned in 16-byte buffer)
-    // Amount is stored in AMOUNT_BUF_SIZE (16 bytes) buffer, right-aligned big-endian
-    let start = params.amount.len() - 8;
-    let amount_bytes: [u8; 8] = params.amount[start..].try_into().map_err(|_| {
+    // The amount is right-aligned big-endian in a 16-byte buffer. Transaction values are u64, so
+    // any amount that does not fit in a u64 cannot match and is rejected rather than truncated.
+    let swap_amount = u128::from_be_bytes(params.amount);
+    let swap_amount = u64::try_from(swap_amount).map_err(|_| {
         SwapError::without_message(
             SwapErrorCommonCode::ErrorWrongAmount,
             SwapAppErrorCode::AmountCastFail,
         )
     })?;
-    let swap_amount = u64::from_be_bytes(amount_bytes);
 
     //  --8<-- [start:SwapError_example]
     if tx.value != swap_amount {
@@ -213,7 +225,64 @@ pub fn check_swap_params(
         ));
     }
 
+    check_swap_fees(params)?;
+    check_swap_extra_id(params, tx)?;
+
     log::debug!("Swap validation success, bypassing UI");
+    Ok(())
+}
+
+/// Checks that the transaction transfers the asset described by the swap coin configuration.
+fn check_swap_asset(params: &CreateTxParams, tx: &Tx) -> Result<(), SwapError<SwapAppErrorCode>> {
+    let asset =
+        parse_coin_config(&params.coin_config[..params.coin_config_len]).ok_or_else(|| {
+            SwapError::without_message(
+                SwapErrorCommonCode::ErrorWrongMethod,
+                SwapAppErrorCode::CoinConfigFail,
+            )
+        })?;
+    if tx.coin != asset.ticker.as_str() {
+        log::error!("Swap asset mismatch");
+        return Err(SwapError::with_message(
+            SwapErrorCommonCode::ErrorWrongMethod,
+            SwapAppErrorCode::Default,
+            format!("Asset tx {} != swap {}", tx.coin, asset.ticker),
+        ));
+    }
+    Ok(())
+}
+
+/// Checks that the swap carries no fees.
+///
+/// Transactions of this app have no fee field, so any non-zero fee approved in the Exchange app
+/// could not be matched against the signed transaction. An app whose transactions carry fees must
+/// compare them with `params.fee_amount` instead.
+fn check_swap_fees(params: &CreateTxParams) -> Result<(), SwapError<SwapAppErrorCode>> {
+    if params.fee_amount.iter().any(|&b| b != 0) {
+        log::error!("Swap fees not supported");
+        return Err(SwapError::with_message(
+            SwapErrorCommonCode::ErrorWrongFees,
+            SwapAppErrorCode::Default,
+            "Fees are not supported".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+/// Checks that the transaction memo is exactly the destination extra ID of the swap.
+fn check_swap_extra_id(
+    params: &CreateTxParams,
+    tx: &Tx,
+) -> Result<(), SwapError<SwapAppErrorCode>> {
+    let extra_id = &params.dest_address_extra_id[..params.dest_address_extra_id_len];
+    if tx.memo.as_bytes() != extra_id {
+        log::error!("Swap memo mismatch");
+        return Err(SwapError::with_message(
+            SwapErrorCommonCode::ErrorWrongDestination,
+            SwapAppErrorCode::ExtraIdMismatch,
+            format!("Memo tx {} != swap extra ID", tx.memo),
+        ));
+    }
     Ok(())
 }
 //  --8<-- [end:check_swap_params]

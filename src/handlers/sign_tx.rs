@@ -199,13 +199,24 @@ fn continue_flow<'a>(
     // --8<-- [end:ui_bypass]
 }
 
-/// Parses the accumulated transaction, requiring that every signed byte was consumed.
+/// Parses the accumulated transaction, requiring that every signed byte was consumed and that
+/// every text field can be displayed.
 fn parse_tx(raw_tx: &[u8]) -> Result<Tx<'_>, AppSW> {
     let (tx, consumed): (Tx, usize) = from_slice(raw_tx).map_err(|_| AppSW::TxParsingFail)?;
     if consumed != raw_tx.len() {
         return Err(AppSW::TxParsingFail);
     }
+    if tx.coin.is_empty() || !is_displayable(tx.coin) || !is_displayable(tx.memo) {
+        return Err(AppSW::TxParsingFail);
+    }
     Ok(tx)
+}
+
+/// Text shown for review is restricted to printable ASCII: control characters (NUL included) and
+/// non-ASCII characters cannot be rendered faithfully, and a NUL would make the SDK panic when it
+/// builds the C strings of the review.
+fn is_displayable(text: &str) -> bool {
+    text.bytes().all(|b| b == b' ' || b.is_ascii_graphic())
 }
 
 fn compute_signature_and_append<'a>(

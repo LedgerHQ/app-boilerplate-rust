@@ -117,3 +117,31 @@ def test_sign_tx_trailing_data(backend):
     with pytest.raises(ExceptionRAPDU) as e:
         client.sign_tx_sync(path=BOL_PATH, transaction=transaction + trailing_data)
     assert e.value.status == Errors.SW_TX_PARSING_FAIL
+
+
+# Text fields are restricted to printable ASCII, as anything else cannot be displayed faithfully
+@pytest.mark.parametrize("field", ["coin", "memo"])
+@pytest.mark.parametrize(
+    "raw_text",
+    [b"\x00", b"\n", "\u00e9".encode()],
+    ids=["nul", "line_feed", "non_ascii"],
+)
+def test_sign_tx_undisplayable_text(backend, field, raw_text):
+    client = BoilerplateCommandSender(backend)
+    placeholder = "PLACEHOLDER"
+    fields = {"nonce": 1, "coin": "CRAB", "value": 777, "to": DESTINATION, "memo": "memo"}
+    fields[field] = placeholder
+    # JSON serialization would escape these characters, so they are inserted raw afterwards
+    transaction = Transaction(**fields).serialize().replace(placeholder.encode(), raw_text)
+    with pytest.raises(ExceptionRAPDU) as e:
+        client.sign_tx_sync(path=BOL_PATH, transaction=transaction)
+    assert e.value.status == Errors.SW_TX_PARSING_FAIL
+
+
+# The coin is the unit of the displayed amount and cannot be empty
+def test_sign_tx_empty_coin(backend):
+    client = BoilerplateCommandSender(backend)
+    transaction = Transaction(nonce=1, coin="", value=777, to=DESTINATION, memo="memo").serialize()
+    with pytest.raises(ExceptionRAPDU) as e:
+        client.sign_tx_sync(path=BOL_PATH, transaction=transaction)
+    assert e.value.status == Errors.SW_TX_PARSING_FAIL

@@ -39,9 +39,10 @@ Boilerplate Ledger hardware-wallet application written in Rust, targeting Nano X
 
 `SignTx` uses chunked transmission tracked in `TxContext` (`src/handlers/sign_tx.rs`):
 
-- `P1=0, P2=0x80` — chunk 0 carries the BIP32 path only and resets the context.
+- `P1=0, P2=0x80` — chunk 0 carries the BIP32 path only and starts a new flow, discarding any previous one.
 - `P1=1..=3, P2=0x80` — intermediate chunks appended to `raw_tx`.
 - `P1=1..=3, P2=0x00` — final chunk; triggers parse (`serde_json_core::from_slice` into `Tx`), UI review, and signing.
+- Chunks must be strictly consecutive after chunk 0; anything else returns `AppSW::BadState` (`0xB007`). The flow state (path, `raw_tx`) is cleared after every final chunk and every error.
 - `MAX_TRANSACTION_LEN = 510` is enforced on the accumulator; exceeding it returns `AppSW::TxWrongLength`.
 
 Hash = Keccak256 of `raw_tx`; signature = secp256k1 deterministic, returned as `[siglen][DER signature][parity]`.

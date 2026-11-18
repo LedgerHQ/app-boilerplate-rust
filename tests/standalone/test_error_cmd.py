@@ -1,6 +1,13 @@
+import struct
+
 import pytest
 from application_client.boilerplate_command_sender import CLA, P1, P2, Errors, InsType
+from application_client.boilerplate_currency_utils import BOL_PATH
+from application_client.boilerplate_transaction import Transaction
+from ragger.bip import pack_derivation_path
 from ragger.error import ExceptionRAPDU
+
+DESTINATION = "de0b295669a9fd93d5f28d9ec85e40f4cb697bae"
 
 
 # Ensure the app returns an error when a bad CLA is used
@@ -45,12 +52,47 @@ def test_wrong_data_length(backend):
     assert e.value.status == Errors.SW_WRONG_APDU_LENGTH
 
 
-# Ensure there is no state confusion when trying wrong APDU sequences
-# def test_invalid_state(backend):
-#     with pytest.raises(ExceptionRAPDU) as e:
-#         backend.exchange(cla=CLA,
-#                          ins=InsType.SIGN_TX,
-#                          p1=P1.P1_START + 1,  # Try to continue a flow instead of start a new one
-#                          p2=P2.P2_MORE,
-#                          data=b"abcde")  # data is not parsed in this case
-#     assert e.value.status == Errors.SW_BAD_STATE
+# The SIGN_TX flow must start with the path chunk before any transaction chunk
+def test_sign_tx_continuation_without_start(backend):
+    transaction = Transaction(nonce=1, coin="CRAB", value=777, to=DESTINATION, memo="memo").serialize()
+    with pytest.raises(ExceptionRAPDU) as e:
+        backend.exchange(cla=CLA, ins=InsType.SIGN_TX, p1=P1.P1_START + 1, p2=P2.P2_LAST, data=transaction)
+    assert e.value.status == Errors.SW_BAD_STATE
+
+
+# SIGN_TX chunks must be strictly consecutive
+def test_sign_tx_skipped_chunk(backend):
+    transaction = Transaction(nonce=1, coin="CRAB", value=777, to=DESTINATION, memo="memo").serialize()
+    backend.exchange(cla=CLA, ins=InsType.SIGN_TX, p1=P1.P1_START, p2=P2.P2_MORE, data=pack_derivation_path(BOL_PATH))
+    with pytest.raises(ExceptionRAPDU) as e:
+        backend.exchange(cla=CLA, ins=InsType.SIGN_TX, p1=P1.P1_START + 2, p2=P2.P2_LAST, data=transaction)
+    assert e.value.status == Errors.SW_BAD_STATE
+    # The rejected sequence must also have discarded the flow
+    with pytest.raises(ExceptionRAPDU) as e:
+        backend.exchange(cla=CLA, ins=InsType.SIGN_TX, p1=P1.P1_START + 1, p2=P2.P2_LAST, data=transaction)
+    assert e.value.status == Errors.SW_BAD_STATE
+
+
+# A flow that failed on its final chunk cannot be resumed
+def test_sign_tx_no_resume_after_error(backend):
+    invalid_transaction = b"not a transaction"
+    backend.exchange(cla=CLA, ins=InsType.SIGN_TX, p1=P1.P1_START, p2=P2.P2_MORE, data=pack_derivation_path(BOL_PATH))
+    with pytest.raises(ExceptionRAPDU) as e:
+        backend.exchange(cla=CLA, ins=InsType.SIGN_TX, p1=P1.P1_START + 1, p2=P2.P2_LAST, data=invalid_transaction)
+    assert e.value.status == Errors.SW_TX_PARSING_FAIL
+    with pytest.raises(ExceptionRAPDU) as e:
+        backend.exchange(cla=CLA, ins=InsType.SIGN_TX, p1=P1.P1_START + 1, p2=P2.P2_LAST, data=invalid_transaction)
+    assert e.value.status == Errors.SW_BAD_STATE
+
+
+# A path chunk that fails to parse does not start a flow
+def test_sign_tx_no_flow_after_invalid_path(backend):
+    path_length = 5
+    truncated_path = struct.pack(">BI", path_length, 0x8000002C)
+    transaction = Transaction(nonce=1, coin="CRAB", value=777, to=DESTINATION, memo="memo").serialize()
+    with pytest.raises(ExceptionRAPDU) as e:
+        backend.exchange(cla=CLA, ins=InsType.SIGN_TX, p1=P1.P1_START, p2=P2.P2_MORE, data=truncated_path)
+    assert e.value.status == Errors.SW_WRONG_APDU_LENGTH
+    with pytest.raises(ExceptionRAPDU) as e:
+        backend.exchange(cla=CLA, ins=InsType.SIGN_TX, p1=P1.P1_START + 1, p2=P2.P2_LAST, data=transaction)
+    assert e.value.status == Errors.SW_BAD_STATE

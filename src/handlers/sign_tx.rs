@@ -16,7 +16,7 @@
  *****************************************************************************/
 use crate::app_ui::sign::ui_display_tx;
 use crate::utils::Bip32Path;
-use crate::AppSW;
+use crate::{AppSW, P1_SIGN_TX_START};
 use alloc::vec::Vec;
 use ledger_device_sdk::ecc::{Secp256k1, SeedDerive};
 use ledger_device_sdk::hash::{sha3::Keccak256, HashInit};
@@ -46,6 +46,8 @@ pub struct Tx<'a> {
 pub struct TxContext<'a> {
     raw_tx: Vec<u8>,
     path: Bip32Path,
+    /// Chunk number expected next, `None` when no flow was started by a path chunk.
+    next_chunk: Option<u8>,
     review_finished: bool,
     pub home: NbglHomeAndSettings,
     /// Swap parameters if running in swap mode.
@@ -60,6 +62,7 @@ impl<'a> TxContext<'a> {
         TxContext {
             raw_tx: Vec::new(),
             path: Default::default(),
+            next_chunk: None,
             review_finished: false,
             home: Default::default(),
             swap_params: None,
@@ -70,6 +73,7 @@ impl<'a> TxContext<'a> {
         TxContext {
             raw_tx: Vec::new(),
             path: Default::default(),
+            next_chunk: None,
             review_finished: false,
             home: Default::default(),
             swap_params: Some(params),
@@ -81,17 +85,23 @@ impl<'a> TxContext<'a> {
     pub fn finished(&self) -> bool {
         self.review_finished
     }
-    // Implement reset for TxInfo
-    fn reset(&mut self) {
+    /// Drops the transaction flow state so that no later chunk can reuse it.
+    ///
+    /// `review_finished` is kept: the main loop reads it after the handler returns.
+    fn clear_flow(&mut self) {
         self.raw_tx.clear();
         self.path = Default::default();
-        self.review_finished = false;
+        self.next_chunk = None;
     }
 }
 
 /// Handler for the Sign Transaction APDU.
 ///
 /// Receives transaction chunks, parses them, and signs the transaction.
+///
+/// A flow starts with the path chunk (`P1=0`) and continues with strictly consecutive chunk
+/// numbers. Any other sequence is rejected with [`AppSW::BadState`], and the flow state is
+/// cleared after every final chunk and every error so that no stale path or data can be signed.
 ///
 /// # Swap Mode
 ///
@@ -106,72 +116,82 @@ pub fn handler_sign_tx<'a>(
     ctx: &mut TxContext,
 ) -> Result<CommandResponse<'a>, AppSW> {
     log::debug!("=> handler_sign_tx");
-    // Try to get data from command
-    let data = command.get_data();
-    // First chunk, try to parse the path
-    if chunk == 0 {
-        log::debug!("Chunk 0: Path parsing");
-        // Reset transaction context
-        ctx.reset();
-        // This will propagate the error if the path is invalid
-        ctx.path = data.try_into()?;
-        Ok(command.into_response())
-    // Next chunks, append data to raw_tx and return or parse
-    // the transaction if it is the last chunk.
+    if chunk == P1_SIGN_TX_START {
+        return start_flow(command, ctx);
+    }
+
+    if ctx.next_chunk != Some(chunk) {
+        log::error!("Unexpected SIGN_TX chunk");
+        ctx.clear_flow();
+        return Err(AppSW::BadState);
+    }
+
+    let result = continue_flow(command, more, ctx);
+    if result.is_err() || !more {
+        ctx.clear_flow();
     } else {
-        if ctx.raw_tx.len() + data.len() > MAX_TRANSACTION_LEN {
-            return Err(AppSW::TxWrongLength);
-        }
+        ctx.next_chunk = chunk.checked_add(1);
+    }
+    result
+}
 
-        // Append data to raw_tx
-        ctx.raw_tx.extend(data);
+/// Starts a new flow from the chunk carrying the BIP32 path, discarding any previous one.
+fn start_flow<'a>(command: Command<'a>, ctx: &mut TxContext) -> Result<CommandResponse<'a>, AppSW> {
+    log::debug!("Chunk 0: Path parsing");
+    ctx.clear_flow();
+    ctx.review_finished = false;
+    ctx.path = command.get_data().try_into()?;
+    ctx.next_chunk = Some(P1_SIGN_TX_START + 1);
+    Ok(command.into_response())
+}
 
-        // If we expect more chunks, return
-        if more {
-            ctx.review_finished = false;
-            Ok(command.into_response())
-        // Otherwise, try to parse the transaction
+/// Appends a transaction chunk and, on the last one, parses, reviews and signs the transaction.
+fn continue_flow<'a>(
+    command: Command<'a>,
+    more: bool,
+    ctx: &mut TxContext,
+) -> Result<CommandResponse<'a>, AppSW> {
+    let data = command.get_data();
+    if ctx.raw_tx.len() + data.len() > MAX_TRANSACTION_LEN {
+        return Err(AppSW::TxWrongLength);
+    }
+    ctx.raw_tx.extend(data);
+
+    if more {
+        return Ok(command.into_response());
+    }
+
+    // --8<-- [start:ui_bypass]
+    log::debug!("Last chunk received, parsing tx");
+    let (tx, _): (Tx, usize) = from_slice(&ctx.raw_tx).map_err(|_| AppSW::TxParsingFail)?;
+    log::debug!("Tx parsed successfully");
+
+    if let Some(params) = ctx.swap_params {
+        ctx.review_finished = true;
+        // --8<-- [start:SwapError_usage]
+        if let Err(error) = crate::swap::check_swap_params(params, &tx) {
+            // The swap validation failed and returned us the common format error defined by the SDK
+            // Use SDK method to append error code and message in standard format
+            let mut response = command.into_response();
+            error.append_to_response(&mut response)?;
+            Err(AppSW::SwapFail)
         } else {
-            // --8<-- [start:ui_bypass]
-            log::debug!("Last chunk received, parsing tx");
-            // Try to deserialize the transaction
-            let (tx, _): (Tx, usize) = from_slice(&ctx.raw_tx).map_err(|_| AppSW::TxParsingFail)?;
-            log::debug!("Tx parsed successfully");
-
-            // Check if in swap mode
-            if let Some(params) = ctx.swap_params {
-                ctx.review_finished = true;
-                // --8<-- [start:SwapError_usage]
-                if let Err(error) = crate::swap::check_swap_params(params, &tx) {
-                    // The swap validation failed and returned us the common format error defined by the SDK
-                    // Use SDK method to append error code and message in standard format
-                    let mut response = command.into_response();
-                    error.append_to_response(&mut response)?;
-                    Err(AppSW::SwapFail)
-                } else {
-                    log::debug!("Swap validation success, bypassing UI");
-                    compute_signature_and_append(command.into_response(), ctx)
-                }
-                // --8<-- [end:SwapError_usage]
-            } else {
-                log::debug!("Normal mode, showing UI");
-                // Display transaction. If user approves
-                // the transaction, sign it. Otherwise,
-                // return a "deny" status word.
-
-                let comm = command.into_comm();
-
-                if ui_display_tx(comm, &tx)? {
-                    ctx.review_finished = true;
-                    compute_signature_and_append(comm.begin_response(), ctx)
-                } else {
-                    ctx.review_finished = true;
-                    Err(AppSW::Deny)
-                }
-            }
-            // --8<-- [end:ui_bypass]
+            log::debug!("Swap validation success, bypassing UI");
+            compute_signature_and_append(command.into_response(), ctx)
+        }
+        // --8<-- [end:SwapError_usage]
+    } else {
+        log::debug!("Normal mode, showing UI");
+        let comm = command.into_comm();
+        let approved = ui_display_tx(comm, &tx)?;
+        ctx.review_finished = true;
+        if approved {
+            compute_signature_and_append(comm.begin_response(), ctx)
+        } else {
+            Err(AppSW::Deny)
         }
     }
+    // --8<-- [end:ui_bypass]
 }
 
 fn compute_signature_and_append<'a>(

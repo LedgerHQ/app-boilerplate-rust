@@ -1,7 +1,11 @@
 import pytest
 from application_client.boilerplate_command_sender import (
+    CLA,
+    P1,
+    P2,
     BoilerplateCommandSender,
     Errors,
+    InsType,
 )
 from application_client.boilerplate_response_unpacker import (
     unpack_get_public_key_response,
@@ -177,3 +181,9 @@ def test_sign_tx_refused(backend, scenario_navigator):
     # Assert that we have received a refusal
     assert e.value.status == Errors.SW_DENY
     assert len(e.value.data) == 0
+
+    # The finished flow cannot be replayed without a new path chunk
+    backend.wait_for_home_screen()
+    with pytest.raises(ExceptionRAPDU) as e:
+        backend.exchange(cla=CLA, ins=InsType.SIGN_TX, p1=P1.P1_START + 1, p2=P2.P2_LAST, data=transaction)
+    assert e.value.status == Errors.SW_BAD_STATE

@@ -1,7 +1,8 @@
+import json
 import struct
 
 import pytest
-from application_client.boilerplate_command_sender import CLA, P1, P2, Errors, InsType
+from application_client.boilerplate_command_sender import CLA, P1, P2, BoilerplateCommandSender, Errors, InsType
 from application_client.boilerplate_currency_utils import BOL_PATH
 from application_client.boilerplate_transaction import Transaction
 from ragger.bip import pack_derivation_path
@@ -96,3 +97,23 @@ def test_sign_tx_no_flow_after_invalid_path(backend):
     with pytest.raises(ExceptionRAPDU) as e:
         backend.exchange(cla=CLA, ins=InsType.SIGN_TX, p1=P1.P1_START + 1, p2=P2.P2_LAST, data=transaction)
     assert e.value.status == Errors.SW_BAD_STATE
+
+
+# Fields that are not part of the reviewed transaction are rejected, as they would be signed unseen
+def test_sign_tx_unknown_field(backend):
+    client = BoilerplateCommandSender(backend)
+    transaction = json.loads(Transaction(nonce=1, coin="CRAB", value=777, to=DESTINATION, memo="memo").serialize())
+    transaction["fee"] = 1000
+    with pytest.raises(ExceptionRAPDU) as e:
+        client.sign_tx_sync(path=BOL_PATH, transaction=json.dumps(transaction).encode())
+    assert e.value.status == Errors.SW_TX_PARSING_FAIL
+
+
+# Data trailing the transaction object is rejected
+def test_sign_tx_trailing_data(backend):
+    client = BoilerplateCommandSender(backend)
+    transaction = Transaction(nonce=1, coin="CRAB", value=777, to=DESTINATION, memo="memo").serialize()
+    trailing_data = b'{"to": "00"}'
+    with pytest.raises(ExceptionRAPDU) as e:
+        client.sign_tx_sync(path=BOL_PATH, transaction=transaction + trailing_data)
+    assert e.value.status == Errors.SW_TX_PARSING_FAIL

@@ -31,7 +31,12 @@ const MAX_TRANSACTION_LEN: usize = 510;
 
 use ledger_device_sdk::libcall::swap::CreateTxParams;
 
+/// Transaction to sign.
+///
+/// The whole serialized transaction is signed, so parsing must reject anything the review does
+/// not cover: unknown fields are denied rather than silently ignored.
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Tx<'a> {
     #[allow(dead_code)]
     nonce: u64,
@@ -163,7 +168,7 @@ fn continue_flow<'a>(
 
     // --8<-- [start:ui_bypass]
     log::debug!("Last chunk received, parsing tx");
-    let (tx, _): (Tx, usize) = from_slice(&ctx.raw_tx).map_err(|_| AppSW::TxParsingFail)?;
+    let tx = parse_tx(&ctx.raw_tx)?;
     log::debug!("Tx parsed successfully");
 
     if let Some(params) = ctx.swap_params {
@@ -192,6 +197,15 @@ fn continue_flow<'a>(
         }
     }
     // --8<-- [end:ui_bypass]
+}
+
+/// Parses the accumulated transaction, requiring that every signed byte was consumed.
+fn parse_tx(raw_tx: &[u8]) -> Result<Tx<'_>, AppSW> {
+    let (tx, consumed): (Tx, usize) = from_slice(raw_tx).map_err(|_| AppSW::TxParsingFail)?;
+    if consumed != raw_tx.len() {
+        return Err(AppSW::TxParsingFail);
+    }
+    Ok(tx)
 }
 
 fn compute_signature_and_append<'a>(

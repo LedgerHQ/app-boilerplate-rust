@@ -31,7 +31,8 @@ pub fn ui_menu_main(_: &mut Comm) -> NbglHomeAndSettings {
     const FERRIS: NbglGlyph =
         NbglGlyph::from_include(include_gif!("glyphs/home_nano_nbgl.png", NBGL));
 
-    let settings_strings = [["Display Memo", "Allow display of transaction memo."]];
+    // Ordered by setting index: entry SETTING_SHOW_PATH comes first.
+    let settings_strings = [["Derivation path", "Show it in transaction reviews."]];
     let mut settings: Settings = Default::default();
 
     let title = if cfg!(feature = "variant_testnet") {

@@ -65,7 +65,7 @@ All supported devices use the New Bolos Graphics Library:
 
 ### Settings (NVM)
 
-`src/settings.rs` keeps a 10-byte `AtomicStorage` in the `.nvm_data` link section. Updates go through `AtomicStorage::update()` to survive power loss. Settings are intended to be wired into `NbglHomeAndSettings`' settings switch UI.
+`src/settings.rs` keeps a 10-byte `AtomicStorage` in the `.nvm_data` link section. Updates go through `AtomicStorage::update()` to survive power loss. Settings are wired into `NbglHomeAndSettings`' settings switch UI (`src/app_ui/menu.rs`). The only switch, `SETTING_SHOW_PATH`, adds the derivation path to the transaction review. A setting may only add information to a review: every signed field is always displayed.
 
 ## App-specific embedded notes (when editing Rust code)
 

@@ -1,6 +1,11 @@
 use ledger_device_sdk::nvm::*;
 
 const SETTINGS_SIZE: usize = 10;
+
+/// Index of the switch adding the derivation path to the transaction review.
+///
+/// A setting may only add information to a review: every signed field is always displayed.
+pub const SETTING_SHOW_PATH: usize = 0;
 ledger_device_sdk::nvm_data! {
     static mut DATA: AtomicStorage<[u8; SETTINGS_SIZE]> = AtomicStorage::new(&[0u8; SETTINGS_SIZE]);
 }

@@ -188,7 +188,7 @@ fn continue_flow<'a>(
     } else {
         log::debug!("Normal mode, showing UI");
         let comm = command.into_comm();
-        let approved = ui_display_tx(comm, &tx)?;
+        let approved = ui_display_tx(comm, &tx, &ctx.path)?;
         ctx.review_finished = true;
         if approved {
             compute_signature_and_append(comm.begin_response(), ctx)

@@ -17,6 +17,22 @@ impl AsRef<[u32]> for Bip32Path {
     }
 }
 
+/// Formats the path in the usual `m/44'/1'/0'/0/0` notation, hardened components marked with `'`.
+impl core::fmt::Display for Bip32Path {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        const HARDENED: u32 = 0x8000_0000;
+        f.write_str("m")?;
+        for &component in &self.0 {
+            if component & HARDENED != 0 {
+                write!(f, "/{}'", component & !HARDENED)?;
+            } else {
+                write!(f, "/{}", component)?;
+            }
+        }
+        Ok(())
+    }
+}
+
 impl TryFrom<&[u8]> for Bip32Path {
     type Error = AppSW;
 

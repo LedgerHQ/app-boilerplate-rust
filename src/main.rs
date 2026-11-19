@@ -215,7 +215,10 @@ pub fn normal_main(swap_params: Option<&CreateTxParams>) -> bool {
     loop {
         let command = comm.next_command();
         let decoded = command.decode::<Instruction>();
+        // Any rejected command ends a pending SIGN_TX flow, so that no later chunk can be signed
+        // with the path or data sent before the error.
         let Ok(ins) = decoded else {
+            tx_ctx.clear_flow();
             let _ = comm.send(&[], decoded.unwrap_err());
             continue;
         };
@@ -226,6 +229,7 @@ pub fn normal_main(swap_params: Option<&CreateTxParams>) -> bool {
                 AppSW::Ok
             }
             Err(sw) => {
+                tx_ctx.clear_flow();
                 let _ = comm.send(&[], sw);
                 sw
             }

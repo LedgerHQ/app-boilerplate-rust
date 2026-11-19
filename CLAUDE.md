@@ -44,7 +44,7 @@ The wire protocol (commands, data formats, status words) is specified in `doc/AP
 - `P1=0, P2=0x80` — chunk 0 carries the BIP32 path only and starts a new flow, discarding any previous one.
 - `P1=1..=3, P2=0x80` — intermediate chunks appended to `raw_tx`.
 - `P1=1..=3, P2=0x00` — final chunk; triggers parse (`serde_json_core::from_slice` into `Tx`), UI review, and signing.
-- Chunks must be strictly consecutive after chunk 0; anything else returns `AppSW::BadState` (`0xB007`). The flow state (path, `raw_tx`) is cleared after every final chunk and every error.
+- Chunks must be strictly consecutive after chunk 0; anything else returns `AppSW::BadState` (`0xB007`). The flow state (path, `raw_tx`) is cleared after every final chunk and every error, including errors of other commands and of APDU header decoding (`normal_main` clears it for any rejected command).
 - `MAX_TRANSACTION_LEN = 510` is enforced on the accumulator; exceeding it returns `AppSW::TxWrongLength`.
 - In normal mode `coin` must be the native ticker (`NATIVE_TICKER` in `src/utils.rs`); other assets are only signed in swap mode, against the Exchange coin configuration.
 

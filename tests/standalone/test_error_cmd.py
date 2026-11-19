@@ -99,6 +99,26 @@ def test_sign_tx_no_flow_after_invalid_path(backend):
     assert e.value.status == Errors.SW_BAD_STATE
 
 
+# Any rejected command ends a pending flow, whether rejected while decoding its header or by its handler
+@pytest.mark.parametrize(
+    "ins, p1, p2, data, status",
+    [
+        (InsType.SIGN_TX, P1.P1_START, P2.P2_LAST, pack_derivation_path(BOL_PATH), Errors.SW_WRONG_P1P2),
+        (InsType.GET_PUBLIC_KEY, P1.P1_START, P2.P2_LAST, pack_derivation_path("m/44'/60'/0'/0/0"), Errors.SW_INVALID_PATH),
+    ],
+    ids=["sign_tx_wrong_p1p2", "get_public_key_error"],
+)
+def test_sign_tx_no_resume_after_rejected_command(backend, ins, p1, p2, data, status):
+    transaction = Transaction(nonce=1, coin="CRAB", value=777, to=DESTINATION, memo="memo").serialize()
+    backend.exchange(cla=CLA, ins=InsType.SIGN_TX, p1=P1.P1_START, p2=P2.P2_MORE, data=pack_derivation_path(BOL_PATH))
+    with pytest.raises(ExceptionRAPDU) as e:
+        backend.exchange(cla=CLA, ins=ins, p1=p1, p2=p2, data=data)
+    assert e.value.status == status
+    with pytest.raises(ExceptionRAPDU) as e:
+        backend.exchange(cla=CLA, ins=InsType.SIGN_TX, p1=P1.P1_START + 1, p2=P2.P2_LAST, data=transaction)
+    assert e.value.status == Errors.SW_BAD_STATE
+
+
 # Fields that are not part of the reviewed transaction are rejected, as they would be signed unseen
 def test_sign_tx_unknown_field(backend):
     client = BoilerplateCommandSender(backend)

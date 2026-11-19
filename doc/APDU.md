@@ -65,8 +65,10 @@ The transaction is sent in several chunks, P1 being the chunk index:
    but the last one, sent with `P2 = 0x00`.
 
 Chunks must be strictly consecutive after chunk `0x00`; any other sequence returns `0xB007`. The
-flow is cleared after the last chunk and after any error, so a new flow must start with chunk
-`0x00`. The serialized transaction is at most 510 bytes, beyond which `0xB004` is returned.
+flow is cleared after the last chunk and after any command answered with an error, whatever its
+INS, so a new flow must start with chunk `0x00`. APDUs with a wrong class or a malformed header are
+rejected before reaching the application and leave the flow untouched. The serialized transaction
+is at most 510 bytes, beyond which `0xB004` is returned.
 
 ### Transaction format
 

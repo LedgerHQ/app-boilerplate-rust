@@ -93,7 +93,7 @@ impl<'a> TxContext<'a> {
     /// Drops the transaction flow state so that no later chunk can reuse it.
     ///
     /// `review_finished` is kept: the main loop reads it after the handler returns.
-    fn clear_flow(&mut self) {
+    pub fn clear_flow(&mut self) {
         self.raw_tx.clear();
         self.path = Default::default();
         self.next_chunk = None;

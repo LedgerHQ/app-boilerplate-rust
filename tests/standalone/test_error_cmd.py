@@ -157,3 +157,17 @@ def test_sign_tx_path_not_allowed(backend):
     with pytest.raises(ExceptionRAPDU) as e:
         backend.exchange(cla=CLA, ins=InsType.SIGN_TX, p1=P1.P1_START + 1, p2=P2.P2_LAST, data=transaction)
     assert e.value.status == Errors.SW_BAD_STATE
+
+
+# JSON escape sequences are rejected, as they would be displayed undecoded while consumers decode them
+@pytest.mark.parametrize("field", ["coin", "memo"])
+def test_sign_tx_escaped_text(backend, field):
+    client = BoilerplateCommandSender(backend)
+    placeholder = "PLACEHOLDER"
+    escaped_text = b"Pay \\u0041lice"
+    fields = {"nonce": 1, "coin": "CRAB", "value": 777, "to": DESTINATION, "memo": "memo"}
+    fields[field] = placeholder
+    transaction = Transaction(**fields).serialize().replace(placeholder.encode(), escaped_text)
+    with pytest.raises(ExceptionRAPDU) as e:
+        client.sign_tx_sync(path=BOL_PATH, transaction=transaction)
+    assert e.value.status == Errors.SW_TX_PARSING_FAIL

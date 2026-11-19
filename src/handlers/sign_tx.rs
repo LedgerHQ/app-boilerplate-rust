@@ -215,8 +215,13 @@ fn parse_tx(raw_tx: &[u8]) -> Result<Tx<'_>, AppSW> {
 /// Text shown for review is restricted to printable ASCII: control characters (NUL included) and
 /// non-ASCII characters cannot be rendered faithfully, and a NUL would make the SDK panic when it
 /// builds the C strings of the review.
+///
+/// Backslashes are rejected as well: strings are borrowed from the signed JSON without unescaping,
+/// so an escape sequence would be displayed literally while JSON consumers decode it, e.g.
+/// `\u0041` shown as such but read as `A`.
 fn is_displayable(text: &str) -> bool {
-    text.bytes().all(|b| b == b' ' || b.is_ascii_graphic())
+    text.bytes()
+        .all(|b| b != b'\\' && (b == b' ' || b.is_ascii_graphic()))
 }
 
 fn compute_signature_and_append<'a>(

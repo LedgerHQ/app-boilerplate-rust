@@ -1,7 +1,13 @@
+import struct
+
 import pytest
 from application_client.boilerplate_command_sender import (
+    CLA,
+    P1,
+    P2,
     BoilerplateCommandSender,
     Errors,
+    InsType,
 )
 from application_client.boilerplate_response_unpacker import (
     unpack_get_public_key_response,
@@ -67,3 +73,19 @@ def test_get_public_key_path_not_allowed(backend, path):
     with pytest.raises(ExceptionRAPDU) as e:
         client.get_public_key(path=path)
     assert e.value.status == Errors.SW_INVALID_PATH
+
+
+# Path encodings whose length byte does not match the data are rejected
+@pytest.mark.parametrize(
+    "path_data",
+    [
+        b"",
+        struct.pack(">BIIII", 5, 0x8000002C, 0x80000001, 0x80000000, 0),
+        struct.pack(">BIIIIIB", 5, 0x8000002C, 0x80000001, 0x80000000, 0, 0, 0),
+    ],
+    ids=["no_length", "missing_component", "trailing_byte"],
+)
+def test_get_public_key_malformed_path(backend, path_data):
+    with pytest.raises(ExceptionRAPDU) as e:
+        backend.exchange(cla=CLA, ins=InsType.GET_PUBLIC_KEY, p1=P1.P1_START, p2=P2.P2_LAST, data=path_data)
+    assert e.value.status == Errors.SW_WRONG_APDU_LENGTH

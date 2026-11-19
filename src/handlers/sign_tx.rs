@@ -238,7 +238,9 @@ fn compute_signature_and_append<'a>(
     let mut keccak256 = Keccak256::new();
     let mut message_hash: [u8; 32] = [0u8; 32];
 
-    let _ = keccak256.hash(&ctx.raw_tx, &mut message_hash);
+    keccak256
+        .hash(&ctx.raw_tx, &mut message_hash)
+        .map_err(|_| AppSW::TxHashFail)?;
 
     let (sig, siglen, parity) = Secp256k1::derive_from_path(ctx.path.as_ref())
         .deterministic_sign(&message_hash)

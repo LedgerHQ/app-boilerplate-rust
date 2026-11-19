@@ -427,7 +427,10 @@ fn check_address(params: &CheckAddressParams) -> i32 {
     };
 
     // Compute address: Keccak256 hash of pubkey (excluding first byte 0x04)
-    let address_hash = get_address_hash_from_pubkey(&pubkey);
+    let Ok(address_hash) = get_address_hash_from_pubkey(&pubkey) else {
+        log::error!("Address hash failed\n");
+        return 0;
+    };
     // Take last 20 bytes as address (Ethereum-style)
     let address = &address_hash[address_hash.len() - 20..];
 

@@ -146,11 +146,14 @@ pub fn get_pubkey_from_path(path: &Bip32Path) -> Result<[u8; 65], AppSW> {
 ///
 /// # Returns
 ///
-/// 32-byte Keccak256 hash (last 20 bytes are the Ethereum address)
-pub fn get_address_hash_from_pubkey(pubkey: &[u8; 65]) -> [u8; 32] {
+/// 32-byte Keccak256 hash (last 20 bytes are the Ethereum address), or
+/// [`AppSW::KeyDeriveFail`] if hashing fails: an unhashed buffer must never pass for an address.
+pub fn get_address_hash_from_pubkey(pubkey: &[u8; 65]) -> Result<[u8; 32], AppSW> {
     let mut keccak256 = Keccak256::new();
     let mut address: [u8; 32] = [0u8; 32];
     // Hash pubkey excluding first byte (0x04 uncompressed marker)
-    let _ = keccak256.hash(&pubkey[1..], &mut address);
-    address
+    keccak256
+        .hash(&pubkey[1..], &mut address)
+        .map_err(|_| AppSW::KeyDeriveFail)?;
+    Ok(address)
 }

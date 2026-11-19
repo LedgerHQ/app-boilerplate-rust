@@ -145,3 +145,86 @@ def test_sign_tx_empty_coin(backend):
     with pytest.raises(ExceptionRAPDU) as e:
         client.sign_tx_sync(path=BOL_PATH, transaction=transaction)
     assert e.value.status == Errors.SW_TX_PARSING_FAIL
+
+
+# A path outside the scope of the app does not start a flow
+def test_sign_tx_path_not_allowed(backend):
+    other_coin_path = "m/44'/60'/0'/0/0"
+    transaction = Transaction(nonce=1, coin="CRAB", value=777, to=DESTINATION, memo="memo").serialize()
+    with pytest.raises(ExceptionRAPDU) as e:
+        backend.exchange(cla=CLA, ins=InsType.SIGN_TX, p1=P1.P1_START, p2=P2.P2_MORE, data=pack_derivation_path(other_coin_path))
+    assert e.value.status == Errors.SW_INVALID_PATH
+    with pytest.raises(ExceptionRAPDU) as e:
+        backend.exchange(cla=CLA, ins=InsType.SIGN_TX, p1=P1.P1_START + 1, p2=P2.P2_LAST, data=transaction)
+    assert e.value.status == Errors.SW_BAD_STATE
+
+
+# JSON escape sequences are rejected, as they would be displayed undecoded while consumers decode them
+@pytest.mark.parametrize("field", ["coin", "memo"])
+def test_sign_tx_escaped_text(backend, field):
+    client = BoilerplateCommandSender(backend)
+    placeholder = "PLACEHOLDER"
+    escaped_text = b"Pay \\u0041lice"
+    fields = {"nonce": 1, "coin": "CRAB", "value": 777, "to": DESTINATION, "memo": "memo"}
+    fields[field] = placeholder
+    transaction = Transaction(**fields).serialize().replace(placeholder.encode(), escaped_text)
+    with pytest.raises(ExceptionRAPDU) as e:
+        client.sign_tx_sync(path=BOL_PATH, transaction=transaction)
+    assert e.value.status == Errors.SW_TX_PARSING_FAIL
+
+
+# Outside swap mode, only the native coin can be signed: other assets have no known decimals
+def test_sign_tx_unsupported_coin(backend):
+    client = BoilerplateCommandSender(backend)
+    transaction = Transaction(nonce=1, coin="USDT", value=777, to=DESTINATION, memo="memo").serialize()
+    with pytest.raises(ExceptionRAPDU) as e:
+        client.sign_tx_sync(path=BOL_PATH, transaction=transaction)
+    assert e.value.status == Errors.SW_TX_PARSING_FAIL
+
+
+# The accumulated transaction is limited to MAX_TRANSACTION_LEN bytes
+def test_sign_tx_max_length(backend):
+    max_transaction_len = 510
+    chunk_len = 255
+    filler = b"A"
+    backend.exchange(cla=CLA, ins=InsType.SIGN_TX, p1=P1.P1_START, p2=P2.P2_MORE, data=pack_derivation_path(BOL_PATH))
+    backend.exchange(cla=CLA, ins=InsType.SIGN_TX, p1=P1.P1_START + 1, p2=P2.P2_MORE, data=filler * chunk_len)
+    # Reaching the limit is accepted: the content is only rejected once parsed
+    with pytest.raises(ExceptionRAPDU) as e:
+        backend.exchange(
+            cla=CLA,
+            ins=InsType.SIGN_TX,
+            p1=P1.P1_START + 2,
+            p2=P2.P2_LAST,
+            data=filler * (max_transaction_len - chunk_len),
+        )
+    assert e.value.status == Errors.SW_TX_PARSING_FAIL
+
+    backend.exchange(cla=CLA, ins=InsType.SIGN_TX, p1=P1.P1_START, p2=P2.P2_MORE, data=pack_derivation_path(BOL_PATH))
+    backend.exchange(cla=CLA, ins=InsType.SIGN_TX, p1=P1.P1_START + 1, p2=P2.P2_MORE, data=filler * chunk_len)
+    backend.exchange(cla=CLA, ins=InsType.SIGN_TX, p1=P1.P1_START + 2, p2=P2.P2_MORE, data=filler * chunk_len)
+    with pytest.raises(ExceptionRAPDU) as e:
+        backend.exchange(cla=CLA, ins=InsType.SIGN_TX, p1=P1.P1_START + 3, p2=P2.P2_LAST, data=filler)
+    assert e.value.status == Errors.SW_WRONG_TX_LENGTH
+
+
+# The value is an unsigned 64-bit integer
+@pytest.mark.parametrize("value", [1 << 64, -1, 1.5], ids=["overflow", "negative", "float"])
+def test_sign_tx_invalid_value(backend, value):
+    client = BoilerplateCommandSender(backend)
+    transaction = Transaction(nonce=1, coin="CRAB", value=value, to=DESTINATION, memo="memo").serialize()
+    with pytest.raises(ExceptionRAPDU) as e:
+        client.sign_tx_sync(path=BOL_PATH, transaction=transaction)
+    assert e.value.status == Errors.SW_TX_PARSING_FAIL
+
+
+# A field given twice is rejected, as the two values could be read differently
+def test_sign_tx_duplicate_field(backend):
+    client = BoilerplateCommandSender(backend)
+    fields = json.loads(Transaction(nonce=1, coin="CRAB", value=777, to=DESTINATION, memo="memo").serialize())
+    serialized_fields = [f"{json.dumps(name)}: {json.dumps(value)}" for name, value in fields.items()]
+    duplicated_value = f'"value": {fields["value"] * 1000}'
+    transaction = ("{" + ", ".join([*serialized_fields, duplicated_value]) + "}").encode()
+    with pytest.raises(ExceptionRAPDU) as e:
+        client.sign_tx_sync(path=BOL_PATH, transaction=transaction)
+    assert e.value.status == Errors.SW_TX_PARSING_FAIL

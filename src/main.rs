@@ -78,6 +78,7 @@ pub enum AppSW {
     TxSignFail = 0xB008,
     KeyDeriveFail = 0xB009,
     VersionParsingFail = 0xB00A,
+    InvalidPath = 0xB00B,
     WrongApduLength = StatusWords::BadLen as u16,
     SwapFail = 0xC000,
     Ok = 0x9000,

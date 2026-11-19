@@ -15,7 +15,7 @@
  *  limitations under the License.
  *****************************************************************************/
 use crate::app_ui::sign::ui_display_tx;
-use crate::utils::Bip32Path;
+use crate::utils::{Bip32Path, NATIVE_TICKER};
 use crate::{AppSW, P1_SIGN_TX_START};
 use alloc::vec::Vec;
 use ledger_device_sdk::ecc::{Secp256k1, SeedDerive};
@@ -186,6 +186,12 @@ fn continue_flow<'a>(
         }
         // --8<-- [end:SwapError_usage]
     } else {
+        // Without the trusted coin configuration that the Exchange app provides in swap mode,
+        // only the native coin is known well enough to be reviewed.
+        if tx.coin != NATIVE_TICKER {
+            log::error!("Unsupported coin");
+            return Err(AppSW::TxParsingFail);
+        }
         log::debug!("Normal mode, showing UI");
         let comm = command.into_comm();
         let approved = ui_display_tx(comm, &tx, &ctx.path)?;
@@ -215,8 +221,13 @@ fn parse_tx(raw_tx: &[u8]) -> Result<Tx<'_>, AppSW> {
 /// Text shown for review is restricted to printable ASCII: control characters (NUL included) and
 /// non-ASCII characters cannot be rendered faithfully, and a NUL would make the SDK panic when it
 /// builds the C strings of the review.
+///
+/// Backslashes are rejected as well: strings are borrowed from the signed JSON without unescaping,
+/// so an escape sequence would be displayed literally while JSON consumers decode it, e.g.
+/// `\u0041` shown as such but read as `A`.
 fn is_displayable(text: &str) -> bool {
-    text.bytes().all(|b| b == b' ' || b.is_ascii_graphic())
+    text.bytes()
+        .all(|b| b != b'\\' && (b == b' ' || b.is_ascii_graphic()))
 }
 
 fn compute_signature_and_append<'a>(
@@ -227,7 +238,9 @@ fn compute_signature_and_append<'a>(
     let mut keccak256 = Keccak256::new();
     let mut message_hash: [u8; 32] = [0u8; 32];
 
-    let _ = keccak256.hash(&ctx.raw_tx, &mut message_hash);
+    keccak256
+        .hash(&ctx.raw_tx, &mut message_hash)
+        .map_err(|_| AppSW::TxHashFail)?;
 
     let (sig, siglen, parity) = Secp256k1::derive_from_path(ctx.path.as_ref())
         .deterministic_sign(&message_hash)

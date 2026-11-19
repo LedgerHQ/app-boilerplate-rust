@@ -145,3 +145,15 @@ def test_sign_tx_empty_coin(backend):
     with pytest.raises(ExceptionRAPDU) as e:
         client.sign_tx_sync(path=BOL_PATH, transaction=transaction)
     assert e.value.status == Errors.SW_TX_PARSING_FAIL
+
+
+# A path outside the scope of the app does not start a flow
+def test_sign_tx_path_not_allowed(backend):
+    other_coin_path = "m/44'/60'/0'/0/0"
+    transaction = Transaction(nonce=1, coin="CRAB", value=777, to=DESTINATION, memo="memo").serialize()
+    with pytest.raises(ExceptionRAPDU) as e:
+        backend.exchange(cla=CLA, ins=InsType.SIGN_TX, p1=P1.P1_START, p2=P2.P2_MORE, data=pack_derivation_path(other_coin_path))
+    assert e.value.status == Errors.SW_INVALID_PATH
+    with pytest.raises(ExceptionRAPDU) as e:
+        backend.exchange(cla=CLA, ins=InsType.SIGN_TX, p1=P1.P1_START + 1, p2=P2.P2_LAST, data=transaction)
+    assert e.value.status == Errors.SW_BAD_STATE

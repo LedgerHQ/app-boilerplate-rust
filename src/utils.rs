@@ -4,6 +4,22 @@ use crate::AppSW;
 use ledger_device_sdk::ecc::{Secp256k1, SeedDerive};
 use ledger_device_sdk::hash::{sha3::Keccak256, HashInit};
 
+/// Flag marking a hardened BIP32 path component.
+const HARDENED: u32 = 0x8000_0000;
+/// Prefix of every path this app derives keys under, `m/44'/1'`, matching the `path` declared in
+/// the `[package.metadata.ledger]` section of `Cargo.toml`.
+const ALLOWED_PATH_PREFIX: [u32; 2] = [44 | HARDENED, 1 | HARDENED];
+/// Deepest path the OS derives (`MAX_BIP32_PATH` in the C SDK).
+pub const MAX_PATH_LEN: usize = 10;
+
+/// Whether `path` lies within the derivation scope of this app.
+///
+/// The OS also refuses derivations outside the scope declared at installation, but by aborting
+/// the app: checking beforehand turns such requests into a proper error status.
+pub fn is_allowed_path(path: &[u32]) -> bool {
+    path.len() <= MAX_PATH_LEN && path.starts_with(&ALLOWED_PATH_PREFIX)
+}
+
 /// BIP32 derivation path stored as a vector of u32 components.
 ///
 /// Each component represents one level in the path (e.g., m/44'/1'/0'/0/0 has 5 components).
@@ -20,7 +36,6 @@ impl AsRef<[u32]> for Bip32Path {
 /// Formats the path in the usual `m/44'/1'/0'/0/0` notation, hardened components marked with `'`.
 impl core::fmt::Display for Bip32Path {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        const HARDENED: u32 = 0x8000_0000;
         f.write_str("m")?;
         for &component in &self.0 {
             if component & HARDENED != 0 {
@@ -63,12 +78,14 @@ impl TryFrom<&[u8]> for Bip32Path {
             return Err(AppSW::WrongApduLength);
         }
 
-        Ok(Bip32Path(
-            data[1..]
-                .chunks(4)
-                .map(|chunk| u32::from_be_bytes(chunk.try_into().unwrap()))
-                .collect(),
-        ))
+        let path: Vec<u32> = data[1..]
+            .chunks(4)
+            .map(|chunk| u32::from_be_bytes(chunk.try_into().unwrap()))
+            .collect();
+        if !is_allowed_path(&path) {
+            return Err(AppSW::InvalidPath);
+        }
+        Ok(Bip32Path(path))
     }
 }
 

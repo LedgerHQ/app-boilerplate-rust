@@ -48,6 +48,7 @@ class Errors(IntEnum):
     SW_TX_HASH_FAIL = 0xB006
     SW_BAD_STATE = 0xB007
     SW_SIGNATURE_FAIL = 0xB008
+    SW_INVALID_PATH = 0xB00B
     SW_SWAP_FAIL = 0xC000
 
 

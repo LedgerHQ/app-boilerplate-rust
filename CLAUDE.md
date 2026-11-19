@@ -32,7 +32,7 @@ Boilerplate Ledger hardware-wallet application written in Rust, targeting Nano X
 1. `Comm` receives an APDU with `CLA=0xe0`; wrong-CLA APDUs are rejected automatically by the SDK (`comm.set_expected_cla(0xe0)`).
 2. `Instruction::try_from(ApduHeader)` in `src/main.rs` parses `(INS, P1, P2)` into a strongly-typed enum. Invalid P1/P2 → `AppSW::WrongP1P2`; unknown INS → `AppSW::InsNotSupported`. **All APDU parameter validation lives here, not in the handlers.**
 3. `handle_apdu` routes to a handler in `src/handlers/`. Handlers return `Result<CommandResponse, AppSW>`.
-4. `AppSW` (status word enum in `src/main.rs`) is the single source of truth for error codes returned over the wire (e.g. `0x6985` = Deny, `0x9000` = Ok, app-specific tx/addr codes are `0xB001..0xB00A`, and swap failures are `0xC000`).
+4. `AppSW` (status word enum in `src/main.rs`) is the single source of truth for error codes returned over the wire (e.g. `0x6985` = Deny, `0x9000` = Ok, app-specific tx/addr codes are `0xB001..0xB00B`, and swap failures are `0xC000`).
 5. After each command, `show_status_and_home_if_needed` decides whether to display an NBGL success/failure screen and return to home — this **must** be called for `GetPubkey { display: true }` and completed `SignTx` flows in normal mode, and **must not** display anything in swap mode.
 
 ### Multi-chunk transactions
@@ -54,7 +54,7 @@ Hash = Keccak256 of `raw_tx`; signature = secp256k1 deterministic, returned as `
 - `check_address` and `get_printable_amount` **must not heap-allocate** (no `Vec`, no `String`, no `format!`). Use `arrayvec::ArrayString` and stack arrays.
 - `sign_transaction` runs **after** BSS reset, so heap usage is safe there.
 
-The `Bip32Path` wrapper in `src/utils.rs` uses `Vec` and is therefore only legal in normal-mode handlers and in swap's signing phase.
+The `Bip32Path` wrapper in `src/utils.rs` only accepts paths under `m/44'/1'` with at most 10 components (`is_allowed_path`, also applied by swap's `check_address`), returning `AppSW::InvalidPath` otherwise. It uses `Vec` and is therefore only legal in normal-mode handlers and in swap's signing phase.
 
 ### UI (NBGL)
 

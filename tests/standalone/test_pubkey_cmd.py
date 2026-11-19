@@ -54,3 +54,16 @@ def test_get_public_key_confirm_refused(backend, scenario_navigator):
     # Assert that we have received a refusal
     assert e.value.status == Errors.SW_DENY
     assert len(e.value.data) == 0
+
+
+# Paths outside the m/44'/1' scope of the app, or deeper than the OS supports, are rejected
+@pytest.mark.parametrize(
+    "path",
+    ["m/44'/60'/0'/0/0", "m/44'/1", "m/44'", "m", "m/44'/1'/0/0/0/0/0/0/0/0/0"],
+    ids=["other_coin", "unhardened_coin", "prefix_only", "empty", "too_deep"],
+)
+def test_get_public_key_path_not_allowed(backend, path):
+    client = BoilerplateCommandSender(backend)
+    with pytest.raises(ExceptionRAPDU) as e:
+        client.get_public_key(path=path)
+    assert e.value.status == Errors.SW_INVALID_PATH

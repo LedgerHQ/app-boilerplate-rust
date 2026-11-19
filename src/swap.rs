@@ -58,7 +58,7 @@ use ledger_device_sdk::{
 };
 
 use crate::handlers::sign_tx::Tx;
-use crate::utils::get_address_hash_from_pubkey;
+use crate::utils::{get_address_hash_from_pubkey, is_allowed_path, MAX_PATH_LEN};
 use alloc::{format, string::ToString};
 
 /// Longest amount string the SDK forwards to the Exchange app (`MAX_PRINTABLE_AMOUNT_SIZE - 2`
@@ -391,9 +391,9 @@ fn check_address(params: &CheckAddressParams) -> i32 {
     let path_bytes = &params.dpath[..params.dpath_len * 4];
 
     // Use stack-allocated array (no heap!) to store parsed path
-    let mut path: [u32; 10] = [0; 10]; // Max 10 derivation levels
+    let mut path = [0u32; MAX_PATH_LEN];
 
-    if params.dpath_len > 10 {
+    if params.dpath_len > MAX_PATH_LEN {
         log::error!("Path too long\n");
         return 0;
     }
@@ -409,7 +409,13 @@ fn check_address(params: &CheckAddressParams) -> i32 {
     }
 
     // Derive public key from path using the same logic as get_public_key handler
-    let (k, _) = Secp256k1::derive_from(&path[..params.dpath_len]);
+    let path = &path[..params.dpath_len];
+    if !is_allowed_path(path) {
+        log::error!("Path not allowed\n");
+        return 0;
+    }
+
+    let (k, _) = Secp256k1::derive_from(path);
     let pubkey = match k.public_key() {
         Ok(pk) => pk.pubkey,
         Err(_) => {

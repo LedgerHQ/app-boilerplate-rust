@@ -50,7 +50,7 @@ use ledger_device_sdk::{
         string::uint256_to_float,
         swap::{
             self, CheckAddressParams, CreateTxParams, PrintableAmountParams, SwapError,
-            SwapErrorCommonCode,
+            SwapErrorCommonCode, DEFAULT_COIN_CONFIG_BUF_SIZE,
         },
         SwapAppErrorCodeTrait,
     },
@@ -58,8 +58,15 @@ use ledger_device_sdk::{
 };
 
 use crate::handlers::sign_tx::Tx;
-use crate::utils::get_address_hash_from_pubkey;
+use crate::utils::{
+    get_address_hash_from_pubkey, is_allowed_path, MAX_PATH_LEN, NATIVE_DECIMALS, NATIVE_TICKER,
+};
 use alloc::{format, string::ToString};
+
+/// Longest amount string the SDK forwards to the Exchange app (`MAX_PRINTABLE_AMOUNT_SIZE - 2`
+/// in the C SDK).
+const MAX_PRINTABLE_AMOUNT_LEN: usize = 48;
+type PrintableAmount = ArrayString<MAX_PRINTABLE_AMOUNT_LEN>;
 
 /// Application-specific swap error codes.
 ///
@@ -115,6 +122,8 @@ pub enum SwapAppErrorCode {
     /// Other error codes, don't hesitate to add your own for more granularity.
     AmountCastFail = 0x01,
     DestinationDecodeFail = 0x02,
+    CoinConfigFail = 0x03,
+    ExtraIdMismatch = 0x04,
 }
 
 impl SwapAppErrorCodeTrait for SwapAppErrorCode {
@@ -127,37 +136,47 @@ impl SwapAppErrorCodeTrait for SwapAppErrorCode {
 //  --8<-- [start:check_swap_params]
 /// This function performs a strict validation of the transaction to be signed
 /// against the reference transaction parameters provided by the Exchange app.
+/// The UI is bypassed in swap mode, so every field of the signed transaction must be checked here.
 /// It checks that:
-/// 1. The transaction type matches the expected one (Only one type of Tx implemented so auto true).
+/// 1. The transaction asset matches the coin configuration of the swap.
 /// 2. The transaction amount matches the swap amount exactly.
-/// 3. The transaction fees matches the swap fees exactly. (fees are not implemented so auto true).
+/// 3. The swap fees are zero, as transactions of this app carry no fee field.
 /// 4. The destination address matches the swap destination address exactly.
+/// 5. The memo matches the swap destination extra ID exactly.
+///
+/// The nonce is the only field left unchecked: it orders the account's transactions and does not
+/// affect what is transferred.
 ///
 /// # Errors
 ///
 /// Returns error if:
-/// - Amount parsing fails (AmountCastFail)
+/// - Coin configuration is malformed or unsupported (ErrorWrongMethod / CoinConfigFail)
+/// - Asset doesn't match the coin configuration (ErrorWrongMethod)
+/// - Amount does not fit in a u64 (AmountCastFail)
 /// - Amount doesn't match between tx and swap params (ErrorWrongAmount)
+/// - Fees are not zero (ErrorWrongFees)
 /// - Destination address has invalid UTF-8 (DestinationDecodeFail)
 /// - Destination address hex decode fails (DestinationDecodeFail)
 /// - Destination address doesn't match (ErrorWrongDestination)
+/// - Memo doesn't match the destination extra ID (ErrorWrongDestination / ExtraIdMismatch)
 pub fn check_swap_params(
     params: &CreateTxParams,
     tx: &Tx,
 ) -> Result<(), SwapError<SwapAppErrorCode>> {
     log::debug!("Swap mode detected\n");
 
+    check_swap_asset(params, tx)?;
+
     // Validate amount
-    // Parse amount (u64 from big-endian bytes, right aligned in 16-byte buffer)
-    // Amount is stored in AMOUNT_BUF_SIZE (16 bytes) buffer, right-aligned big-endian
-    let start = params.amount.len() - 8;
-    let amount_bytes: [u8; 8] = params.amount[start..].try_into().map_err(|_| {
+    // The amount is right-aligned big-endian in a 16-byte buffer. Transaction values are u64, so
+    // any amount that does not fit in a u64 cannot match and is rejected rather than truncated.
+    let swap_amount = u128::from_be_bytes(params.amount);
+    let swap_amount = u64::try_from(swap_amount).map_err(|_| {
         SwapError::without_message(
             SwapErrorCommonCode::ErrorWrongAmount,
             SwapAppErrorCode::AmountCastFail,
         )
     })?;
-    let swap_amount = u64::from_be_bytes(amount_bytes);
 
     //  --8<-- [start:SwapError_example]
     if tx.value != swap_amount {
@@ -208,7 +227,64 @@ pub fn check_swap_params(
         ));
     }
 
+    check_swap_fees(params)?;
+    check_swap_extra_id(params, tx)?;
+
     log::debug!("Swap validation success, bypassing UI");
+    Ok(())
+}
+
+/// Checks that the transaction transfers the asset described by the swap coin configuration.
+fn check_swap_asset(params: &CreateTxParams, tx: &Tx) -> Result<(), SwapError<SwapAppErrorCode>> {
+    let asset =
+        parse_coin_config(&params.coin_config[..params.coin_config_len]).ok_or_else(|| {
+            SwapError::without_message(
+                SwapErrorCommonCode::ErrorWrongMethod,
+                SwapAppErrorCode::CoinConfigFail,
+            )
+        })?;
+    if tx.coin != asset.ticker.as_str() {
+        log::error!("Swap asset mismatch");
+        return Err(SwapError::with_message(
+            SwapErrorCommonCode::ErrorWrongMethod,
+            SwapAppErrorCode::Default,
+            format!("Asset tx {} != swap {}", tx.coin, asset.ticker),
+        ));
+    }
+    Ok(())
+}
+
+/// Checks that the swap carries no fees.
+///
+/// Transactions of this app have no fee field, so any non-zero fee approved in the Exchange app
+/// could not be matched against the signed transaction. An app whose transactions carry fees must
+/// compare them with `params.fee_amount` instead.
+fn check_swap_fees(params: &CreateTxParams) -> Result<(), SwapError<SwapAppErrorCode>> {
+    if params.fee_amount.iter().any(|&b| b != 0) {
+        log::error!("Swap fees not supported");
+        return Err(SwapError::with_message(
+            SwapErrorCommonCode::ErrorWrongFees,
+            SwapAppErrorCode::Default,
+            "Fees are not supported".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+/// Checks that the transaction memo is exactly the destination extra ID of the swap.
+fn check_swap_extra_id(
+    params: &CreateTxParams,
+    tx: &Tx,
+) -> Result<(), SwapError<SwapAppErrorCode>> {
+    let extra_id = &params.dest_address_extra_id[..params.dest_address_extra_id_len];
+    if tx.memo.as_bytes() != extra_id {
+        log::error!("Swap memo mismatch");
+        return Err(SwapError::with_message(
+            SwapErrorCommonCode::ErrorWrongDestination,
+            SwapAppErrorCode::ExtraIdMismatch,
+            format!("Memo tx {} != swap extra ID", tx.memo),
+        ));
+    }
     Ok(())
 }
 //  --8<-- [end:check_swap_params]
@@ -259,10 +335,10 @@ pub fn swap_main(arg0: u32) {
             log::debug!("Received SwapGetPrintableAmount command\n");
             let mut params = swap::get_printable_amount_params(arg0);
             let amount_str = get_printable_amount(&params);
-            // Return to Exchange, forwarding the result
+            // Return to Exchange, forwarding the result. An empty string reports the failure.
             swap::swap_return(swap::SwapResult::PrintableAmountResult(
                 &mut params,
-                amount_str.as_str(),
+                amount_str.as_ref().map_or("", PrintableAmount::as_str),
             ));
         }
         libcall::LibCallCommand::SwapSignTransaction => {
@@ -317,9 +393,9 @@ fn check_address(params: &CheckAddressParams) -> i32 {
     let path_bytes = &params.dpath[..params.dpath_len * 4];
 
     // Use stack-allocated array (no heap!) to store parsed path
-    let mut path: [u32; 10] = [0; 10]; // Max 10 derivation levels
+    let mut path = [0u32; MAX_PATH_LEN];
 
-    if params.dpath_len > 10 {
+    if params.dpath_len > MAX_PATH_LEN {
         log::error!("Path too long\n");
         return 0;
     }
@@ -335,7 +411,13 @@ fn check_address(params: &CheckAddressParams) -> i32 {
     }
 
     // Derive public key from path using the same logic as get_public_key handler
-    let (k, _) = Secp256k1::derive_from(&path[..params.dpath_len]);
+    let path = &path[..params.dpath_len];
+    if !is_allowed_path(path) {
+        log::error!("Path not allowed\n");
+        return 0;
+    }
+
+    let (k, _) = Secp256k1::derive_from(path);
     let pubkey = match k.public_key() {
         Ok(pk) => pk.pubkey,
         Err(_) => {
@@ -345,7 +427,10 @@ fn check_address(params: &CheckAddressParams) -> i32 {
     };
 
     // Compute address: Keccak256 hash of pubkey (excluding first byte 0x04)
-    let address_hash = get_address_hash_from_pubkey(&pubkey);
+    let Ok(address_hash) = get_address_hash_from_pubkey(&pubkey) else {
+        log::error!("Address hash failed\n");
+        return 0;
+    };
     // Take last 20 bytes as address (Ethereum-style)
     let address = &address_hash[address_hash.len() - 20..];
 
@@ -379,6 +464,50 @@ fn check_address(params: &CheckAddressParams) -> i32 {
 // --8<-- [end:check_address]
 
 // --8<-- [start:get_printable_amount]
+/// Bound on asset decimals, well within what the 79-byte output of `uint256_to_float` allows.
+const MAX_DECIMALS: u8 = 30;
+
+/// Asset a swap operates on, as described by the Exchange coin configuration.
+pub struct SwapAsset {
+    /// Ticker displayed next to amounts and expected in the signed transaction.
+    pub ticker: ArrayString<DEFAULT_COIN_CONFIG_BUF_SIZE>,
+    /// Number of decimals of the asset's base unit.
+    pub decimals: u8,
+}
+
+/// Parses the coin configuration that the Exchange app forwards from its trusted currency
+/// configuration.
+///
+/// An empty configuration designates the native coin. Otherwise the layout is
+/// `[ticker_len: u8][ticker][decimals: u8]`, which must fill the configuration exactly.
+///
+/// Returns `None` for any malformed or unsupported configuration: an asset that cannot be
+/// identified must never be displayed or signed under assumed metadata.
+///
+/// Does not allocate, as it runs while the Exchange app shares BSS memory.
+pub fn parse_coin_config(config: &[u8]) -> Option<SwapAsset> {
+    if config.is_empty() {
+        return Some(SwapAsset {
+            ticker: ArrayString::from(NATIVE_TICKER).ok()?,
+            decimals: NATIVE_DECIMALS,
+        });
+    }
+
+    let (&ticker_len, rest) = config.split_first()?;
+    let (ticker, decimals) = rest.split_at_checked(usize::from(ticker_len))?;
+    let &[decimals] = decimals else {
+        return None;
+    };
+    if ticker.is_empty() || !ticker.iter().all(u8::is_ascii_graphic) || decimals > MAX_DECIMALS {
+        return None;
+    }
+
+    Some(SwapAsset {
+        ticker: ArrayString::from(core::str::from_utf8(ticker).ok()?).ok()?,
+        decimals,
+    })
+}
+
 /// Format an amount for display in the Exchange app UI.
 ///
 /// The Exchange app calls this to get human-readable strings for amounts and fees.
@@ -392,30 +521,21 @@ fn check_address(params: &CheckAddressParams) -> i32 {
 /// - Actual length is in `params.amount_len`
 /// - Padded to 32 bytes (uint256) for SDK formatting helpers
 ///
-/// # Arguments
-///
-/// * `params` - Contains:
-///   - `amount`: Big-endian encoded amount bytes (right-aligned in 16-byte buffer)
-///   - `amount_len`: Actual number of significant bytes
-///   - `coin_config`: Coin configuration (unused - hardcoded to CRAB in this template)
-///   - `is_fee`: Whether this is a fee amount
+/// The ticker and decimals come from `params.coin_config` (see [`parse_coin_config`]).
 ///
 /// # Returns
 ///
-/// Stack-allocated string formatted as "CRAB {value}" (e.g., "CRAB 1.5")
+/// Stack-allocated string formatted as "{ticker} {value}" (e.g., "CRAB 1.5"), or `None` if the
+/// coin configuration is not supported or the result does not fit the Exchange buffer. The
+/// caller reports `None` to the Exchange app as a failure.
 ///
 /// # Memory Safety
 ///
 /// Uses `ArrayString` (stack-allocated) to avoid heap allocation, as this function
 /// runs under BSS memory restrictions.
-///
-/// # Production Notes
-///
-/// For a production app, you should:
-/// - Parse `coin_config` to extract ticker and decimals dynamically
-/// - Handle different coin types
-/// - Support both u64 and u128 amounts
-fn get_printable_amount(params: &PrintableAmountParams) -> ArrayString<40> {
+fn get_printable_amount(params: &PrintableAmountParams) -> Option<PrintableAmount> {
+    let asset = parse_coin_config(&params.coin_config[..params.coin_config_len])?;
+
     // Convert amount from 16-byte buffer to 32-byte buffer (uint256 format)
     // The amount is right-aligned in params.amount, we need to copy it to a
     // 32-byte buffer that's also right-aligned (big-endian)
@@ -427,20 +547,13 @@ fn get_printable_amount(params: &PrintableAmountParams) -> ArrayString<40> {
     log::debug!("Amount bytes (u256): ");
     debug_hex("", &amount_u256);
 
-    // CRAB uses 9 decimals (similar to SUI, which also uses 9 decimals)
-    // For production: parse decimals from params.coin_config
-    const CRAB_DECIMALS: usize = 9;
-    const CRAB_TICKER: &str = "CRAB";
+    let amount_str = uint256_to_float(&amount_u256, usize::from(asset.decimals));
 
-    // Use SDK helper to format amount with decimals
-    let amount_str = uint256_to_float(&amount_u256, CRAB_DECIMALS);
-
-    // Format as "CRAB {value}" using stack-allocated ArrayString
-    let mut printable = ArrayString::<40>::new();
-    let _ = write!(&mut printable, "{} {}", CRAB_TICKER, amount_str.as_str());
+    let mut printable = PrintableAmount::new();
+    write!(&mut printable, "{} {}", asset.ticker, amount_str.as_str()).ok()?;
 
     log::debug!("Formatted amount: {}", printable.as_str());
 
-    printable
+    Some(printable)
 }
 // --8<-- [end:get_printable_amount]

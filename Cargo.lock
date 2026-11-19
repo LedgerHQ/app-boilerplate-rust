@@ -19,7 +19,7 @@ dependencies = [
 
 [[package]]
 name = "app-boilerplate-rust"
-version = "1.9.1"
+version = "1.9.2"
 dependencies = [
  "arrayvec",
  "gif",
@@ -246,9 +246,9 @@ checksum = "92ecc6618181def0457392ccd0ee51198e065e016d1d527a7ac1b6dc7c1f09d2"
 
 [[package]]
 name = "ledger_device_sdk"
-version = "1.44.0"
+version = "1.44.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c1775ffa01a8261f1400b15a0fa208f939582a675e43a67c76ed86d7a503f3b"
+checksum = "4eefa4aee84260f40f6b5dbaa4a5078e955abf71aa8a07d6eb6ed066b59b2b76"
 dependencies = [
  "const-zero",
  "include_gif",

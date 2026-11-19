@@ -52,7 +52,7 @@ pub fn handler_get_public_key(
     // Display address on device if requested
     if display {
         // Compute address using shared helper (same as swap::check_address)
-        let address_hash = get_address_hash_from_pubkey(&pubkey);
+        let address_hash = get_address_hash_from_pubkey(&pubkey)?;
 
         if !ui_display_pk(comm, &address_hash)? {
             return Err(AppSW::Deny);

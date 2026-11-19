@@ -15,14 +15,15 @@
  *  limitations under the License.
  *****************************************************************************/
 use crate::handlers::sign_tx::Tx;
+use crate::utils::{format_native_amount, Bip32Path, NATIVE_TICKER};
 use crate::AppSW;
 
-use crate::settings::Settings;
+use crate::settings::{Settings, SETTING_SHOW_PATH};
 use ledger_device_sdk::include_gif;
 use ledger_device_sdk::io::Comm;
 use ledger_device_sdk::nbgl::{Field, NbglGlyph, NbglReview};
 
-use alloc::format;
+use alloc::{format, string::ToString};
 
 /// Displays a transaction and returns true if user approved it.
 ///
@@ -32,9 +33,14 @@ use alloc::format;
 ///
 /// * `comm` - Reference to the communication object
 /// * `tx` - Transaction to be displayed for validation
-pub fn ui_display_tx(comm: &mut Comm, tx: &Tx) -> Result<bool, AppSW> {
-    let value_str = format!("{} {}", tx.coin, tx.value);
+/// * `path` - Derivation path of the signing key, displayed when enabled in the settings
+///
+/// Every field of the signed transaction except the nonce is always displayed: no setting may
+/// hide data that is signed.
+pub fn ui_display_tx(comm: &mut Comm, tx: &Tx, path: &Bip32Path) -> Result<bool, AppSW> {
+    let value_str = format!("{} {}", tx.coin, format_native_amount(tx.value).as_str());
     let to_str = format!("0x{}", hex::encode(tx.to).to_uppercase());
+    let path_str = path.to_string();
 
     // Define transaction review fields
     let my_fields = [
@@ -50,7 +56,17 @@ pub fn ui_display_tx(comm: &mut Comm, tx: &Tx) -> Result<bool, AppSW> {
             name: "Memo",
             value: tx.memo,
         },
+        Field {
+            name: "Path",
+            value: path_str.as_str(),
+        },
     ];
+    let show_path = Settings.get_element(SETTING_SHOW_PATH) != 0;
+    let displayed_fields = if show_path {
+        &my_fields[..]
+    } else {
+        &my_fields[..my_fields.len() - 1]
+    };
 
     // Create transaction review
 
@@ -64,19 +80,11 @@ pub fn ui_display_tx(comm: &mut Comm, tx: &Tx) -> Result<bool, AppSW> {
 
     // Create NBGL review. Maximum number of fields and string buffer length can be customised
     // with constant generic parameters of NbglReview. Default values are 32 and 1024 respectively.
+    let review_title = format!("Review transaction\nto send {}", NATIVE_TICKER);
+    let finish_title = format!("Sign transaction\nto send {}", NATIVE_TICKER);
     let review: NbglReview = NbglReview::new()
-        .titles(
-            "Review transaction\nto send CRAB",
-            "",
-            "Sign transaction\nto send CRAB",
-        )
+        .titles(&review_title, "", &finish_title)
         .glyph(&FERRIS);
 
-    // If first setting switch is disabled do not display the transaction memo
-    let settings: Settings = Default::default();
-    if settings.get_element(0) == 0 {
-        Ok(review.show(comm, &my_fields[0..2]))
-    } else {
-        Ok(review.show(comm, &my_fields))
-    }
+    Ok(review.show(comm, displayed_fields))
 }

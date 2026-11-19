@@ -3,6 +3,35 @@ use alloc::vec::Vec;
 use crate::AppSW;
 use ledger_device_sdk::ecc::{Secp256k1, SeedDerive};
 use ledger_device_sdk::hash::{sha3::Keccak256, HashInit};
+use ledger_device_sdk::libcall::string::{uint256_to_float, CustomString};
+
+/// Ticker of the coin handled natively by this app.
+pub const NATIVE_TICKER: &str = "CRAB";
+/// Decimals of the coin handled natively by this app.
+pub const NATIVE_DECIMALS: u8 = 9;
+
+/// Formats an amount of native coin base units in coin units, e.g. `0.000000777` for 777.
+pub fn format_native_amount(value: u64) -> CustomString<79> {
+    let mut value_u256 = [0u8; 32];
+    value_u256[32 - core::mem::size_of::<u64>()..].copy_from_slice(&value.to_be_bytes());
+    uint256_to_float(&value_u256, usize::from(NATIVE_DECIMALS))
+}
+
+/// Flag marking a hardened BIP32 path component.
+const HARDENED: u32 = 0x8000_0000;
+/// Prefix of every path this app derives keys under, `m/44'/1'`, matching the `path` declared in
+/// the `[package.metadata.ledger]` section of `Cargo.toml`.
+const ALLOWED_PATH_PREFIX: [u32; 2] = [44 | HARDENED, 1 | HARDENED];
+/// Deepest path the OS derives (`MAX_BIP32_PATH` in the C SDK).
+pub const MAX_PATH_LEN: usize = 10;
+
+/// Whether `path` lies within the derivation scope of this app.
+///
+/// The OS also refuses derivations outside the scope declared at installation, but by aborting
+/// the app: checking beforehand turns such requests into a proper error status.
+pub fn is_allowed_path(path: &[u32]) -> bool {
+    path.len() <= MAX_PATH_LEN && path.starts_with(&ALLOWED_PATH_PREFIX)
+}
 
 /// BIP32 derivation path stored as a vector of u32 components.
 ///
@@ -14,6 +43,21 @@ pub struct Bip32Path(Vec<u32>);
 impl AsRef<[u32]> for Bip32Path {
     fn as_ref(&self) -> &[u32] {
         &self.0
+    }
+}
+
+/// Formats the path in the usual `m/44'/1'/0'/0/0` notation, hardened components marked with `'`.
+impl core::fmt::Display for Bip32Path {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str("m")?;
+        for &component in &self.0 {
+            if component & HARDENED != 0 {
+                write!(f, "/{}'", component & !HARDENED)?;
+            } else {
+                write!(f, "/{}", component)?;
+            }
+        }
+        Ok(())
     }
 }
 
@@ -47,12 +91,14 @@ impl TryFrom<&[u8]> for Bip32Path {
             return Err(AppSW::WrongApduLength);
         }
 
-        Ok(Bip32Path(
-            data[1..]
-                .chunks(4)
-                .map(|chunk| u32::from_be_bytes(chunk.try_into().unwrap()))
-                .collect(),
-        ))
+        let path: Vec<u32> = data[1..]
+            .chunks(4)
+            .map(|chunk| u32::from_be_bytes(chunk.try_into().unwrap()))
+            .collect();
+        if !is_allowed_path(&path) {
+            return Err(AppSW::InvalidPath);
+        }
+        Ok(Bip32Path(path))
     }
 }
 
@@ -100,11 +146,14 @@ pub fn get_pubkey_from_path(path: &Bip32Path) -> Result<[u8; 65], AppSW> {
 ///
 /// # Returns
 ///
-/// 32-byte Keccak256 hash (last 20 bytes are the Ethereum address)
-pub fn get_address_hash_from_pubkey(pubkey: &[u8; 65]) -> [u8; 32] {
+/// 32-byte Keccak256 hash (last 20 bytes are the Ethereum address), or
+/// [`AppSW::KeyDeriveFail`] if hashing fails: an unhashed buffer must never pass for an address.
+pub fn get_address_hash_from_pubkey(pubkey: &[u8; 65]) -> Result<[u8; 32], AppSW> {
     let mut keccak256 = Keccak256::new();
     let mut address: [u8; 32] = [0u8; 32];
     // Hash pubkey excluding first byte (0x04 uncompressed marker)
-    let _ = keccak256.hash(&pubkey[1..], &mut address);
-    address
+    keccak256
+        .hash(&pubkey[1..], &mut address)
+        .map_err(|_| AppSW::KeyDeriveFail)?;
+    Ok(address)
 }

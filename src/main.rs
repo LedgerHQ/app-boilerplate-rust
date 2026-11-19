@@ -56,7 +56,7 @@ const P2_SIGN_TX_LAST: u8 = 0x00;
 // P2 for more APDU to receive.
 const P2_SIGN_TX_MORE: u8 = 0x80;
 // P1 for first APDU number.
-const P1_SIGN_TX_START: u8 = 0x00;
+pub const P1_SIGN_TX_START: u8 = 0x00;
 // P1 for maximum APDU number.
 const P1_SIGN_TX_MAX: u8 = 0x03;
 
@@ -74,9 +74,11 @@ pub enum AppSW {
     TxWrongLength = 0xB004,
     TxParsingFail = 0xB005,
     TxHashFail = 0xB006,
+    BadState = 0xB007,
     TxSignFail = 0xB008,
     KeyDeriveFail = 0xB009,
     VersionParsingFail = 0xB00A,
+    InvalidPath = 0xB00B,
     WrongApduLength = StatusWords::BadLen as u16,
     SwapFail = 0xC000,
     Ok = 0x9000,
@@ -213,7 +215,10 @@ pub fn normal_main(swap_params: Option<&CreateTxParams>) -> bool {
     loop {
         let command = comm.next_command();
         let decoded = command.decode::<Instruction>();
+        // Any rejected command ends a pending SIGN_TX flow, so that no later chunk can be signed
+        // with the path or data sent before the error.
         let Ok(ins) = decoded else {
+            tx_ctx.clear_flow();
             let _ = comm.send(&[], decoded.unwrap_err());
             continue;
         };
@@ -224,6 +229,7 @@ pub fn normal_main(swap_params: Option<&CreateTxParams>) -> bool {
                 AppSW::Ok
             }
             Err(sw) => {
+                tx_ctx.clear_flow();
                 let _ = comm.send(&[], sw);
                 sw
             }

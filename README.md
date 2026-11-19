@@ -5,6 +5,7 @@
 This is a boilerplate application written in Rust which can be forked to start a new project for the Ledger devices.
 
 * Implements standard features (display address, transaction signature...),
+* Documents its [APDU protocol](doc/APDU.md),
 * Has functional tests using [Ragger](https://github.com/LedgerHQ/ragger),
 * Has CI workflows mandatory for app deployment in the Ledger store.
 

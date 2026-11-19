@@ -29,6 +29,8 @@ Boilerplate Ledger hardware-wallet application written in Rust, targeting Nano X
 
 ### APDU dispatch
 
+The wire protocol (commands, data formats, status words) is specified in `doc/APDU.md`; keep it in sync with `src/main.rs` and the handlers.
+
 1. `Comm` receives an APDU with `CLA=0xe0`; wrong-CLA APDUs are rejected automatically by the SDK (`comm.set_expected_cla(0xe0)`).
 2. `Instruction::try_from(ApduHeader)` in `src/main.rs` parses `(INS, P1, P2)` into a strongly-typed enum. Invalid P1/P2 → `AppSW::WrongP1P2`; unknown INS → `AppSW::InsNotSupported`. **All APDU parameter validation lives here, not in the handlers.**
 3. `handle_apdu` routes to a handler in `src/handlers/`. Handlers return `Result<CommandResponse, AppSW>`.

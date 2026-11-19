@@ -3,11 +3,19 @@ use alloc::vec::Vec;
 use crate::AppSW;
 use ledger_device_sdk::ecc::{Secp256k1, SeedDerive};
 use ledger_device_sdk::hash::{sha3::Keccak256, HashInit};
+use ledger_device_sdk::libcall::string::{uint256_to_float, CustomString};
 
 /// Ticker of the coin handled natively by this app.
 pub const NATIVE_TICKER: &str = "CRAB";
 /// Decimals of the coin handled natively by this app.
 pub const NATIVE_DECIMALS: u8 = 9;
+
+/// Formats an amount of native coin base units in coin units, e.g. `0.000000777` for 777.
+pub fn format_native_amount(value: u64) -> CustomString<79> {
+    let mut value_u256 = [0u8; 32];
+    value_u256[32 - core::mem::size_of::<u64>()..].copy_from_slice(&value.to_be_bytes());
+    uint256_to_float(&value_u256, usize::from(NATIVE_DECIMALS))
+}
 
 /// Flag marking a hardened BIP32 path component.
 const HARDENED: u32 = 0x8000_0000;

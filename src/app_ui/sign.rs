@@ -15,7 +15,7 @@
  *  limitations under the License.
  *****************************************************************************/
 use crate::handlers::sign_tx::Tx;
-use crate::utils::{Bip32Path, NATIVE_TICKER};
+use crate::utils::{format_native_amount, Bip32Path, NATIVE_TICKER};
 use crate::AppSW;
 
 use crate::settings::{Settings, SETTING_SHOW_PATH};
@@ -38,7 +38,7 @@ use alloc::{format, string::ToString};
 /// Every field of the signed transaction except the nonce is always displayed: no setting may
 /// hide data that is signed.
 pub fn ui_display_tx(comm: &mut Comm, tx: &Tx, path: &Bip32Path) -> Result<bool, AppSW> {
-    let value_str = format!("{} {}", tx.coin, tx.value);
+    let value_str = format!("{} {}", tx.coin, format_native_amount(tx.value).as_str());
     let to_str = format!("0x{}", hex::encode(tx.to).to_uppercase());
     let path_str = path.to_string();
 

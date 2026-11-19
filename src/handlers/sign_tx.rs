@@ -15,7 +15,7 @@
  *  limitations under the License.
  *****************************************************************************/
 use crate::app_ui::sign::ui_display_tx;
-use crate::utils::Bip32Path;
+use crate::utils::{Bip32Path, NATIVE_TICKER};
 use crate::{AppSW, P1_SIGN_TX_START};
 use alloc::vec::Vec;
 use ledger_device_sdk::ecc::{Secp256k1, SeedDerive};
@@ -186,6 +186,12 @@ fn continue_flow<'a>(
         }
         // --8<-- [end:SwapError_usage]
     } else {
+        // Without the trusted coin configuration that the Exchange app provides in swap mode,
+        // only the native coin is known well enough to be reviewed.
+        if tx.coin != NATIVE_TICKER {
+            log::error!("Unsupported coin");
+            return Err(AppSW::TxParsingFail);
+        }
         log::debug!("Normal mode, showing UI");
         let comm = command.into_comm();
         let approved = ui_display_tx(comm, &tx, &ctx.path)?;

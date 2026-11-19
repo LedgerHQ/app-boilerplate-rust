@@ -44,6 +44,7 @@ Boilerplate Ledger hardware-wallet application written in Rust, targeting Nano X
 - `P1=1..=3, P2=0x00` — final chunk; triggers parse (`serde_json_core::from_slice` into `Tx`), UI review, and signing.
 - Chunks must be strictly consecutive after chunk 0; anything else returns `AppSW::BadState` (`0xB007`). The flow state (path, `raw_tx`) is cleared after every final chunk and every error.
 - `MAX_TRANSACTION_LEN = 510` is enforced on the accumulator; exceeding it returns `AppSW::TxWrongLength`.
+- In normal mode `coin` must be the native ticker (`NATIVE_TICKER` in `src/utils.rs`); other assets are only signed in swap mode, against the Exchange coin configuration.
 
 Hash = Keccak256 of `raw_tx`; signature = secp256k1 deterministic, returned as `[siglen][DER signature][parity]`.
 

@@ -4,6 +4,11 @@ use crate::AppSW;
 use ledger_device_sdk::ecc::{Secp256k1, SeedDerive};
 use ledger_device_sdk::hash::{sha3::Keccak256, HashInit};
 
+/// Ticker of the coin handled natively by this app.
+pub const NATIVE_TICKER: &str = "CRAB";
+/// Decimals of the coin handled natively by this app.
+pub const NATIVE_DECIMALS: u8 = 9;
+
 /// Flag marking a hardened BIP32 path component.
 const HARDENED: u32 = 0x8000_0000;
 /// Prefix of every path this app derives keys under, `m/44'/1'`, matching the `path` declared in

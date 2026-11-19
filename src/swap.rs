@@ -58,7 +58,9 @@ use ledger_device_sdk::{
 };
 
 use crate::handlers::sign_tx::Tx;
-use crate::utils::{get_address_hash_from_pubkey, is_allowed_path, MAX_PATH_LEN};
+use crate::utils::{
+    get_address_hash_from_pubkey, is_allowed_path, MAX_PATH_LEN, NATIVE_DECIMALS, NATIVE_TICKER,
+};
 use alloc::{format, string::ToString};
 
 /// Longest amount string the SDK forwards to the Exchange app (`MAX_PRINTABLE_AMOUNT_SIZE - 2`
@@ -459,10 +461,6 @@ fn check_address(params: &CheckAddressParams) -> i32 {
 // --8<-- [end:check_address]
 
 // --8<-- [start:get_printable_amount]
-/// Ticker of the coin handled natively by this app.
-const NATIVE_TICKER: &str = "CRAB";
-/// Decimals of the coin handled natively by this app.
-const NATIVE_DECIMALS: u8 = 9;
 /// Bound on asset decimals, well within what the 79-byte output of `uint256_to_float` allows.
 const MAX_DECIMALS: u8 = 30;
 

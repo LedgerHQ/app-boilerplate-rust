@@ -171,3 +171,12 @@ def test_sign_tx_escaped_text(backend, field):
     with pytest.raises(ExceptionRAPDU) as e:
         client.sign_tx_sync(path=BOL_PATH, transaction=transaction)
     assert e.value.status == Errors.SW_TX_PARSING_FAIL
+
+
+# Outside swap mode, only the native coin can be signed: other assets have no known decimals
+def test_sign_tx_unsupported_coin(backend):
+    client = BoilerplateCommandSender(backend)
+    transaction = Transaction(nonce=1, coin="USDT", value=777, to=DESTINATION, memo="memo").serialize()
+    with pytest.raises(ExceptionRAPDU) as e:
+        client.sign_tx_sync(path=BOL_PATH, transaction=transaction)
+    assert e.value.status == Errors.SW_TX_PARSING_FAIL

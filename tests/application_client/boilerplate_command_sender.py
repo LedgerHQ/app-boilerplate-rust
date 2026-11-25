@@ -65,6 +65,26 @@ class Errors(IntEnum):
     SW_SWAP_FAIL = 0xC000
 
 
+class SwapErrorCommonCode(IntEnum):
+    # First byte of the data sent with SW_SWAP_FAIL (SwapErrorCommonCode of the SDK)
+    ERROR_INTERNAL = 0x00
+    ERROR_WRONG_AMOUNT = 0x01
+    ERROR_WRONG_DESTINATION = 0x02
+    ERROR_WRONG_FEES = 0x03
+    ERROR_WRONG_METHOD = 0x04
+    ERROR_GENERIC = 0xFF
+
+
+class SwapAppErrorCode(IntEnum):
+    # Second byte of the data sent with SW_SWAP_FAIL (SwapAppErrorCode of the application, src/swap.rs)
+    DEFAULT = 0x00
+    AMOUNT_CAST_FAIL = 0x01
+    DESTINATION_DECODE_FAIL = 0x02
+    COIN_CONFIG_FAIL = 0x03
+    EXTRA_ID_MISMATCH = 0x04
+    WRONG_TOKEN_INFO = 0x05
+
+
 def split_message(message: bytes, max_size: int) -> list[bytes]:
     return [message[x : x + max_size] for x in range(0, len(message), max_size)]
 

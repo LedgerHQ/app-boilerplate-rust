@@ -96,20 +96,42 @@ The Exchange application can swap a token when the token is in the Ledger CAL (C
 which gives Exchange its ticker and decimals. Adding a token to the CAL requires coordination with
 Ledger.
 
-This application only swaps its native coin: it rejects token transfers in swap mode.
+- Use it when users must be able to swap the tokens of the chain from Ledger Wallet.
+- It requires coordination with Ledger: the token must be in the CAL, with the name of the
+  application.
+- It works with both levels above: the token can come from the hardcoded list or from a descriptor.
 
 The CAL entry of the native coin must have an empty sub coin configuration. The application treats
 any other configuration as a token, even one with the ticker `CRAB` and 9 decimals: the CAL can
 hold a token with the same ticker as the native coin.
+
+Exchange gives the application the coin configuration of the swap: the ticker and the decimals of
+the token, but not its address. To finalize the swap, the host sends a
+[SIGN_TOKEN_TX](APDU.md#sign_token_tx) transaction, which names the token by its address. The
+application finds the token as in normal mode (see the [lookup order](#token-lookup-order)), then
+checks that its ticker and decimals are those of the configuration. The ticker is enough to identify
+the token, as only one address at a time can have a given ticker: the tickers of the hardcoded list
+are unique, the application keeps one descriptor, and a descriptor cannot use the ticker of a token
+of the list at another address.
+
+A swapped token known from a descriptor needs its descriptor during the swap. Exchange starts the
+application with no descriptor, so the host sends the certificate and the descriptor before the
+transaction, as in normal mode.
+
+The application rejects with `0xC000`:
+
+- a native coin transfer (SIGN_TX) for a token swap, and a token transfer for a native coin swap;
+- a token transfer of an unknown token, or of a token with another ticker or other decimals than the
+  configuration.
+
+The fees of a swap are always shown in `CRAB`, the coin that pays them, even for a token swap.
 
 ## Token lookup order
 
 1. Token of the last accepted descriptor. It comes first, so a descriptor can replace the ticker and
    decimals of a token of the hardcoded list, as Ledger signed them.
 2. Hardcoded token list.
-3. Unknown token: the transaction is rejected with `0xB005`.
-
-In swap mode, every token transfer is rejected with `0xC000`, known or not.
+3. Unknown token: the transaction is rejected with `0xB005`, or with `0xC000` in swap mode.
 
 ## Testing
 
@@ -123,3 +145,9 @@ test key, see
 [`tests/standalone/test_provide_token_info_cmd.py`](../tests/standalone/test_provide_token_info_cmd.py)
 and
 [`tests/application_client/boilerplate_token_descriptor.py`](../tests/application_client/boilerplate_token_descriptor.py).
+
+The token swap tests, in [`tests/swap/test_boilerplate.py`](../tests/swap/test_boilerplate.py), swap
+a token of the hardcoded list (`BoilerplateTokenTests`) and a token known from a descriptor
+(`BoilerplateDynamicTokenTests`). Their mock CAL configurations are in
+[`tests/swap/cal_helper.py`](../tests/swap/cal_helper.py), and must carry the name of the
+application.

@@ -43,7 +43,8 @@ use handlers::{
     sign_tx::{handler_sign_tx, TxContext, TxKind},
 };
 use ledger_device_sdk::io::{self, init_comm, ApduHeader, Comm, Command, Reply, StatusWords};
-use ledger_device_sdk::libcall::swap::CreateTxParams;
+use ledger_device_sdk::libcall::swap::{CreateTxParams, SwapError};
+use swap::SwapAppErrorCode;
 
 ledger_device_sdk::set_panic!(ledger_device_sdk::exiting_panic);
 
@@ -104,6 +105,34 @@ impl From<AppSW> for Reply {
 impl From<io::CommError> for AppSW {
     fn from(_e: io::CommError) -> Self {
         AppSW::CommError
+    }
+}
+
+/// Error of a command: a status word, or a swap rejection sent with its error code and message.
+pub enum AppError {
+    Sw(AppSW),
+    /// Sent with [`AppSW::SwapFail`], the error in the response data.
+    Swap(SwapError<SwapAppErrorCode>),
+}
+
+impl AppError {
+    fn status(&self) -> AppSW {
+        match self {
+            AppError::Sw(sw) => *sw,
+            AppError::Swap(_) => AppSW::SwapFail,
+        }
+    }
+}
+
+impl From<AppSW> for AppError {
+    fn from(sw: AppSW) -> Self {
+        AppError::Sw(sw)
+    }
+}
+
+impl From<io::CommError> for AppError {
+    fn from(e: io::CommError) -> Self {
+        AppError::Sw(e.into())
     }
 }
 
@@ -255,9 +284,15 @@ pub fn normal_main(swap_params: Option<&CreateTxParams>) -> bool {
                 let _ = reply.send(AppSW::Ok);
                 AppSW::Ok
             }
-            Err(sw) => {
+            Err(error) => {
                 tx_ctx.clear_flow();
-                let _ = comm.send(&[], sw);
+                let sw = error.status();
+                let mut response = comm.begin_response();
+                if let AppError::Swap(swap_error) = &error {
+                    // Error code then message, as the C SDK's send_swap_error_* functions send them.
+                    let _ = swap_error.append_to_response(&mut response);
+                }
+                let _ = response.send(sw);
                 sw
             }
         };
@@ -274,18 +309,18 @@ fn handle_apdu<'a>(
     command: Command<'a>,
     ins: &Instruction,
     ctx: &mut TxContext,
-) -> Result<io::CommandResponse<'a>, AppSW> {
+) -> Result<io::CommandResponse<'a>, AppError> {
     match ins {
         Instruction::GetAppName => {
             let mut response = command.into_response();
             response.append(env!("CARGO_PKG_NAME").as_bytes())?;
             Ok(response)
         }
-        Instruction::GetVersion => handler_get_version(command),
-        Instruction::GetPubkey { display } => handler_get_public_key(command, *display),
+        Instruction::GetVersion => Ok(handler_get_version(command)?),
+        Instruction::GetPubkey { display } => Ok(handler_get_public_key(command, *display)?),
         Instruction::SignTx { kind, chunk, more } => {
             handler_sign_tx(command, *chunk, *more, *kind, ctx)
         }
-        Instruction::ProvideTokenInfo => handler_provide_token_info(command, ctx),
+        Instruction::ProvideTokenInfo => Ok(handler_provide_token_info(command, ctx)?),
     }
 }

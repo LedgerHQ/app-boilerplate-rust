@@ -57,7 +57,7 @@ use ledger_device_sdk::{
     log,
 };
 
-use crate::handlers::sign_tx::{Asset, Transfer};
+use crate::handlers::sign_tx::{Asset, Transfer, TxKind};
 use crate::utils::{
     get_address_hash_from_pubkey, is_allowed_path, MAX_DECIMALS, MAX_PATH_LEN, NATIVE_DECIMALS,
     NATIVE_TICKER,
@@ -83,17 +83,19 @@ type PrintableAmount = ArrayString<MAX_PRINTABLE_AMOUNT_LEN>;
 ///
 /// # Usage
 ///
-/// When returning a swap error, combine a common code with an app-specific code:
+/// When returning a swap error, combine a common code with an app-specific code. The handler
+/// returns it in [`crate::AppError::Swap`], and `normal_main` sends it with
+/// [`crate::AppSW::SwapFail`]:
 ///
 /// ```rust,ignore
-/// use ledger_device_sdk::libcall::swap::SwapErrorCommonCode;
+/// use ledger_device_sdk::libcall::swap::{SwapError, SwapErrorCommonCode};
 ///
 /// // Example: Amount validation failed, no app-specific refinement needed
-/// comm.append(&[
-///     SwapErrorCommonCode::ErrorWrongAmount as u8,
-///     SwapAppErrorCode::Default as u8
-/// ]);
-/// comm.append(b"Amount mismatch: tx=1000, swap=2000");
+/// return Err(AppError::Swap(SwapError::with_message(
+///     SwapErrorCommonCode::ErrorWrongAmount,
+///     SwapAppErrorCode::Default,
+///     "Amount mismatch: tx=1000, swap=2000".to_string(),
+/// )));
 /// ```
 ///
 /// # Template Note
@@ -125,6 +127,9 @@ pub enum SwapAppErrorCode {
     DestinationDecodeFail = 0x02,
     CoinConfigFail = 0x03,
     ExtraIdMismatch = 0x04,
+    /// The token of the transaction is unknown, or its ticker or decimals differ from those of
+    /// the swap coin configuration.
+    WrongTokenInfo = 0x05,
 }
 
 impl SwapAppErrorCodeTrait for SwapAppErrorCode {
@@ -152,7 +157,10 @@ impl SwapAppErrorCodeTrait for SwapAppErrorCode {
 ///
 /// Returns error if:
 /// - Coin configuration is malformed or unsupported (ErrorWrongMethod / CoinConfigFail)
-/// - Asset doesn't match the coin configuration, or is a token (ErrorWrongMethod)
+/// - A native coin transfer is made for a token swap, or a token transfer for a native coin swap
+///   (ErrorWrongMethod)
+/// - Token ticker or decimals don't match the coin configuration (ErrorWrongAmount /
+///   WrongTokenInfo)
 /// - Amount does not fit in a u64 (AmountCastFail)
 /// - Amount doesn't match between tx and swap params (ErrorWrongAmount)
 /// - Fees are not zero (ErrorWrongFees)
@@ -235,22 +243,70 @@ pub fn check_swap_params(
     Ok(())
 }
 
-/// Error for a transaction whose asset the app does not support, which cannot match any swap.
-pub fn unsupported_asset_error() -> SwapError<SwapAppErrorCode> {
-    log::error!("Swap asset not supported");
+/// Error for a transaction of `kind` whose asset the app does not support, which cannot match any
+/// swap: a native transaction with another coin than the native one, or a token transaction naming
+/// a token the app does not know.
+///
+/// The error codes are those [`check_swap_asset`] gives for the same kind of mismatch.
+pub fn unsupported_asset_error(
+    params: &CreateTxParams,
+    kind: TxKind,
+) -> SwapError<SwapAppErrorCode> {
+    match kind {
+        TxKind::Native => {
+            log::error!("Swap coin not supported");
+            SwapError::with_message(
+                SwapErrorCommonCode::ErrorWrongMethod,
+                SwapAppErrorCode::Default,
+                "Coin not supported".to_string(),
+            )
+        }
+        TxKind::Token if is_native_coin_config(params) => token_in_native_swap_error(),
+        TxKind::Token => {
+            log::error!("Swap token unknown");
+            SwapError::with_message(
+                SwapErrorCommonCode::ErrorWrongAmount,
+                SwapAppErrorCode::WrongTokenInfo,
+                "Unknown token".to_string(),
+            )
+        }
+    }
+}
+
+/// Error of a final transaction that cannot be parsed. As in the C boilerplate, it ends the swap
+/// with a generic swap error instead of a plain status word.
+pub fn unparsable_tx_error() -> SwapError<SwapAppErrorCode> {
+    log::error!("Swap tx parsing failed");
+    SwapError::without_message(SwapErrorCommonCode::ErrorGeneric, SwapAppErrorCode::Default)
+}
+
+/// Whether the swap coin configuration designates the native coin.
+///
+/// Only an empty configuration does. A non-empty one describes a token, even with the native ticker
+/// and decimals: the CAL can hold a token with the native ticker.
+fn is_native_coin_config(params: &CreateTxParams) -> bool {
+    params.coin_config_len == 0
+}
+
+fn token_in_native_swap_error() -> SwapError<SwapAppErrorCode> {
+    log::error!("Token transfer in a native coin swap");
     SwapError::with_message(
         SwapErrorCommonCode::ErrorWrongMethod,
         SwapAppErrorCode::Default,
-        "Asset not supported".to_string(),
+        format!("Token tx != swap coin {}", NATIVE_TICKER),
     )
 }
 
 /// Checks that the transaction transfers the asset described by the swap coin configuration.
 ///
-/// Only an empty configuration designates the native coin. A non-empty one describes a token, even
-/// with the native ticker and decimals: the CAL can hold a token with the native ticker.
+/// A native coin swap requires a native transaction (see [`is_native_coin_config`]). A token swap
+/// requires a token transaction whose token has the ticker and the decimals of the configuration.
 ///
-/// Only the native coin can be swapped: token transfers are rejected.
+/// The configuration comes from the CAL, through the Exchange app, and describes the token by its
+/// ticker and decimals only. The ticker is enough to identify the token: at most one address
+/// resolves to a given ticker, as the tickers of the hardcoded list are unique, the app keeps one
+/// descriptor at a time, and a descriptor cannot reuse the ticker of a listed token at another
+/// address (see [`crate::token::parse_descriptor`]).
 fn check_swap_asset(
     params: &CreateTxParams,
     asset: &Asset,
@@ -262,10 +318,10 @@ fn check_swap_asset(
             SwapAppErrorCode::CoinConfigFail,
         )
     })?;
-    match asset {
-        Asset::Native if config.is_empty() => Ok(()),
-        Asset::Native => {
-            log::error!("Swap asset mismatch");
+    match (asset, is_native_coin_config(params)) {
+        (Asset::Native, true) => Ok(()),
+        (Asset::Native, false) => {
+            log::error!("Native coin transfer in a token swap");
             Err(SwapError::with_message(
                 SwapErrorCommonCode::ErrorWrongMethod,
                 SwapAppErrorCode::Default,
@@ -275,12 +331,25 @@ fn check_swap_asset(
                 ),
             ))
         }
-        Asset::Token(_) => {
-            log::error!("Token swaps not supported");
+        (Asset::Token(_), true) => Err(token_in_native_swap_error()),
+        (Asset::Token(info), false)
+            if info.ticker() == swap_asset.ticker.as_str()
+                && info.decimals() == swap_asset.decimals =>
+        {
+            Ok(())
+        }
+        (Asset::Token(info), false) => {
+            log::error!("Swap token mismatch");
             Err(SwapError::with_message(
-                SwapErrorCommonCode::ErrorWrongMethod,
-                SwapAppErrorCode::Default,
-                "Token swaps are not supported".to_string(),
+                SwapErrorCommonCode::ErrorWrongAmount,
+                SwapAppErrorCode::WrongTokenInfo,
+                format!(
+                    "Token tx {} ({} decimals) != swap {} ({} decimals)",
+                    info.ticker(),
+                    info.decimals(),
+                    swap_asset.ticker,
+                    swap_asset.decimals
+                ),
             ))
         }
     }
@@ -516,10 +585,7 @@ pub struct SwapAsset {
 /// Does not allocate, as it runs while the Exchange app shares BSS memory.
 pub fn parse_coin_config(config: &[u8]) -> Option<SwapAsset> {
     if config.is_empty() {
-        return Some(SwapAsset {
-            ticker: ArrayString::from(NATIVE_TICKER).ok()?,
-            decimals: NATIVE_DECIMALS,
-        });
+        return native_asset();
     }
 
     let (&ticker_len, rest) = config.split_first()?;
@@ -537,6 +603,14 @@ pub fn parse_coin_config(config: &[u8]) -> Option<SwapAsset> {
     })
 }
 
+/// The native coin, as a [`SwapAsset`].
+fn native_asset() -> Option<SwapAsset> {
+    Some(SwapAsset {
+        ticker: ArrayString::from(NATIVE_TICKER).ok()?,
+        decimals: NATIVE_DECIMALS,
+    })
+}
+
 /// Format an amount for display in the Exchange app UI.
 ///
 /// The Exchange app calls this to get human-readable strings for amounts and fees.
@@ -550,7 +624,8 @@ pub fn parse_coin_config(config: &[u8]) -> Option<SwapAsset> {
 /// - Actual length is in `params.amount_len`
 /// - Padded to 32 bytes (uint256) for SDK formatting helpers
 ///
-/// The ticker and decimals come from `params.coin_config` (see [`parse_coin_config`]).
+/// The ticker and decimals come from `params.coin_config` (see [`parse_coin_config`]), except for
+/// fees: they are always paid in the native coin, even in a token swap.
 ///
 /// # Returns
 ///
@@ -563,7 +638,11 @@ pub fn parse_coin_config(config: &[u8]) -> Option<SwapAsset> {
 /// Uses `ArrayString` (stack-allocated) to avoid heap allocation, as this function
 /// runs under BSS memory restrictions.
 fn get_printable_amount(params: &PrintableAmountParams) -> Option<PrintableAmount> {
-    let asset = parse_coin_config(&params.coin_config[..params.coin_config_len])?;
+    let asset = if params.is_fee {
+        native_asset()?
+    } else {
+        parse_coin_config(&params.coin_config[..params.coin_config_len])?
+    };
 
     // Convert amount from 16-byte buffer to 32-byte buffer (uint256 format)
     // The amount is right-aligned in params.amount, we need to copy it to a

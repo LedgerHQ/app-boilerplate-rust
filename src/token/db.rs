@@ -18,8 +18,8 @@
 //! Hardcoded token list.
 //!
 //! The entries are examples: the chain of this app does not exist. A fork replaces them with its
-//! own tokens, with no Ledger coordination needed. This app does not swap tokens, see
-//! `doc/TOKENS.md`.
+//! own tokens, with no Ledger coordination needed. A swap of a token of the list needs its ticker
+//! and decimals to be those of the Ledger CAL, see `doc/TOKENS.md`.
 
 use super::{is_valid_token_info, TOKEN_ADDRESS_LEN};
 use crate::utils::NATIVE_TICKER;

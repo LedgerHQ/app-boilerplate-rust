@@ -17,7 +17,7 @@
 use crate::app_ui::sign::ui_display_tx;
 use crate::token::{self, DynamicToken, TokenInfo, TOKEN_ADDRESS_LEN};
 use crate::utils::{Bip32Path, NATIVE_TICKER};
-use crate::{AppSW, P1_SIGN_TX_START};
+use crate::{AppError, AppSW, P1_SIGN_TX_START};
 use alloc::vec::Vec;
 use ledger_device_sdk::ecc::{Secp256k1, SeedDerive};
 use ledger_device_sdk::hash::{sha3::Keccak256, HashInit};
@@ -195,16 +195,18 @@ impl<'a> TxContext<'a> {
 /// # Swap Mode
 ///
 /// If `ctx.swap_params` is present:
-/// 1. Validates the parsed transaction against the swap parameters (amount, destination).
+/// 1. Validates the parsed transaction against the swap parameters (asset, amount, destination,
+///    memo). The asset is resolved as in normal mode, the token included.
 /// 2. If valid, bypasses the UI and signs immediately.
-/// 3. If invalid, returns an error.
+/// 3. If invalid, or if the asset is not supported, returns [`AppError::Swap`], sent with
+///    [`AppSW::SwapFail`].
 pub fn handler_sign_tx<'a>(
     command: Command<'a>,
     chunk: u8,
     more: bool,
     kind: TxKind,
     ctx: &mut TxContext,
-) -> Result<CommandResponse<'a>, AppSW> {
+) -> Result<CommandResponse<'a>, AppError> {
     log::debug!("=> handler_sign_tx");
     if chunk == P1_SIGN_TX_START {
         return start_flow(command, kind, ctx);
@@ -213,7 +215,7 @@ pub fn handler_sign_tx<'a>(
     if ctx.next_chunk != Some(chunk) || ctx.flow_kind != Some(kind) {
         log::error!("Unexpected chunk, or INS other than the one of chunk 0");
         ctx.clear_flow();
-        return Err(AppSW::BadState);
+        return Err(AppSW::BadState.into());
     }
 
     let result = continue_flow(command, more, kind, ctx);
@@ -230,7 +232,7 @@ fn start_flow<'a>(
     command: Command<'a>,
     kind: TxKind,
     ctx: &mut TxContext,
-) -> Result<CommandResponse<'a>, AppSW> {
+) -> Result<CommandResponse<'a>, AppError> {
     log::debug!("Chunk 0: Path parsing");
     ctx.clear_flow();
     ctx.review_finished = false;
@@ -246,10 +248,10 @@ fn continue_flow<'a>(
     more: bool,
     kind: TxKind,
     ctx: &mut TxContext,
-) -> Result<CommandResponse<'a>, AppSW> {
+) -> Result<CommandResponse<'a>, AppError> {
     let data = command.get_data();
     if ctx.raw_tx.len() + data.len() > MAX_TRANSACTION_LEN {
-        return Err(AppSW::TxWrongLength);
+        return Err(AppSW::TxWrongLength.into());
     }
     ctx.raw_tx.extend(data);
 
@@ -259,7 +261,14 @@ fn continue_flow<'a>(
 
     // --8<-- [start:ui_bypass]
     log::debug!("Last chunk received, parsing tx");
-    let tx = parse_tx(&ctx.raw_tx, kind)?;
+    let tx = match parse_tx(&ctx.raw_tx, kind) {
+        Ok(tx) => tx,
+        Err(_) if ctx.swap_params.is_some() => {
+            ctx.review_finished = true;
+            return Err(AppError::Swap(crate::swap::unparsable_tx_error()));
+        }
+        Err(sw) => return Err(sw.into()),
+    };
     log::debug!("Tx parsed successfully");
 
     if let Some(params) = ctx.swap_params {
@@ -267,14 +276,12 @@ fn continue_flow<'a>(
         // --8<-- [start:SwapError_usage]
         let checked = tx
             .into_transfer(ctx.dynamic_token.as_ref())
-            .ok_or_else(crate::swap::unsupported_asset_error)
+            .ok_or_else(|| crate::swap::unsupported_asset_error(params, kind))
             .and_then(|transfer| crate::swap::check_swap_params(params, &transfer));
         if let Err(error) = checked {
-            // The swap validation failed and returned us the common format error defined by the SDK
-            // Use SDK method to append error code and message in standard format
-            let mut response = command.into_response();
-            error.append_to_response(&mut response)?;
-            Err(AppSW::SwapFail)
+            // The swap validation failed and returned us the common format error defined by the SDK.
+            // normal_main sends its error code and message with the SwapFail status word.
+            Err(AppError::Swap(error))
         } else {
             log::debug!("Swap validation success, bypassing UI");
             compute_signature_and_append(command.into_response(), ctx)
@@ -283,7 +290,7 @@ fn continue_flow<'a>(
     } else {
         let Some(transfer) = tx.into_transfer(ctx.dynamic_token.as_ref()) else {
             log::error!("Unsupported asset");
-            return Err(AppSW::TxParsingFail);
+            return Err(AppSW::TxParsingFail.into());
         };
         log::debug!("Normal mode, showing UI");
         let comm = command.into_comm();
@@ -292,7 +299,7 @@ fn continue_flow<'a>(
         if approved {
             compute_signature_and_append(comm.begin_response(), ctx)
         } else {
-            Err(AppSW::Deny)
+            Err(AppSW::Deny.into())
         }
     }
     // --8<-- [end:ui_bypass]
@@ -339,7 +346,7 @@ fn is_displayable(text: &str) -> bool {
 fn compute_signature_and_append<'a>(
     mut response: CommandResponse<'a>,
     ctx: &mut TxContext,
-) -> Result<CommandResponse<'a>, AppSW> {
+) -> Result<CommandResponse<'a>, AppError> {
     log::debug!("Signing transaction");
     let mut keccak256 = Keccak256::new();
     let mut message_hash: [u8; 32] = [0u8; 32];

@@ -87,8 +87,8 @@ The transaction is a JSON object with exactly these fields, any other field bein
 
 `coin` and `memo` must be printable ASCII without backslash, and `coin` cannot be empty. A
 transaction that cannot be parsed or validated returns `0xB005`. Tokens are transferred with
-[SIGN_TOKEN_TX](#sign_token_tx): any other `coin` than `CRAB` returns `0xB005`, or `0xC000` in
-[swap mode](#swap-mode).
+[SIGN_TOKEN_TX](#sign_token_tx), in swaps too: any other `coin` than `CRAB` returns `0xB005`, or
+`0xC000` in [swap mode](#swap-mode).
 
 ### Review and signature
 
@@ -108,10 +108,20 @@ with deterministic ECDSA over secp256k1:
 
 When the Exchange application starts the app to finalize a swap, the review is skipped and the
 transaction must match the swap approved in Exchange: asset, amount, destination, and memo equal to
-the destination extra ID; swaps with fees are rejected. Only the native coin can be swapped: a
-SIGN_TOKEN_TX transaction is rejected, even for a token given by a
-[PROVIDE_TOKEN_INFO](#provide_token_info) of the swap. A mismatch or an unsupported asset returns
-`0xC000`, followed by a two-byte error code and a message in the response data.
+the destination extra ID; swaps with fees are rejected. A mismatch, an unsupported asset, or a
+transaction that cannot be parsed returns `0xC000`, followed by a two-byte error code and a message
+in the response data, and ends the swap.
+
+The asset comes from the coin configuration that Exchange gets from the Ledger CAL:
+
+- An empty configuration designates the native coin: the transaction is a SIGN_TX of `CRAB`.
+- Any other configuration designates a token, even with the ticker `CRAB`: the transaction is a
+  [SIGN_TOKEN_TX](#sign_token_tx). The app finds the ticker and the decimals of its token as in
+  normal mode, from the [PROVIDE_TOKEN_INFO](#provide_token_info) descriptor sent during the swap,
+  then from the hardcoded list. They must be equal to those of the configuration.
+
+A SIGN_TX for a token swap, or a SIGN_TOKEN_TX for a native coin swap, is rejected. So is an
+unknown token, and a SIGN_TX with a `coin` other than `CRAB`.
 
 ## SIGN_TOKEN_TX
 
@@ -143,13 +153,16 @@ order (see [token support](TOKENS.md)):
 1. The token of the last descriptor accepted by [PROVIDE_TOKEN_INFO](#provide_token_info).
 2. The hardcoded token list.
 
-An address found in neither returns `0xB005`, before any review.
+An address found in neither returns `0xB005`, before any review, or `0xC000` in
+[swap mode](#swap-mode).
 
 ### Token review
 
 The device displays the token ticker, the amount with the ticker and the decimals of the token,
 the destination and the memo, plus the derivation path when the "Derivation path" setting is
 enabled. The review titles name the token ticker. A refusal returns `0x6985`.
+
+In [swap mode](#swap-mode) the review is skipped and the transaction is checked against the swap.
 
 ## PROVIDE_TOKEN_INFO
 
@@ -194,7 +207,8 @@ leaves the slot as it is.
 PROVIDE_TOKEN_INFO also ends any pending [SIGN_TX](#sign_tx) or [SIGN_TOKEN_TX](#sign_token_tx)
 flow, so the descriptor of a transaction is sent before its chunk `0x00`. The slot is kept across
 signing flows, until another PROVIDE_TOKEN_INFO or until the app exits. In swap mode the app starts
-with an empty slot.
+with an empty slot: the host sends the certificate and the descriptor of a swapped token after
+Exchange starts the app, before the SIGN_TOKEN_TX.
 
 ## Status words
 

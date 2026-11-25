@@ -33,7 +33,7 @@ The wire protocol (commands, data formats, status words) is specified in `doc/AP
 
 1. `Comm` receives an APDU with `CLA=0xe0`; wrong-CLA APDUs are rejected automatically by the SDK (`comm.set_expected_cla(0xe0)`).
 2. `Instruction::try_from(ApduHeader)` in `src/main.rs` parses `(INS, P1, P2)` into a strongly-typed enum, INS codes being the `INS_*` constants. Invalid P1/P2 → `AppSW::WrongP1P2`; unknown INS → `AppSW::InsNotSupported`. **All APDU parameter validation lives here, not in the handlers.**
-3. `handle_apdu` routes to a handler in `src/handlers/`. Handlers return `Result<CommandResponse, AppSW>`.
+3. `handle_apdu` routes to a handler in `src/handlers/`. Handlers return `Result<CommandResponse, AppSW>`, except `handler_sign_tx`, which returns `AppError` (`src/main.rs`): its `Swap` variant carries a swap rejection, which `normal_main` sends as the 2-byte error code and the message, with `0xC000`.
 4. `AppSW` (status word enum in `src/main.rs`) is the single source of truth for error codes returned over the wire (e.g. `0x6985` = Deny, `0x9000` = Ok, app-specific codes are `0xB001..0xB00C`, and swap failures are `0xC000`).
 5. After each command, `show_status_and_home_if_needed` decides whether to display an NBGL success/failure screen and return to home — this **must** be called for `GetPubkey { display: true }` and completed `SignTx` flows in normal mode, and **must not** display anything in swap mode.
 
@@ -47,7 +47,7 @@ SIGN_TX (`0x06`) and SIGN_TOKEN_TX (`0x07`) both decode to `Instruction::SignTx`
 - Chunks must be strictly consecutive after chunk 0 and sent with the INS of chunk 0; anything else returns `AppSW::BadState` (`0xB007`). The flow state (path, `raw_tx`, flow kind) is cleared after every final chunk, every PROVIDE_TOKEN_INFO, and every error, including errors of other commands and of APDU header decoding (`normal_main` clears it for any rejected command).
 - `MAX_TRANSACTION_LEN = 510` is enforced on the accumulator; exceeding it returns `AppSW::TxWrongLength`.
 - A native transaction's `coin` must be the native ticker (`NATIVE_TICKER` in `src/utils.rs`) in every mode. A token transaction names its token by a 32-byte address only; `token::lookup` (`src/token/`) gives its ticker and decimals from the descriptor slot first, then from the hardcoded list (`src/token/db.rs`, checked at compile time). Nothing in the transaction provides them.
-- An unsupported asset (other `coin`, unknown token) returns `AppSW::TxParsingFail` in normal mode and a `SwapError` (`0xC000`) in swap mode. Swap mode rejects token transfers.
+- An unsupported asset (other `coin`, unknown token) returns `AppSW::TxParsingFail` in normal mode and a `SwapError` (`0xC000`) in swap mode (`swap::unsupported_asset_error`).
 
 Hash = Keccak256 of `raw_tx`; signature = secp256k1 deterministic, returned as `[siglen][DER signature][parity]`.
 
@@ -59,6 +59,15 @@ PROVIDE_TOKEN_INFO (`0x22`, P1 = P2 = 0) → `Instruction::ProvideTokenInfo` →
 - The handler clears any pending flow and the slot (`TxContext::dynamic_token`) before parsing, so a rejected descriptor also empties the slot. Any failure returns `AppSW::InvalidDynamicToken` (`0xB00C`).
 - The slot holds one `DynamicToken` (fixed size, no heap). `clear_flow` does not touch it: it lasts until the app exits. Each swap session (`normal_main`) starts with it empty.
 - Parsing allocates (the SDK output holds `Vec`/`String`), so it only runs from the APDU loop: normal mode or swap's signing phase, never from `check_address` / `get_printable_amount`.
+
+### Token swap
+
+`swap::check_swap_asset` compares the resolved asset with the Exchange coin configuration (`parse_coin_config`):
+
+- Only an **empty** configuration is the native coin (`is_native_coin_config`); any other one is a token, even `CRAB`/9. A native swap needs `Asset::Native`, a token swap needs `Asset::Token` with exactly the configuration's ticker and decimals (else `ErrorWrongAmount` / `SwapAppErrorCode::WrongTokenInfo`). A kind mismatch is `ErrorWrongMethod`.
+- The configuration carries no token address: matching the ticker is enough only because at most one address resolves to a ticker (unique hardcoded tickers, one descriptor slot, `ticker_names_other_asset`). Keep that invariant when changing the token list or the descriptor checks.
+- A descriptor for a swapped token must be sent during the swap's signing phase, before the SIGN_TOKEN_TX: the slot starts empty in each swap session.
+- `get_printable_amount` always formats fees (`params.is_fee`) in `CRAB` with 9 decimals, even for a token swap.
 
 ### Swap memory constraint (critical)
 

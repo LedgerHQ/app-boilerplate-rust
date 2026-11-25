@@ -37,7 +37,8 @@ use alloc::{format, string::ToString, vec::Vec};
 ///
 /// Every field of the signed transaction except the nonce is always displayed: no setting may
 /// hide data that is signed. The token address is displayed as the ticker the app resolved from
-/// it, in its own field and in the titles: the token list makes that ticker unique.
+/// it, in its own field and in the titles. That ticker comes from the hardcoded token list, whose
+/// tickers are unique, or from a descriptor signed by Ledger.
 pub fn ui_display_tx(comm: &mut Comm, tx: &Transfer, path: &Bip32Path) -> Result<bool, AppSW> {
     let (ticker, decimals) = match &tx.asset {
         Asset::Native => (NATIVE_TICKER, NATIVE_DECIMALS),

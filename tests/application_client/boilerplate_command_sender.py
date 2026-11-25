@@ -5,6 +5,14 @@ from enum import IntEnum
 from ragger.backend.interface import RAPDU, BackendInterface
 from ragger.bip import pack_derivation_path
 
+from .boilerplate_token_descriptor import (
+    DESCRIPTOR_APP_NAME,
+    DESCRIPTOR_VERSION,
+    SLIP44_COIN_TYPE,
+    build_token_descriptor,
+)
+from .signing_partners import DYNAMIC_TOKEN_PARTNER
+
 MAX_APDU_LEN: int = 255
 
 CLA: int = 0xE0
@@ -32,6 +40,7 @@ class InsType(IntEnum):
     GET_PUBLIC_KEY = 0x05
     SIGN_TX = 0x06
     SIGN_TOKEN_TX = 0x07
+    PROVIDE_TOKEN_INFO = 0x22
 
 
 class Errors(IntEnum):
@@ -51,6 +60,7 @@ class Errors(IntEnum):
     SW_KEY_DERIVE_FAIL = 0xB009
     SW_VERSION_PARSING_FAIL = 0xB00A
     SW_INVALID_PATH = 0xB00B
+    SW_INVALID_DYNAMIC_TOKEN = 0xB00C
     SW_WRONG_APDU_LENGTH = 0x6E03
     SW_SWAP_FAIL = 0xC000
 
@@ -148,3 +158,39 @@ class BoilerplateCommandSender:
         rapdu = self.get_async_response()
         assert isinstance(rapdu, RAPDU)
         return rapdu
+
+    # Loads the PKI certificate of the key that signs token descriptors, here the test key that mocks
+    # the Ledger CAL. The OS handles this BOLOS command: the certificate only exists on Speculos.
+    def load_token_certificate(self) -> RAPDU:
+        return self.backend.exchange_raw(DYNAMIC_TOKEN_PARTNER.get_certificate_payload(self.backend.device.type))
+
+    # Sends a token descriptor, signed or not, as is
+    def provide_token_info(self, descriptor: bytes) -> RAPDU:
+        return self.backend.exchange(
+            cla=CLA,
+            ins=InsType.PROVIDE_TOKEN_INFO,
+            p1=P1.P1_START,
+            p2=P2.P2_LAST,
+            data=descriptor,
+        )
+
+    # Sends a descriptor of the token at `token_address`, hex encoded, signed with the test key.
+    # The certificate of the test key must have been loaded with load_token_certificate.
+    def provide_dynamic_token(
+        self,
+        ticker: str,
+        decimals: int,
+        token_address: str,
+        coin_type: int = SLIP44_COIN_TYPE,
+        app_name: str = DESCRIPTOR_APP_NAME,
+        version: int = DESCRIPTOR_VERSION,
+    ) -> RAPDU:
+        descriptor = build_token_descriptor(
+            ticker=ticker,
+            decimals=decimals,
+            token_address=token_address,
+            coin_type=coin_type,
+            app_name=app_name,
+            version=version,
+        )
+        return self.provide_token_info(descriptor)

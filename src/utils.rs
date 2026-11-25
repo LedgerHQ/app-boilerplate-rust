@@ -38,10 +38,20 @@ pub fn format_amount(value: u64, decimals: u8) -> Option<CustomString<79>> {
     Some(uint256_to_float(&value_u256, usize::from(decimals)))
 }
 
+/// Application name that signed token descriptors must carry, which is the `name` of the
+/// `[package.metadata.ledger]` section of `Cargo.toml` for the variant being built. A fork that
+/// renames the app or its variants must update it.
+#[cfg(not(any(feature = "variant_testnet", feature = "variant_betanet")))]
+pub const DESCRIPTOR_APP_NAME: &str = "Rust Boilerplate";
+#[cfg(feature = "variant_testnet")]
+pub const DESCRIPTOR_APP_NAME: &str = "Rust Testnet BP";
+#[cfg(feature = "variant_betanet")]
+pub const DESCRIPTOR_APP_NAME: &str = "Rust Betanet BP";
+
 /// SLIP-0044 coin type of this app, the testnet one shared by all coins.
 pub const SLIP44_COIN_TYPE: u32 = 1;
 /// Flag marking a hardened BIP32 path component.
-const HARDENED: u32 = 0x8000_0000;
+pub const HARDENED: u32 = 0x8000_0000;
 /// Prefix of every path this app derives keys under, `m/44'/1'`, matching the `path` declared in
 /// the `[package.metadata.ledger]` section of `Cargo.toml`.
 const ALLOWED_PATH_PREFIX: [u32; 2] = [44 | HARDENED, SLIP44_COIN_TYPE | HARDENED];

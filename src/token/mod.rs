@@ -19,12 +19,17 @@
 //!
 //! A token is identified by its address only. Its ticker and decimals come from what the app knows
 //! of that address, never from the transaction, so a host cannot make a token look like another.
+//! The app knows a token from a descriptor signed by Ledger (see [`dynamic`]) or from its
+//! hardcoded list.
 
 mod db;
+mod dynamic;
+
+pub use dynamic::{parse_descriptor, DynamicToken};
 
 use arrayvec::ArrayString;
 
-use crate::utils::{MAX_AMOUNT_LEN, MAX_DECIMALS};
+use crate::utils::{MAX_AMOUNT_LEN, MAX_DECIMALS, NATIVE_TICKER};
 
 /// Length of the address identifying a token.
 pub const TOKEN_ADDRESS_LEN: usize = 32;
@@ -84,10 +89,31 @@ const fn is_valid_token_info(ticker: &str, decimals: u8) -> bool {
     true
 }
 
+/// Whether `ticker` already names another asset, ignoring case: the native coin, or a token of
+/// the hardcoded list at an address other than `address`.
+///
+/// The review identifies an asset by its ticker only, so a descriptor must not reuse such a
+/// ticker: its token would look like that other asset.
+fn ticker_names_other_asset(ticker: &str, address: &[u8; TOKEN_ADDRESS_LEN]) -> bool {
+    ticker.eq_ignore_ascii_case(NATIVE_TICKER)
+        || db::TOKENS
+            .iter()
+            .any(|entry| entry.ticker.eq_ignore_ascii_case(ticker) && &entry.address != address)
+}
+
 /// Returns the metadata of the token at `address`, or `None` if the app does not know it.
 ///
+/// The token described by `dynamic`, the last accepted descriptor, comes first: a descriptor
+/// replaces the metadata of a listed token. The hardcoded list comes next.
+///
 /// Does not allocate, so it can run while the Exchange app shares BSS memory.
-pub fn lookup(address: &[u8; TOKEN_ADDRESS_LEN]) -> Option<TokenInfo> {
+pub fn lookup(
+    address: &[u8; TOKEN_ADDRESS_LEN],
+    dynamic: Option<&DynamicToken>,
+) -> Option<TokenInfo> {
+    if let Some(token) = dynamic.filter(|token| &token.address == address) {
+        return Some(token.info);
+    }
     let entry = db::TOKENS.iter().find(|entry| &entry.address == address)?;
     TokenInfo::new(entry.ticker, entry.decimals)
 }

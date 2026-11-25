@@ -10,6 +10,7 @@ any other class is rejected with `0x6E00`.
 | `0x05` | [GET_PUBLIC_KEY](#get_public_key)  | `0x00` silent, `0x01` display | `0x00`                  |
 | `0x06` | [SIGN_TX](#sign_tx)                | chunk index `0x00`..`0x03`  | `0x80` more, `0x00` last  |
 | `0x07` | [SIGN_TOKEN_TX](#sign_token_tx)    | chunk index `0x00`..`0x03`  | `0x80` more, `0x00` last  |
+| `0x22` | [PROVIDE_TOKEN_INFO](#provide_token_info) | `0x00`               | `0x00`                    |
 
 Any other P1/P2 combination returns `0x6A86`, any other INS returns `0x6D00`.
 
@@ -66,8 +67,9 @@ The transaction is sent in several chunks, P1 being the chunk index:
    but the last one, sent with `P2 = 0x00`.
 
 Chunks must be strictly consecutive after chunk `0x00` and sent with the INS of chunk `0x00`; any
-other sequence returns `0xB007`. The flow is cleared after the last chunk and after any command answered with an error, whatever its
-INS, so a new flow must start with chunk `0x00`. APDUs with a wrong class or a malformed header are
+other sequence returns `0xB007`. The flow is cleared after the last chunk, after any command answered
+with an error, whatever its INS, and after any [PROVIDE_TOKEN_INFO](#provide_token_info), so a new
+flow must start with chunk `0x00`. APDUs with a wrong class or a malformed header are
 rejected before reaching the application and leave the flow untouched. The serialized transaction
 is at most 510 bytes, beyond which `0xB004` is returned.
 
@@ -107,8 +109,9 @@ with deterministic ECDSA over secp256k1:
 When the Exchange application starts the app to finalize a swap, the review is skipped and the
 transaction must match the swap approved in Exchange: asset, amount, destination, and memo equal to
 the destination extra ID; swaps with fees are rejected. Only the native coin can be swapped: a
-SIGN_TOKEN_TX transaction is rejected. A mismatch or an unsupported asset returns `0xC000`, followed
-by a two-byte error code and a message in the response data.
+SIGN_TOKEN_TX transaction is rejected, even for a token given by a
+[PROVIDE_TOKEN_INFO](#provide_token_info) of the swap. A mismatch or an unsupported asset returns
+`0xC000`, followed by a two-byte error code and a message in the response data.
 
 ## SIGN_TOKEN_TX
 
@@ -134,15 +137,64 @@ rejected:
 
 ### Token lookup
 
-The transaction carries no ticker and no decimals: the app looks the token address up in its
-hardcoded token list (see [token support](TOKENS.md)). An address that is not in the list returns
-`0xB005`, before any review.
+The transaction carries no ticker and no decimals: the app looks the token address up, in this
+order (see [token support](TOKENS.md)):
+
+1. The token of the last descriptor accepted by [PROVIDE_TOKEN_INFO](#provide_token_info).
+2. The hardcoded token list.
+
+An address found in neither returns `0xB005`, before any review.
 
 ### Token review
 
 The device displays the token ticker, the amount with the ticker and the decimals of the token,
 the destination and the memo, plus the derivation path when the "Derivation path" setting is
 enabled. The review titles name the token ticker. A refusal returns `0x6985`.
+
+## PROVIDE_TOKEN_INFO
+
+Gives the ticker and decimals of a token, in a descriptor signed by the Ledger CAL (Crypto Assets
+List). Data: the descriptor, in a single APDU. The response has no data.
+
+### Certificate
+
+The app verifies the descriptor signature with the PKI certificate that the host loads beforehand
+with the BOLOS command `CLA = 0xB0`, `INS = 0x06`, `P1 = 0x08` (key usage COIN_META), which the OS
+handles. Without such a certificate, every descriptor is rejected.
+
+### Descriptor format
+
+The descriptor is a list of TLV fields: a tag, a length and a value, the tag and the length being
+DER encoded. Each tag must be present exactly once, and any other tag is rejected.
+
+| Tag    | Field            | Value                                                               |
+|--------|------------------|---------------------------------------------------------------------|
+| `0x01` | Structure type   | `0x90`, dynamic token                                               |
+| `0x02` | Version          | `1`                                                                 |
+| `0x03` | Coin type        | 1 to 4 big-endian bytes: `1` or `0x80000001`, SLIP-0044 coin type of the app |
+| `0x04` | App name         | `Rust Boilerplate` (`Rust Testnet BP` and `Rust Betanet BP` for the variants) |
+| `0x05` | Ticker           | 1 to 12 printable ASCII characters without spaces. Not `CRAB`, nor the ticker of a token of the hardcoded list at another address, ignoring case |
+| `0x06` | Magnitude        | Decimals of the token, 30 at most                                   |
+| `0x07` | TUID             | Token identifier, see below                                         |
+| `0x08` | Signature        | DER ECDSA signature over secp256k1 of the SHA-256 hash of all the other fields, as sent |
+
+The TUID (Token Unique IDentifier) is itself a TLV list with a single field: tag `0x10`, holding the
+32-byte token address. Any other tag is rejected.
+
+The structure type is required, but its value is not checked by the app (see
+[token support](TOKENS.md#2-signed-token-descriptors)).
+
+### Descriptor slot
+
+The app keeps the token of one descriptor. Each PROVIDE_TOKEN_INFO whose P1 and P2 are accepted
+first empties that slot, then fills it if the descriptor is valid: a rejected descriptor also
+discards the previous one, and returns `0xB00C`. A command rejected for its P1 or P2 (`0x6A86`)
+leaves the slot as it is.
+
+PROVIDE_TOKEN_INFO also ends any pending [SIGN_TX](#sign_tx) or [SIGN_TOKEN_TX](#sign_token_tx)
+flow, so the descriptor of a transaction is sent before its chunk `0x00`. The slot is kept across
+signing flows, until another PROVIDE_TOKEN_INFO or until the app exits. In swap mode the app starts
+with an empty slot.
 
 ## Status words
 
@@ -165,4 +217,5 @@ enabled. The review titles name the token ticker. A refusal returns `0x6985`.
 | `0xB009`    | KeyDeriveFail        | Key or address derivation failed                          |
 | `0xB00A`    | VersionParsingFail   | Application version could not be encoded                  |
 | `0xB00B`    | InvalidPath          | Derivation path outside the scope of the application      |
+| `0xB00C`    | InvalidDynamicToken  | Token descriptor rejected                                 |
 | `0xC000`    | SwapFail             | Transaction does not match the swap                       |

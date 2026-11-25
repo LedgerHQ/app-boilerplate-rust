@@ -20,3 +20,5 @@ UNKNOWN_TOKEN_ADDRESS = "00ffeeddccbbaa99887766554433221100ffeeddccbbaa998877665
 
 # Token absent from the hardcoded list, only known through a signed token descriptor
 TOKEN_DYNAMIC_USDT_ADDRESS = "cafebabedeadbeefcafebabedeadbeefcafebabedeadbeefcafebabedeadbeef"
+# Another token only known through a signed token descriptor
+TOKEN_DYNAMIC_OTHER_ADDRESS = "1111111111111111111111111111111111111111111111111111111111111111"

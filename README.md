@@ -6,7 +6,7 @@ This is a boilerplate application written in Rust which can be forked to start a
 
 * Implements standard features (display address, transaction signature...),
 * Documents its [APDU protocol](doc/APDU.md),
-* Signs token transfers, see [token support](doc/TOKENS.md),
+* Signs token transfers, from a hardcoded token list or from token descriptors signed by Ledger, see [token support](doc/TOKENS.md),
 * Has functional tests using [Ragger](https://github.com/LedgerHQ/ragger),
 * Has CI workflows mandatory for app deployment in the Ledger store.
 

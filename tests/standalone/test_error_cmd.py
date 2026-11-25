@@ -62,6 +62,18 @@ def test_sign_wrong_p1p2(backend, ins, p1, p2):
     assert e.value.status == Errors.SW_WRONG_P1P2
 
 
+# Ensure PROVIDE_TOKEN_INFO only accepts P1 = P2 = 0, before its descriptor is read
+@pytest.mark.parametrize(
+    "p1, p2",
+    [(P1.P1_START + 1, P2.P2_LAST), (P1.P1_START, P2.P2_MORE)],
+    ids=["wrong_p1", "wrong_p2"],
+)
+def test_provide_token_info_wrong_p1p2(backend, p1, p2):
+    with pytest.raises(ExceptionRAPDU) as e:
+        backend.exchange(cla=CLA, ins=InsType.PROVIDE_TOKEN_INFO, p1=p1, p2=p2)
+    assert e.value.status == Errors.SW_WRONG_P1P2
+
+
 # Ensure the app returns an error when a bad data length is used
 def test_wrong_data_length(backend):
     # APDUs must be at least 4 bytes: CLA, INS, P1, P2.

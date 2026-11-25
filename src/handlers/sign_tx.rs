@@ -15,7 +15,7 @@
  *  limitations under the License.
  *****************************************************************************/
 use crate::app_ui::sign::ui_display_tx;
-use crate::token::{self, TokenInfo, TOKEN_ADDRESS_LEN};
+use crate::token::{self, DynamicToken, TokenInfo, TOKEN_ADDRESS_LEN};
 use crate::utils::{Bip32Path, NATIVE_TICKER};
 use crate::{AppSW, P1_SIGN_TX_START};
 use alloc::vec::Vec;
@@ -93,7 +93,10 @@ pub struct Transfer<'a> {
 
 impl<'a> Tx<'a> {
     /// Resolves the asset of the transaction, `None` if the app does not support it.
-    fn into_transfer(self) -> Option<Transfer<'a>> {
+    ///
+    /// A token is looked up in `dynamic`, the token of the last accepted descriptor, then in the
+    /// hardcoded list.
+    fn into_transfer(self, dynamic: Option<&DynamicToken>) -> Option<Transfer<'a>> {
         match self {
             Tx::Native(tx) => (tx.coin == NATIVE_TICKER).then_some(Transfer {
                 asset: Asset::Native,
@@ -102,7 +105,7 @@ impl<'a> Tx<'a> {
                 memo: tx.memo,
             }),
             Tx::Token(tx) => Some(Transfer {
-                asset: Asset::Token(token::lookup(&tx.token)?),
+                asset: Asset::Token(token::lookup(&tx.token, dynamic)?),
                 value: tx.value,
                 to: tx.to,
                 memo: tx.memo,
@@ -120,6 +123,9 @@ pub struct TxContext<'a> {
     /// Kind of the pending flow, `None` when no flow was started by a path chunk.
     flow_kind: Option<TxKind>,
     review_finished: bool,
+    /// Token of the last accepted descriptor. It outlives signing flows, until the app exits or
+    /// another PROVIDE_TOKEN_INFO is received.
+    dynamic_token: Option<DynamicToken>,
     pub home: NbglHomeAndSettings,
     /// Swap parameters if running in swap mode.
     /// Used to validate the transaction against the Exchange's request.
@@ -136,6 +142,7 @@ impl<'a> TxContext<'a> {
             next_chunk: None,
             flow_kind: None,
             review_finished: false,
+            dynamic_token: None,
             home: Default::default(),
             swap_params: None,
         }
@@ -148,6 +155,7 @@ impl<'a> TxContext<'a> {
             next_chunk: None,
             flow_kind: None,
             review_finished: false,
+            dynamic_token: None,
             home: Default::default(),
             swap_params: Some(params),
         }
@@ -160,12 +168,18 @@ impl<'a> TxContext<'a> {
     }
     /// Drops the transaction flow state so that no later chunk can reuse it.
     ///
-    /// `review_finished` is kept: the main loop reads it after the handler returns.
+    /// `review_finished` is kept: the main loop reads it after the handler returns. The token
+    /// descriptor slot is kept too, as it outlives flows.
     pub fn clear_flow(&mut self) {
         self.raw_tx.clear();
         self.path = Default::default();
         self.next_chunk = None;
         self.flow_kind = None;
+    }
+
+    /// Replaces the token of the descriptor slot, `None` emptying it.
+    pub fn set_dynamic_token(&mut self, token: Option<DynamicToken>) {
+        self.dynamic_token = token;
     }
 }
 
@@ -252,7 +266,7 @@ fn continue_flow<'a>(
         ctx.review_finished = true;
         // --8<-- [start:SwapError_usage]
         let checked = tx
-            .into_transfer()
+            .into_transfer(ctx.dynamic_token.as_ref())
             .ok_or_else(crate::swap::unsupported_asset_error)
             .and_then(|transfer| crate::swap::check_swap_params(params, &transfer));
         if let Err(error) = checked {
@@ -267,7 +281,7 @@ fn continue_flow<'a>(
         }
         // --8<-- [end:SwapError_usage]
     } else {
-        let Some(transfer) = tx.into_transfer() else {
+        let Some(transfer) = tx.into_transfer(ctx.dynamic_token.as_ref()) else {
             log::error!("Unsupported asset");
             return Err(AppSW::TxParsingFail);
         };

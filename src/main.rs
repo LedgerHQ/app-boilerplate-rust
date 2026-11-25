@@ -27,20 +27,24 @@ mod app_ui {
 mod handlers {
     pub mod get_public_key;
     pub mod get_version;
+    pub mod provide_token_info;
     pub mod sign_tx;
 }
 
 mod settings;
 mod swap;
+mod token;
 
 use app_ui::menu::ui_menu_main;
 use handlers::{
     get_public_key::handler_get_public_key,
     get_version::handler_get_version,
-    sign_tx::{handler_sign_tx, TxContext},
+    provide_token_info::handler_provide_token_info,
+    sign_tx::{handler_sign_tx, TxContext, TxKind},
 };
 use ledger_device_sdk::io::{self, init_comm, ApduHeader, Comm, Command, Reply, StatusWords};
-use ledger_device_sdk::libcall::swap::CreateTxParams;
+use ledger_device_sdk::libcall::swap::{CreateTxParams, SwapError};
+use swap::SwapAppErrorCode;
 
 ledger_device_sdk::set_panic!(ledger_device_sdk::exiting_panic);
 
@@ -50,6 +54,13 @@ extern crate alloc;
 use ledger_device_sdk::nbgl::{NbglReviewStatus, StatusType};
 
 ledger_device_sdk::define_comm!(COMM);
+
+const INS_GET_VERSION: u8 = 0x03;
+const INS_GET_APP_NAME: u8 = 0x04;
+const INS_GET_PUBKEY: u8 = 0x05;
+const INS_SIGN_TX: u8 = 0x06;
+const INS_SIGN_TOKEN_TX: u8 = 0x07;
+const INS_PROVIDE_TOKEN_INFO: u8 = 0x22;
 
 // P2 for last APDU to receive.
 const P2_SIGN_TX_LAST: u8 = 0x00;
@@ -79,6 +90,7 @@ pub enum AppSW {
     KeyDeriveFail = 0xB009,
     VersionParsingFail = 0xB00A,
     InvalidPath = 0xB00B,
+    InvalidDynamicToken = 0xB00C,
     WrongApduLength = StatusWords::BadLen as u16,
     SwapFail = 0xC000,
     Ok = 0x9000,
@@ -96,13 +108,51 @@ impl From<io::CommError> for AppSW {
     }
 }
 
+/// Error of a command: a status word, or a swap rejection sent with its error code and message.
+pub enum AppError {
+    Sw(AppSW),
+    /// Sent with [`AppSW::SwapFail`], the error in the response data.
+    Swap(SwapError<SwapAppErrorCode>),
+}
+
+impl AppError {
+    fn status(&self) -> AppSW {
+        match self {
+            AppError::Sw(sw) => *sw,
+            AppError::Swap(_) => AppSW::SwapFail,
+        }
+    }
+}
+
+impl From<AppSW> for AppError {
+    fn from(sw: AppSW) -> Self {
+        AppError::Sw(sw)
+    }
+}
+
+impl From<io::CommError> for AppError {
+    fn from(e: io::CommError) -> Self {
+        AppError::Sw(e.into())
+    }
+}
+
 /// Possible input commands received through APDUs.
 #[derive(Debug)]
 pub enum Instruction {
     GetVersion,
     GetAppName,
     GetPubkey { display: bool },
-    SignTx { chunk: u8, more: bool },
+    SignTx { kind: TxKind, chunk: u8, more: bool },
+    ProvideTokenInfo,
+}
+
+/// Whether P1 and P2 designate a chunk of a SIGN_TX or SIGN_TOKEN_TX flow.
+fn is_sign_tx_chunk(p1: u8, p2: u8) -> bool {
+    matches!(
+        (p1, p2),
+        (P1_SIGN_TX_START, P2_SIGN_TX_MORE)
+            | (1..=P1_SIGN_TX_MAX, P2_SIGN_TX_LAST | P2_SIGN_TX_MORE)
+    )
 }
 
 impl TryFrom<ApduHeader> for Instruction {
@@ -121,19 +171,25 @@ impl TryFrom<ApduHeader> for Instruction {
     /// [`sample_main`] to have this verification automatically performed by the SDK.
     fn try_from(value: ApduHeader) -> Result<Self, Self::Error> {
         match (value.ins, value.p1, value.p2) {
-            (3, 0, 0) => Ok(Instruction::GetVersion),
-            (4, 0, 0) => Ok(Instruction::GetAppName),
-            (5, 0 | 1, 0) => Ok(Instruction::GetPubkey {
+            (INS_GET_VERSION, 0, 0) => Ok(Instruction::GetVersion),
+            (INS_GET_APP_NAME, 0, 0) => Ok(Instruction::GetAppName),
+            (INS_GET_PUBKEY, 0 | 1, 0) => Ok(Instruction::GetPubkey {
                 display: value.p1 != 0,
             }),
-            (6, P1_SIGN_TX_START, P2_SIGN_TX_MORE)
-            | (6, 1..=P1_SIGN_TX_MAX, P2_SIGN_TX_LAST | P2_SIGN_TX_MORE) => {
-                Ok(Instruction::SignTx {
-                    chunk: value.p1,
-                    more: value.p2 == P2_SIGN_TX_MORE,
-                })
+            (INS_SIGN_TX, p1, p2) if is_sign_tx_chunk(p1, p2) => Ok(Instruction::SignTx {
+                kind: TxKind::Native,
+                chunk: p1,
+                more: p2 == P2_SIGN_TX_MORE,
+            }),
+            (INS_SIGN_TOKEN_TX, p1, p2) if is_sign_tx_chunk(p1, p2) => Ok(Instruction::SignTx {
+                kind: TxKind::Token,
+                chunk: p1,
+                more: p2 == P2_SIGN_TX_MORE,
+            }),
+            (INS_PROVIDE_TOKEN_INFO, 0, 0) => Ok(Instruction::ProvideTokenInfo),
+            (INS_GET_VERSION..=INS_SIGN_TOKEN_TX | INS_PROVIDE_TOKEN_INFO, _, _) => {
+                Err(AppSW::WrongP1P2)
             }
-            (3..=6, _, _) => Err(AppSW::WrongP1P2),
             (_, _, _) => Err(AppSW::InsNotSupported),
         }
     }
@@ -215,8 +271,8 @@ pub fn normal_main(swap_params: Option<&CreateTxParams>) -> bool {
     loop {
         let command = comm.next_command();
         let decoded = command.decode::<Instruction>();
-        // Any rejected command ends a pending SIGN_TX flow, so that no later chunk can be signed
-        // with the path or data sent before the error.
+        // Any rejected command ends a pending SIGN_TX or SIGN_TOKEN_TX flow, so that no later
+        // chunk can be signed with the path or data sent before the error.
         let Ok(ins) = decoded else {
             tx_ctx.clear_flow();
             let _ = comm.send(&[], decoded.unwrap_err());
@@ -228,9 +284,15 @@ pub fn normal_main(swap_params: Option<&CreateTxParams>) -> bool {
                 let _ = reply.send(AppSW::Ok);
                 AppSW::Ok
             }
-            Err(sw) => {
+            Err(error) => {
                 tx_ctx.clear_flow();
-                let _ = comm.send(&[], sw);
+                let sw = error.status();
+                let mut response = comm.begin_response();
+                if let AppError::Swap(swap_error) = &error {
+                    // Error code then message, as the C SDK's send_swap_error_* functions send them.
+                    let _ = swap_error.append_to_response(&mut response);
+                }
+                let _ = response.send(sw);
                 sw
             }
         };
@@ -247,15 +309,18 @@ fn handle_apdu<'a>(
     command: Command<'a>,
     ins: &Instruction,
     ctx: &mut TxContext,
-) -> Result<io::CommandResponse<'a>, AppSW> {
+) -> Result<io::CommandResponse<'a>, AppError> {
     match ins {
         Instruction::GetAppName => {
             let mut response = command.into_response();
             response.append(env!("CARGO_PKG_NAME").as_bytes())?;
             Ok(response)
         }
-        Instruction::GetVersion => handler_get_version(command),
-        Instruction::GetPubkey { display } => handler_get_public_key(command, *display),
-        Instruction::SignTx { chunk, more } => handler_sign_tx(command, *chunk, *more, ctx),
+        Instruction::GetVersion => Ok(handler_get_version(command)?),
+        Instruction::GetPubkey { display } => Ok(handler_get_public_key(command, *display)?),
+        Instruction::SignTx { kind, chunk, more } => {
+            handler_sign_tx(command, *chunk, *more, *kind, ctx)
+        }
+        Instruction::ProvideTokenInfo => Ok(handler_provide_token_info(command, ctx)?),
     }
 }

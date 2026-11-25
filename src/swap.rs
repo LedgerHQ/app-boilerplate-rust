@@ -57,15 +57,16 @@ use ledger_device_sdk::{
     log,
 };
 
-use crate::handlers::sign_tx::Tx;
+use crate::handlers::sign_tx::{Asset, Transfer, TxKind};
 use crate::utils::{
-    get_address_hash_from_pubkey, is_allowed_path, MAX_PATH_LEN, NATIVE_DECIMALS, NATIVE_TICKER,
+    get_address_hash_from_pubkey, is_allowed_path, MAX_DECIMALS, MAX_PATH_LEN, NATIVE_DECIMALS,
+    NATIVE_TICKER,
 };
 use alloc::{format, string::ToString};
 
 /// Longest amount string the SDK forwards to the Exchange app (`MAX_PRINTABLE_AMOUNT_SIZE - 2`
 /// in the C SDK).
-const MAX_PRINTABLE_AMOUNT_LEN: usize = 48;
+pub const MAX_PRINTABLE_AMOUNT_LEN: usize = 48;
 type PrintableAmount = ArrayString<MAX_PRINTABLE_AMOUNT_LEN>;
 
 /// Application-specific swap error codes.
@@ -82,17 +83,19 @@ type PrintableAmount = ArrayString<MAX_PRINTABLE_AMOUNT_LEN>;
 ///
 /// # Usage
 ///
-/// When returning a swap error, combine a common code with an app-specific code:
+/// When returning a swap error, combine a common code with an app-specific code. The handler
+/// returns it in [`crate::AppError::Swap`], and `normal_main` sends it with
+/// [`crate::AppSW::SwapFail`]:
 ///
 /// ```rust,ignore
-/// use ledger_device_sdk::libcall::swap::SwapErrorCommonCode;
+/// use ledger_device_sdk::libcall::swap::{SwapError, SwapErrorCommonCode};
 ///
 /// // Example: Amount validation failed, no app-specific refinement needed
-/// comm.append(&[
-///     SwapErrorCommonCode::ErrorWrongAmount as u8,
-///     SwapAppErrorCode::Default as u8
-/// ]);
-/// comm.append(b"Amount mismatch: tx=1000, swap=2000");
+/// return Err(AppError::Swap(SwapError::with_message(
+///     SwapErrorCommonCode::ErrorWrongAmount,
+///     SwapAppErrorCode::Default,
+///     "Amount mismatch: tx=1000, swap=2000".to_string(),
+/// )));
 /// ```
 ///
 /// # Template Note
@@ -124,6 +127,9 @@ pub enum SwapAppErrorCode {
     DestinationDecodeFail = 0x02,
     CoinConfigFail = 0x03,
     ExtraIdMismatch = 0x04,
+    /// The token of the transaction is unknown, or its ticker or decimals differ from those of
+    /// the swap coin configuration.
+    WrongTokenInfo = 0x05,
 }
 
 impl SwapAppErrorCodeTrait for SwapAppErrorCode {
@@ -151,7 +157,10 @@ impl SwapAppErrorCodeTrait for SwapAppErrorCode {
 ///
 /// Returns error if:
 /// - Coin configuration is malformed or unsupported (ErrorWrongMethod / CoinConfigFail)
-/// - Asset doesn't match the coin configuration (ErrorWrongMethod)
+/// - A native coin transfer is made for a token swap, or a token transfer for a native coin swap
+///   (ErrorWrongMethod)
+/// - Token ticker or decimals don't match the coin configuration (ErrorWrongAmount /
+///   WrongTokenInfo)
 /// - Amount does not fit in a u64 (AmountCastFail)
 /// - Amount doesn't match between tx and swap params (ErrorWrongAmount)
 /// - Fees are not zero (ErrorWrongFees)
@@ -161,11 +170,11 @@ impl SwapAppErrorCodeTrait for SwapAppErrorCode {
 /// - Memo doesn't match the destination extra ID (ErrorWrongDestination / ExtraIdMismatch)
 pub fn check_swap_params(
     params: &CreateTxParams,
-    tx: &Tx,
+    tx: &Transfer,
 ) -> Result<(), SwapError<SwapAppErrorCode>> {
     log::debug!("Swap mode detected\n");
 
-    check_swap_asset(params, tx)?;
+    check_swap_asset(params, &tx.asset)?;
 
     // Validate amount
     // The amount is right-aligned big-endian in a 16-byte buffer. Transaction values are u64, so
@@ -234,24 +243,116 @@ pub fn check_swap_params(
     Ok(())
 }
 
-/// Checks that the transaction transfers the asset described by the swap coin configuration.
-fn check_swap_asset(params: &CreateTxParams, tx: &Tx) -> Result<(), SwapError<SwapAppErrorCode>> {
-    let asset =
-        parse_coin_config(&params.coin_config[..params.coin_config_len]).ok_or_else(|| {
-            SwapError::without_message(
+/// Error for a transaction of `kind` whose asset the app does not support, which cannot match any
+/// swap: a native transaction with another coin than the native one, or a token transaction naming
+/// a token the app does not know.
+///
+/// The error codes are those [`check_swap_asset`] gives for the same kind of mismatch.
+pub fn unsupported_asset_error(
+    params: &CreateTxParams,
+    kind: TxKind,
+) -> SwapError<SwapAppErrorCode> {
+    match kind {
+        TxKind::Native => {
+            log::error!("Swap coin not supported");
+            SwapError::with_message(
                 SwapErrorCommonCode::ErrorWrongMethod,
-                SwapAppErrorCode::CoinConfigFail,
+                SwapAppErrorCode::Default,
+                "Coin not supported".to_string(),
             )
-        })?;
-    if tx.coin != asset.ticker.as_str() {
-        log::error!("Swap asset mismatch");
-        return Err(SwapError::with_message(
-            SwapErrorCommonCode::ErrorWrongMethod,
-            SwapAppErrorCode::Default,
-            format!("Asset tx {} != swap {}", tx.coin, asset.ticker),
-        ));
+        }
+        TxKind::Token if is_native_coin_config(params) => token_in_native_swap_error(),
+        TxKind::Token => {
+            log::error!("Swap token unknown");
+            SwapError::with_message(
+                SwapErrorCommonCode::ErrorWrongAmount,
+                SwapAppErrorCode::WrongTokenInfo,
+                "Unknown token".to_string(),
+            )
+        }
     }
-    Ok(())
+}
+
+/// Error of a final transaction that cannot be parsed. As in the C boilerplate, it ends the swap
+/// with a generic swap error instead of a plain status word.
+pub fn unparsable_tx_error() -> SwapError<SwapAppErrorCode> {
+    log::error!("Swap tx parsing failed");
+    SwapError::without_message(SwapErrorCommonCode::ErrorGeneric, SwapAppErrorCode::Default)
+}
+
+/// Whether the swap coin configuration designates the native coin.
+///
+/// Only an empty configuration does. A non-empty one describes a token, even with the native ticker
+/// and decimals: the CAL can hold a token with the native ticker.
+fn is_native_coin_config(params: &CreateTxParams) -> bool {
+    params.coin_config_len == 0
+}
+
+fn token_in_native_swap_error() -> SwapError<SwapAppErrorCode> {
+    log::error!("Token transfer in a native coin swap");
+    SwapError::with_message(
+        SwapErrorCommonCode::ErrorWrongMethod,
+        SwapAppErrorCode::Default,
+        format!("Token tx != swap coin {}", NATIVE_TICKER),
+    )
+}
+
+/// Checks that the transaction transfers the asset described by the swap coin configuration.
+///
+/// A native coin swap requires a native transaction (see [`is_native_coin_config`]). A token swap
+/// requires a token transaction whose token has the ticker and the decimals of the configuration.
+///
+/// The configuration comes from the CAL, through the Exchange app, and describes the token by its
+/// ticker and decimals only. The ticker is enough to identify the token: at most one address
+/// resolves to a given ticker, as the tickers of the hardcoded list are unique, the app keeps one
+/// descriptor at a time, and a descriptor cannot reuse the ticker of a listed token at another
+/// address (see [`crate::token::parse_descriptor`]).
+fn check_swap_asset(
+    params: &CreateTxParams,
+    asset: &Asset,
+) -> Result<(), SwapError<SwapAppErrorCode>> {
+    let config = &params.coin_config[..params.coin_config_len];
+    let swap_asset = parse_coin_config(config).ok_or_else(|| {
+        SwapError::without_message(
+            SwapErrorCommonCode::ErrorWrongMethod,
+            SwapAppErrorCode::CoinConfigFail,
+        )
+    })?;
+    match (asset, is_native_coin_config(params)) {
+        (Asset::Native, true) => Ok(()),
+        (Asset::Native, false) => {
+            log::error!("Native coin transfer in a token swap");
+            Err(SwapError::with_message(
+                SwapErrorCommonCode::ErrorWrongMethod,
+                SwapAppErrorCode::Default,
+                format!(
+                    "Asset tx {} != swap token {}",
+                    NATIVE_TICKER, swap_asset.ticker
+                ),
+            ))
+        }
+        (Asset::Token(_), true) => Err(token_in_native_swap_error()),
+        (Asset::Token(info), false)
+            if info.ticker() == swap_asset.ticker.as_str()
+                && info.decimals() == swap_asset.decimals =>
+        {
+            Ok(())
+        }
+        (Asset::Token(info), false) => {
+            log::error!("Swap token mismatch");
+            Err(SwapError::with_message(
+                SwapErrorCommonCode::ErrorWrongAmount,
+                SwapAppErrorCode::WrongTokenInfo,
+                format!(
+                    "Token tx {} ({} decimals) != swap {} ({} decimals)",
+                    info.ticker(),
+                    info.decimals(),
+                    swap_asset.ticker,
+                    swap_asset.decimals
+                ),
+            ))
+        }
+    }
 }
 
 /// Checks that the swap carries no fees.
@@ -274,7 +375,7 @@ fn check_swap_fees(params: &CreateTxParams) -> Result<(), SwapError<SwapAppError
 /// Checks that the transaction memo is exactly the destination extra ID of the swap.
 fn check_swap_extra_id(
     params: &CreateTxParams,
-    tx: &Tx,
+    tx: &Transfer,
 ) -> Result<(), SwapError<SwapAppErrorCode>> {
     let extra_id = &params.dest_address_extra_id[..params.dest_address_extra_id_len];
     if tx.memo.as_bytes() != extra_id {
@@ -464,9 +565,6 @@ fn check_address(params: &CheckAddressParams) -> i32 {
 // --8<-- [end:check_address]
 
 // --8<-- [start:get_printable_amount]
-/// Bound on asset decimals, well within what the 79-byte output of `uint256_to_float` allows.
-const MAX_DECIMALS: u8 = 30;
-
 /// Asset a swap operates on, as described by the Exchange coin configuration.
 pub struct SwapAsset {
     /// Ticker displayed next to amounts and expected in the signed transaction.
@@ -478,8 +576,8 @@ pub struct SwapAsset {
 /// Parses the coin configuration that the Exchange app forwards from its trusted currency
 /// configuration.
 ///
-/// An empty configuration designates the native coin. Otherwise the layout is
-/// `[ticker_len: u8][ticker][decimals: u8]`, which must fill the configuration exactly.
+/// Only an empty configuration designates the native coin. Otherwise it describes a token, with the
+/// layout `[ticker_len: u8][ticker][decimals: u8]`, which must fill the configuration exactly.
 ///
 /// Returns `None` for any malformed or unsupported configuration: an asset that cannot be
 /// identified must never be displayed or signed under assumed metadata.
@@ -487,10 +585,7 @@ pub struct SwapAsset {
 /// Does not allocate, as it runs while the Exchange app shares BSS memory.
 pub fn parse_coin_config(config: &[u8]) -> Option<SwapAsset> {
     if config.is_empty() {
-        return Some(SwapAsset {
-            ticker: ArrayString::from(NATIVE_TICKER).ok()?,
-            decimals: NATIVE_DECIMALS,
-        });
+        return native_asset();
     }
 
     let (&ticker_len, rest) = config.split_first()?;
@@ -508,6 +603,14 @@ pub fn parse_coin_config(config: &[u8]) -> Option<SwapAsset> {
     })
 }
 
+/// The native coin, as a [`SwapAsset`].
+fn native_asset() -> Option<SwapAsset> {
+    Some(SwapAsset {
+        ticker: ArrayString::from(NATIVE_TICKER).ok()?,
+        decimals: NATIVE_DECIMALS,
+    })
+}
+
 /// Format an amount for display in the Exchange app UI.
 ///
 /// The Exchange app calls this to get human-readable strings for amounts and fees.
@@ -521,7 +624,8 @@ pub fn parse_coin_config(config: &[u8]) -> Option<SwapAsset> {
 /// - Actual length is in `params.amount_len`
 /// - Padded to 32 bytes (uint256) for SDK formatting helpers
 ///
-/// The ticker and decimals come from `params.coin_config` (see [`parse_coin_config`]).
+/// The ticker and decimals come from `params.coin_config` (see [`parse_coin_config`]), except for
+/// fees: they are always paid in the native coin, even in a token swap.
 ///
 /// # Returns
 ///
@@ -534,7 +638,11 @@ pub fn parse_coin_config(config: &[u8]) -> Option<SwapAsset> {
 /// Uses `ArrayString` (stack-allocated) to avoid heap allocation, as this function
 /// runs under BSS memory restrictions.
 fn get_printable_amount(params: &PrintableAmountParams) -> Option<PrintableAmount> {
-    let asset = parse_coin_config(&params.coin_config[..params.coin_config_len])?;
+    let asset = if params.is_fee {
+        native_asset()?
+    } else {
+        parse_coin_config(&params.coin_config[..params.coin_config_len])?
+    };
 
     // Convert amount from 16-byte buffer to 32-byte buffer (uint256 format)
     // The amount is right-aligned in params.amount, we need to copy it to a

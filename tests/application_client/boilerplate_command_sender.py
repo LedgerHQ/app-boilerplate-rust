@@ -5,6 +5,14 @@ from enum import IntEnum
 from ragger.backend.interface import RAPDU, BackendInterface
 from ragger.bip import pack_derivation_path
 
+from .boilerplate_token_descriptor import (
+    DESCRIPTOR_APP_NAME,
+    DESCRIPTOR_VERSION,
+    SLIP44_COIN_TYPE,
+    build_token_descriptor,
+)
+from .signing_partners import DYNAMIC_TOKEN_PARTNER
+
 MAX_APDU_LEN: int = 255
 
 CLA: int = 0xE0
@@ -31,6 +39,8 @@ class InsType(IntEnum):
     GET_APP_NAME = 0x04
     GET_PUBLIC_KEY = 0x05
     SIGN_TX = 0x06
+    SIGN_TOKEN_TX = 0x07
+    PROVIDE_TOKEN_INFO = 0x22
 
 
 class Errors(IntEnum):
@@ -50,8 +60,29 @@ class Errors(IntEnum):
     SW_KEY_DERIVE_FAIL = 0xB009
     SW_VERSION_PARSING_FAIL = 0xB00A
     SW_INVALID_PATH = 0xB00B
+    SW_INVALID_DYNAMIC_TOKEN = 0xB00C
     SW_WRONG_APDU_LENGTH = 0x6E03
     SW_SWAP_FAIL = 0xC000
+
+
+class SwapErrorCommonCode(IntEnum):
+    # First byte of the data sent with SW_SWAP_FAIL (SwapErrorCommonCode of the SDK)
+    ERROR_INTERNAL = 0x00
+    ERROR_WRONG_AMOUNT = 0x01
+    ERROR_WRONG_DESTINATION = 0x02
+    ERROR_WRONG_FEES = 0x03
+    ERROR_WRONG_METHOD = 0x04
+    ERROR_GENERIC = 0xFF
+
+
+class SwapAppErrorCode(IntEnum):
+    # Second byte of the data sent with SW_SWAP_FAIL (SwapAppErrorCode of the application, src/swap.rs)
+    DEFAULT = 0x00
+    AMOUNT_CAST_FAIL = 0x01
+    DESTINATION_DECODE_FAIL = 0x02
+    COIN_CONFIG_FAIL = 0x03
+    EXTRA_ID_MISMATCH = 0x04
+    WRONG_TOKEN_INFO = 0x05
 
 
 def split_message(message: bytes, max_size: int) -> list[bytes]:
@@ -97,11 +128,12 @@ class BoilerplateCommandSender:
         ) as response:
             yield response
 
+    # Sends the path chunk then the transaction chunks of a SIGN_TX or SIGN_TOKEN_TX flow
     @contextmanager
-    def sign_tx(self, path: str, transaction: bytes) -> Generator[None, None, None]:
+    def _sign_transaction(self, ins: InsType, path: str, transaction: bytes) -> Generator[None, None, None]:
         self.backend.exchange(
             cla=CLA,
-            ins=InsType.SIGN_TX,
+            ins=ins,
             p1=P1.P1_START,
             p2=P2.P2_MORE,
             data=pack_derivation_path(path),
@@ -110,10 +142,20 @@ class BoilerplateCommandSender:
         idx: int = P1.P1_START + 1
 
         for msg in messages[:-1]:
-            self.backend.exchange(cla=CLA, ins=InsType.SIGN_TX, p1=idx, p2=P2.P2_MORE, data=msg)
+            self.backend.exchange(cla=CLA, ins=ins, p1=idx, p2=P2.P2_MORE, data=msg)
             idx += 1
 
-        with self.backend.exchange_async(cla=CLA, ins=InsType.SIGN_TX, p1=idx, p2=P2.P2_LAST, data=messages[-1]) as response:
+        with self.backend.exchange_async(cla=CLA, ins=ins, p1=idx, p2=P2.P2_LAST, data=messages[-1]) as response:
+            yield response
+
+    @contextmanager
+    def sign_tx(self, path: str, transaction: bytes) -> Generator[None, None, None]:
+        with self._sign_transaction(InsType.SIGN_TX, path, transaction) as response:
+            yield response
+
+    @contextmanager
+    def sign_token_tx(self, path: str, transaction: bytes) -> Generator[None, None, None]:
+        with self._sign_transaction(InsType.SIGN_TOKEN_TX, path, transaction) as response:
             yield response
 
     def get_async_response(self) -> RAPDU | None:
@@ -129,3 +171,46 @@ class BoilerplateCommandSender:
         rapdu = self.get_async_response()
         assert isinstance(rapdu, RAPDU)
         return rapdu
+
+    def sign_token_tx_sync(self, path: str, transaction: bytes) -> RAPDU | None:
+        with self.sign_token_tx(path, transaction):
+            pass
+        rapdu = self.get_async_response()
+        assert isinstance(rapdu, RAPDU)
+        return rapdu
+
+    # Loads the PKI certificate of the key that signs token descriptors, here the test key that mocks
+    # the Ledger CAL. The OS handles this BOLOS command: the certificate only exists on Speculos.
+    def load_token_certificate(self) -> RAPDU:
+        return self.backend.exchange_raw(DYNAMIC_TOKEN_PARTNER.get_certificate_payload(self.backend.device.type))
+
+    # Sends a token descriptor, signed or not, as is
+    def provide_token_info(self, descriptor: bytes) -> RAPDU:
+        return self.backend.exchange(
+            cla=CLA,
+            ins=InsType.PROVIDE_TOKEN_INFO,
+            p1=P1.P1_START,
+            p2=P2.P2_LAST,
+            data=descriptor,
+        )
+
+    # Sends a descriptor of the token at `token_address`, hex encoded, signed with the test key.
+    # The certificate of the test key must have been loaded with load_token_certificate.
+    def provide_dynamic_token(
+        self,
+        ticker: str,
+        decimals: int,
+        token_address: str,
+        coin_type: int = SLIP44_COIN_TYPE,
+        app_name: str = DESCRIPTOR_APP_NAME,
+        version: int = DESCRIPTOR_VERSION,
+    ) -> RAPDU:
+        descriptor = build_token_descriptor(
+            ticker=ticker,
+            decimals=decimals,
+            token_address=token_address,
+            coin_type=coin_type,
+            app_name=app_name,
+            version=version,
+        )
+        return self.provide_token_info(descriptor)

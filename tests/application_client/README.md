@@ -27,6 +27,10 @@ The `application_client` package contains:
 - `boilerplate_response_unpacker.py` — Functions to decode responses from the app
 - `boilerplate_currency_utils.py` — Utility functions for currency-specific formatting
 - `boilerplate_utils.py` — Miscellaneous helpers (e.g. encoding, validation)
+- `boilerplate_tokens.py` — Token addresses used by the tests
+- `boilerplate_token_descriptor.py` — Builds signed token descriptors for PROVIDE_TOKEN_INFO
+- `tlv.py` — TLV encoding of token descriptors
+- `signing_partners.py` and `keychain/` — Test key and PKI certificates that mock the Ledger CAL on Speculos
 - `py.typed` — Marker file for type checkers (e.g. `mypy`)
 
 ## How to Use

@@ -14,8 +14,8 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  *****************************************************************************/
-use crate::handlers::sign_tx::Tx;
-use crate::utils::{format_native_amount, Bip32Path, NATIVE_TICKER};
+use crate::handlers::sign_tx::{Asset, Transfer};
+use crate::utils::{format_amount, Bip32Path, NATIVE_DECIMALS, NATIVE_TICKER};
 use crate::AppSW;
 
 use crate::settings::{Settings, SETTING_SHOW_PATH};
@@ -23,50 +23,58 @@ use ledger_device_sdk::include_gif;
 use ledger_device_sdk::io::Comm;
 use ledger_device_sdk::nbgl::{Field, NbglGlyph, NbglReview};
 
-use alloc::{format, string::ToString};
+use alloc::{format, string::ToString, vec::Vec};
 
 /// Displays a transaction and returns true if user approved it.
 ///
-/// This method can return [`AppSW::TxDisplayFail`] error if the coin name length is too long.
+/// This method can return [`AppSW::TxDisplayFail`] error if the amount cannot be formatted.
 ///
 /// # Arguments
 ///
 /// * `comm` - Reference to the communication object
-/// * `tx` - Transaction to be displayed for validation
+/// * `tx` - Transfer to be displayed for validation
 /// * `path` - Derivation path of the signing key, displayed when enabled in the settings
 ///
 /// Every field of the signed transaction except the nonce is always displayed: no setting may
-/// hide data that is signed.
-pub fn ui_display_tx(comm: &mut Comm, tx: &Tx, path: &Bip32Path) -> Result<bool, AppSW> {
-    let value_str = format!("{} {}", tx.coin, format_native_amount(tx.value).as_str());
+/// hide data that is signed. The token address is displayed as the ticker the app resolved from
+/// it, in its own field and in the titles. That ticker comes from the hardcoded token list, whose
+/// tickers are unique, or from a descriptor signed by Ledger.
+pub fn ui_display_tx(comm: &mut Comm, tx: &Transfer, path: &Bip32Path) -> Result<bool, AppSW> {
+    let (ticker, decimals) = match &tx.asset {
+        Asset::Native => (NATIVE_TICKER, NATIVE_DECIMALS),
+        Asset::Token(info) => (info.ticker(), info.decimals()),
+    };
+    let amount = format_amount(tx.value, decimals).ok_or(AppSW::TxDisplayFail)?;
+    let value_str = format!("{} {}", ticker, amount.as_str());
     let to_str = format!("0x{}", hex::encode(tx.to).to_uppercase());
     let path_str = path.to_string();
 
     // Define transaction review fields
-    let my_fields = [
-        Field {
-            name: "Amount",
-            value: value_str.as_str(),
-        },
-        Field {
-            name: "Destination",
-            value: to_str.as_str(),
-        },
-        Field {
-            name: "Memo",
-            value: tx.memo,
-        },
-        Field {
+    let mut fields = Vec::new();
+    if let Asset::Token(_) = tx.asset {
+        fields.push(Field {
+            name: "Token",
+            value: ticker,
+        });
+    }
+    fields.push(Field {
+        name: "Amount",
+        value: value_str.as_str(),
+    });
+    fields.push(Field {
+        name: "Destination",
+        value: to_str.as_str(),
+    });
+    fields.push(Field {
+        name: "Memo",
+        value: tx.memo,
+    });
+    if Settings.get_element(SETTING_SHOW_PATH) != 0 {
+        fields.push(Field {
             name: "Path",
             value: path_str.as_str(),
-        },
-    ];
-    let show_path = Settings.get_element(SETTING_SHOW_PATH) != 0;
-    let displayed_fields = if show_path {
-        &my_fields[..]
-    } else {
-        &my_fields[..my_fields.len() - 1]
-    };
+        });
+    }
 
     // Create transaction review
 
@@ -80,11 +88,11 @@ pub fn ui_display_tx(comm: &mut Comm, tx: &Tx, path: &Bip32Path) -> Result<bool,
 
     // Create NBGL review. Maximum number of fields and string buffer length can be customised
     // with constant generic parameters of NbglReview. Default values are 32 and 1024 respectively.
-    let review_title = format!("Review transaction\nto send {}", NATIVE_TICKER);
-    let finish_title = format!("Sign transaction\nto send {}", NATIVE_TICKER);
+    let review_title = format!("Review transaction\nto send {}", ticker);
+    let finish_title = format!("Sign transaction\nto send {}", ticker);
     let review: NbglReview = NbglReview::new()
         .titles(&review_title, "", &finish_title)
         .glyph(&FERRIS);
 
-    Ok(review.show(comm, displayed_fields))
+    Ok(review.show(comm, &fields))
 }

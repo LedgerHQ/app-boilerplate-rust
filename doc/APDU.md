@@ -9,6 +9,7 @@ any other class is rejected with `0x6E00`.
 | `0x04` | [GET_APP_NAME](#get_app_name)      | `0x00`                      | `0x00`                    |
 | `0x05` | [GET_PUBLIC_KEY](#get_public_key)  | `0x00` silent, `0x01` display | `0x00`                  |
 | `0x06` | [SIGN_TX](#sign_tx)                | chunk index `0x00`..`0x03`  | `0x80` more, `0x00` last  |
+| `0x07` | [SIGN_TOKEN_TX](#sign_token_tx)    | chunk index `0x00`..`0x03`  | `0x80` more, `0x00` last  |
 
 Any other P1/P2 combination returns `0x6A86`, any other INS returns `0x6D00`.
 
@@ -64,8 +65,8 @@ The transaction is sent in several chunks, P1 being the chunk index:
 2. Chunks `0x01` to `0x03`: consecutive parts of the serialized transaction, `P2 = 0x80` for all
    but the last one, sent with `P2 = 0x00`.
 
-Chunks must be strictly consecutive after chunk `0x00`; any other sequence returns `0xB007`. The
-flow is cleared after the last chunk and after any command answered with an error, whatever its
+Chunks must be strictly consecutive after chunk `0x00` and sent with the INS of chunk `0x00`; any
+other sequence returns `0xB007`. The flow is cleared after the last chunk and after any command answered with an error, whatever its
 INS, so a new flow must start with chunk `0x00`. APDUs with a wrong class or a malformed header are
 rejected before reaching the application and leave the flow untouched. The serialized transaction
 is at most 510 bytes, beyond which `0xB004` is returned.
@@ -77,13 +78,15 @@ The transaction is a JSON object with exactly these fields, any other field bein
 | Field   | Type                  | Description                                          |
 |---------|-----------------------|------------------------------------------------------|
 | `nonce` | unsigned 64-bit       | Transaction nonce                                    |
-| `coin`  | string                | Asset ticker; `CRAB` outside swap mode               |
+| `coin`  | string                | Asset ticker, always `CRAB`                          |
 | `value` | unsigned 64-bit       | Amount in base units, displayed with 9 decimals      |
 | `to`    | string, 40 hex digits | 20-byte destination address                          |
 | `memo`  | string                | Free text                                            |
 
 `coin` and `memo` must be printable ASCII without backslash, and `coin` cannot be empty. A
-transaction that cannot be parsed or validated returns `0xB005`.
+transaction that cannot be parsed or validated returns `0xB005`. Tokens are transferred with
+[SIGN_TOKEN_TX](#sign_token_tx): any other `coin` than `CRAB` returns `0xB005`, or `0xC000` in
+[swap mode](#swap-mode).
 
 ### Review and signature
 
@@ -103,8 +106,43 @@ with deterministic ECDSA over secp256k1:
 
 When the Exchange application starts the app to finalize a swap, the review is skipped and the
 transaction must match the swap approved in Exchange: asset, amount, destination, and memo equal to
-the destination extra ID; swaps with fees are rejected. A mismatch returns `0xC000`, followed by a
-two-byte error code and a message in the response data.
+the destination extra ID; swaps with fees are rejected. Only the native coin can be swapped: a
+SIGN_TOKEN_TX transaction is rejected. A mismatch or an unsupported asset returns `0xC000`, followed
+by a two-byte error code and a message in the response data.
+
+## SIGN_TOKEN_TX
+
+Signs a token transfer. The chunks, the flow rules, the review and the signature are those of
+[SIGN_TX](#sign_tx); only the transaction format differs. A flow started with SIGN_TOKEN_TX must be
+continued with SIGN_TOKEN_TX, and a flow started with SIGN_TX with SIGN_TX, or `0xB007` is returned.
+
+### Token transaction format
+
+The transaction is a JSON object with exactly these fields, any other field (`coin` included) being
+rejected:
+
+| Field   | Type                  | Description                                          |
+|---------|-----------------------|------------------------------------------------------|
+| `nonce` | unsigned 64-bit       | Transaction nonce                                    |
+| `token` | string, 64 hex digits | 32-byte address of the token                         |
+| `value` | unsigned 64-bit       | Amount in base units of the token                    |
+| `to`    | string, 40 hex digits | 20-byte destination address                          |
+| `memo`  | string                | Free text                                            |
+
+`memo` must be printable ASCII without backslash. A transaction that cannot be parsed returns
+`0xB005`.
+
+### Token lookup
+
+The transaction carries no ticker and no decimals: the app looks the token address up in its
+hardcoded token list (see [token support](TOKENS.md)). An address that is not in the list returns
+`0xB005`, before any review.
+
+### Token review
+
+The device displays the token ticker, the amount with the ticker and the decimals of the token,
+the destination and the memo, plus the derivation path when the "Derivation path" setting is
+enabled. The review titles name the token ticker. A refusal returns `0x6985`.
 
 ## Status words
 
@@ -122,7 +160,7 @@ two-byte error code and a message in the response data.
 | `0xB004`    | TxWrongLength        | Transaction longer than 510 bytes                         |
 | `0xB005`    | TxParsingFail        | Transaction malformed or not supported                    |
 | `0xB006`    | TxHashFail           | Transaction hashing failed                                |
-| `0xB007`    | BadState             | SIGN_TX chunk out of sequence                             |
+| `0xB007`    | BadState             | SIGN_TX or SIGN_TOKEN_TX chunk out of sequence            |
 | `0xB008`    | TxSignFail           | Signature failed                                          |
 | `0xB009`    | KeyDeriveFail        | Key or address derivation failed                          |
 | `0xB00A`    | VersionParsingFail   | Application version could not be encoded                  |

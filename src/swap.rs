@@ -57,15 +57,16 @@ use ledger_device_sdk::{
     log,
 };
 
-use crate::handlers::sign_tx::Tx;
+use crate::handlers::sign_tx::{Asset, Transfer};
 use crate::utils::{
-    get_address_hash_from_pubkey, is_allowed_path, MAX_PATH_LEN, NATIVE_DECIMALS, NATIVE_TICKER,
+    get_address_hash_from_pubkey, is_allowed_path, MAX_DECIMALS, MAX_PATH_LEN, NATIVE_DECIMALS,
+    NATIVE_TICKER,
 };
 use alloc::{format, string::ToString};
 
 /// Longest amount string the SDK forwards to the Exchange app (`MAX_PRINTABLE_AMOUNT_SIZE - 2`
 /// in the C SDK).
-const MAX_PRINTABLE_AMOUNT_LEN: usize = 48;
+pub const MAX_PRINTABLE_AMOUNT_LEN: usize = 48;
 type PrintableAmount = ArrayString<MAX_PRINTABLE_AMOUNT_LEN>;
 
 /// Application-specific swap error codes.
@@ -151,7 +152,7 @@ impl SwapAppErrorCodeTrait for SwapAppErrorCode {
 ///
 /// Returns error if:
 /// - Coin configuration is malformed or unsupported (ErrorWrongMethod / CoinConfigFail)
-/// - Asset doesn't match the coin configuration (ErrorWrongMethod)
+/// - Asset doesn't match the coin configuration, or is a token (ErrorWrongMethod)
 /// - Amount does not fit in a u64 (AmountCastFail)
 /// - Amount doesn't match between tx and swap params (ErrorWrongAmount)
 /// - Fees are not zero (ErrorWrongFees)
@@ -161,11 +162,11 @@ impl SwapAppErrorCodeTrait for SwapAppErrorCode {
 /// - Memo doesn't match the destination extra ID (ErrorWrongDestination / ExtraIdMismatch)
 pub fn check_swap_params(
     params: &CreateTxParams,
-    tx: &Tx,
+    tx: &Transfer,
 ) -> Result<(), SwapError<SwapAppErrorCode>> {
     log::debug!("Swap mode detected\n");
 
-    check_swap_asset(params, tx)?;
+    check_swap_asset(params, &tx.asset)?;
 
     // Validate amount
     // The amount is right-aligned big-endian in a 16-byte buffer. Transaction values are u64, so
@@ -234,24 +235,55 @@ pub fn check_swap_params(
     Ok(())
 }
 
+/// Error for a transaction whose asset the app does not support, which cannot match any swap.
+pub fn unsupported_asset_error() -> SwapError<SwapAppErrorCode> {
+    log::error!("Swap asset not supported");
+    SwapError::with_message(
+        SwapErrorCommonCode::ErrorWrongMethod,
+        SwapAppErrorCode::Default,
+        "Asset not supported".to_string(),
+    )
+}
+
 /// Checks that the transaction transfers the asset described by the swap coin configuration.
-fn check_swap_asset(params: &CreateTxParams, tx: &Tx) -> Result<(), SwapError<SwapAppErrorCode>> {
-    let asset =
-        parse_coin_config(&params.coin_config[..params.coin_config_len]).ok_or_else(|| {
-            SwapError::without_message(
-                SwapErrorCommonCode::ErrorWrongMethod,
-                SwapAppErrorCode::CoinConfigFail,
-            )
-        })?;
-    if tx.coin != asset.ticker.as_str() {
-        log::error!("Swap asset mismatch");
-        return Err(SwapError::with_message(
+///
+/// Only an empty configuration designates the native coin. A non-empty one describes a token, even
+/// with the native ticker and decimals: the CAL can hold a token with the native ticker.
+///
+/// Only the native coin can be swapped: token transfers are rejected.
+fn check_swap_asset(
+    params: &CreateTxParams,
+    asset: &Asset,
+) -> Result<(), SwapError<SwapAppErrorCode>> {
+    let config = &params.coin_config[..params.coin_config_len];
+    let swap_asset = parse_coin_config(config).ok_or_else(|| {
+        SwapError::without_message(
             SwapErrorCommonCode::ErrorWrongMethod,
-            SwapAppErrorCode::Default,
-            format!("Asset tx {} != swap {}", tx.coin, asset.ticker),
-        ));
+            SwapAppErrorCode::CoinConfigFail,
+        )
+    })?;
+    match asset {
+        Asset::Native if config.is_empty() => Ok(()),
+        Asset::Native => {
+            log::error!("Swap asset mismatch");
+            Err(SwapError::with_message(
+                SwapErrorCommonCode::ErrorWrongMethod,
+                SwapAppErrorCode::Default,
+                format!(
+                    "Asset tx {} != swap token {}",
+                    NATIVE_TICKER, swap_asset.ticker
+                ),
+            ))
+        }
+        Asset::Token(_) => {
+            log::error!("Token swaps not supported");
+            Err(SwapError::with_message(
+                SwapErrorCommonCode::ErrorWrongMethod,
+                SwapAppErrorCode::Default,
+                "Token swaps are not supported".to_string(),
+            ))
+        }
     }
-    Ok(())
 }
 
 /// Checks that the swap carries no fees.
@@ -274,7 +306,7 @@ fn check_swap_fees(params: &CreateTxParams) -> Result<(), SwapError<SwapAppError
 /// Checks that the transaction memo is exactly the destination extra ID of the swap.
 fn check_swap_extra_id(
     params: &CreateTxParams,
-    tx: &Tx,
+    tx: &Transfer,
 ) -> Result<(), SwapError<SwapAppErrorCode>> {
     let extra_id = &params.dest_address_extra_id[..params.dest_address_extra_id_len];
     if tx.memo.as_bytes() != extra_id {
@@ -464,9 +496,6 @@ fn check_address(params: &CheckAddressParams) -> i32 {
 // --8<-- [end:check_address]
 
 // --8<-- [start:get_printable_amount]
-/// Bound on asset decimals, well within what the 79-byte output of `uint256_to_float` allows.
-const MAX_DECIMALS: u8 = 30;
-
 /// Asset a swap operates on, as described by the Exchange coin configuration.
 pub struct SwapAsset {
     /// Ticker displayed next to amounts and expected in the signed transaction.
@@ -478,8 +507,8 @@ pub struct SwapAsset {
 /// Parses the coin configuration that the Exchange app forwards from its trusted currency
 /// configuration.
 ///
-/// An empty configuration designates the native coin. Otherwise the layout is
-/// `[ticker_len: u8][ticker][decimals: u8]`, which must fill the configuration exactly.
+/// Only an empty configuration designates the native coin. Otherwise it describes a token, with the
+/// layout `[ticker_len: u8][ticker][decimals: u8]`, which must fill the configuration exactly.
 ///
 /// Returns `None` for any malformed or unsupported configuration: an asset that cannot be
 /// identified must never be displayed or signed under assumed metadata.

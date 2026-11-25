@@ -6,7 +6,8 @@ from application_client.boilerplate_command_sender import (
     Errors as BoilerplateErrors,
 )
 from application_client.boilerplate_currency_utils import BOL_PATH
-from application_client.boilerplate_transaction import Transaction
+from application_client.boilerplate_tokens import TOKEN_USDC_ADDRESS, UNKNOWN_TOKEN_ADDRESS
+from application_client.boilerplate_transaction import TokenTransaction, Transaction
 from ledger_app_clients.exchange.test_runner import (
     ALL_TESTS_EXCEPT_THORSWAP_AND_FEES,
     ExchangeTestRunner,
@@ -14,16 +15,6 @@ from ledger_app_clients.exchange.test_runner import (
 from ragger.error import ExceptionRAPDU
 
 from . import cal_helper as cal
-
-# Token addresses from the hardcoded database in src/token/token_db.c
-# USDC token with 12 decimals
-TOKEN_USDC_ADDRESS = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-TOKEN_LINK_ADDRESS = "ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100"
-UNKNOWN_TOKEN_ADDRESS = "00ffeeddccbbaa99887766554433221100ffeeddccbbaa998877665544332211"
-
-# CAL dynamic token address (not in hardcoded database, will be provided dynamically)
-TOKEN_DYNAMIC_USDT_ADDRESS = cal.TOKEN_DYNAMIC_USDT_ADDRESS
-TOKEN_HARDCODED_USDC_ADDRESS = cal.TOKEN_HARDCODED_USDC_ADDRESS
 
 
 # ExchangeTestRunner implementation for Boilerplate.
@@ -65,15 +56,19 @@ class BoilerplateTests(ExchangeTestRunner):
 
     # Asset of the final transaction, which must match the swapped currency
     final_tx_coin = cal.BOL_CURRENCY_CONFIGURATION.ticker
+    # Token address of the final transaction, sent with SIGN_TOKEN_TX instead of SIGN_TX when set
+    final_tx_token: str | None = None
 
     # The final transaction to craft and send as part of the SWAP finalization.
     # This function will be called by the ExchangeTestRunner in a callback like way
     def perform_final_tx(self, destination, send_amount, fees, memo):
-        # Create the transaction that will be sent to the device for signing
-        tx = Transaction(nonce=1, coin=self.final_tx_coin, to=destination, value=send_amount, memo=memo).serialize()
-
-        # Send the TX
-        BoilerplateCommandSender(self.backend).sign_tx_sync(path=BOL_PATH, transaction=tx)
+        client = BoilerplateCommandSender(self.backend)
+        if self.final_tx_token is None:
+            tx = Transaction(nonce=1, coin=self.final_tx_coin, to=destination, value=send_amount, memo=memo).serialize()
+            client.sign_tx_sync(path=BOL_PATH, transaction=tx)
+        else:
+            tx = TokenTransaction(nonce=1, token=self.final_tx_token, to=destination, value=send_amount, memo=memo).serialize()
+            client.sign_token_tx_sync(path=BOL_PATH, transaction=tx)
 
         # TODO : assert signature validity. Not required but recommended
 
@@ -85,6 +80,39 @@ class BoilerplateTests(ExchangeTestRunner):
             self.valid_destination_1, self.valid_send_amount_1, self.valid_fees_1, self.valid_destination_memo_1
         )
         self.final_tx_coin = "USDT"
+        with pytest.raises(ExceptionRAPDU) as e:
+            self.perform_coin_specific_final_tx(
+                self.valid_destination_1, self.valid_send_amount_1, self.valid_fees_1, self.valid_destination_memo_1
+            )
+        assert e.value.status == BoilerplateErrors.SW_SWAP_FAIL
+        self.assert_exchange_is_started()
+
+    # Test swap of the native coin with a malicious TX transferring a known token instead
+    def perform_test_swap_token_tx(self):
+        self._perform_test_swap_token_instead_of_native(TOKEN_USDC_ADDRESS)
+
+    # Test swap of the native coin with a malicious TX transferring an unknown token instead
+    def perform_test_swap_unknown_token_tx(self):
+        self._perform_test_swap_token_instead_of_native(UNKNOWN_TOKEN_ADDRESS)
+
+    def _perform_test_swap_token_instead_of_native(self, token):
+        self.perform_valid_swap_from_custom(
+            self.valid_destination_1, self.valid_send_amount_1, self.valid_fees_1, self.valid_destination_memo_1
+        )
+        self.final_tx_token = token
+        with pytest.raises(ExceptionRAPDU) as e:
+            self.perform_coin_specific_final_tx(
+                self.valid_destination_1, self.valid_send_amount_1, self.valid_fees_1, self.valid_destination_memo_1
+            )
+        assert e.value.status == BoilerplateErrors.SW_SWAP_FAIL
+        self.assert_exchange_is_started()
+
+    # Test swap of a token with the native ticker and decimals, with a malicious TX transferring the native coin
+    def perform_test_swap_token_with_native_ticker(self):
+        self.currency_configuration = cal.BOL_CRAB_TOKEN_CURRENCY_CONFIGURATION
+        self.perform_valid_swap_from_custom(
+            self.valid_destination_1, self.valid_send_amount_1, self.valid_fees_1, self.valid_destination_memo_1
+        )
         with pytest.raises(ExceptionRAPDU) as e:
             self.perform_coin_specific_final_tx(
                 self.valid_destination_1, self.valid_send_amount_1, self.valid_fees_1, self.valid_destination_memo_1
@@ -122,7 +150,14 @@ class BoilerplateTests(ExchangeTestRunner):
         self.assert_exchange_is_started()
 
 
-BOILERPLATE_SPECIFIC_TESTS = ["swap_wrong_coin", "swap_nonzero_fees", "swap_amount_overflow"]
+BOILERPLATE_SPECIFIC_TESTS = [
+    "swap_wrong_coin",
+    "swap_token_tx",
+    "swap_unknown_token_tx",
+    "swap_token_with_native_ticker",
+    "swap_nonzero_fees",
+    "swap_amount_overflow",
+]
 
 
 # We use a class to reuse the same Speculos instance (faster performances)

@@ -15,6 +15,7 @@
  *  limitations under the License.
  *****************************************************************************/
 use crate::app_ui::sign::ui_display_tx;
+use crate::token::{self, TokenInfo, TOKEN_ADDRESS_LEN};
 use crate::utils::{Bip32Path, NATIVE_TICKER};
 use crate::{AppSW, P1_SIGN_TX_START};
 use alloc::vec::Vec;
@@ -31,20 +32,83 @@ const MAX_TRANSACTION_LEN: usize = 510;
 
 use ledger_device_sdk::libcall::swap::CreateTxParams;
 
-/// Transaction to sign.
-///
-/// The whole serialized transaction is signed, so parsing must reject anything the review does
-/// not cover: unknown fields are denied rather than silently ignored.
+/// Kind of transaction a signing flow carries, set by the instruction that sends it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TxKind {
+    /// Transfer of the native coin, sent with SIGN_TX.
+    Native,
+    /// Transfer of a token, sent with SIGN_TOKEN_TX.
+    Token,
+}
+
+// The whole serialized transaction is signed, so parsing must reject anything the review does not
+// cover: unknown fields are denied rather than silently ignored.
+
+/// Native coin transaction, as serialized by the host.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Tx<'a> {
+struct NativeTx<'a> {
     #[allow(dead_code)]
     nonce: u64,
-    pub coin: &'a str,
-    pub value: u64,
+    coin: &'a str,
+    value: u64,
     #[serde(with = "hex::serde")] // Allows JSON deserialization from hex string
+    to: [u8; 20],
+    memo: &'a str,
+}
+
+/// Token transaction, as serialized by the host. The token is named by its address only.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TokenTx<'a> {
+    #[allow(dead_code)]
+    nonce: u64,
+    #[serde(with = "hex::serde")]
+    token: [u8; TOKEN_ADDRESS_LEN],
+    value: u64,
+    #[serde(with = "hex::serde")]
+    to: [u8; 20],
+    memo: &'a str,
+}
+
+/// Transaction as parsed, before its asset is checked against those the app supports.
+enum Tx<'a> {
+    Native(NativeTx<'a>),
+    Token(TokenTx<'a>),
+}
+
+/// Asset moved by a [`Transfer`].
+pub enum Asset {
+    Native,
+    Token(TokenInfo),
+}
+
+/// Transfer requested by a transaction whose asset the app supports.
+pub struct Transfer<'a> {
+    pub asset: Asset,
+    pub value: u64,
     pub to: [u8; 20],
     pub memo: &'a str,
+}
+
+impl<'a> Tx<'a> {
+    /// Resolves the asset of the transaction, `None` if the app does not support it.
+    fn into_transfer(self) -> Option<Transfer<'a>> {
+        match self {
+            Tx::Native(tx) => (tx.coin == NATIVE_TICKER).then_some(Transfer {
+                asset: Asset::Native,
+                value: tx.value,
+                to: tx.to,
+                memo: tx.memo,
+            }),
+            Tx::Token(tx) => Some(Transfer {
+                asset: Asset::Token(token::lookup(&tx.token)?),
+                value: tx.value,
+                to: tx.to,
+                memo: tx.memo,
+            }),
+        }
+    }
 }
 
 /// Transaction context holding state between APDU chunks.
@@ -53,6 +117,8 @@ pub struct TxContext<'a> {
     path: Bip32Path,
     /// Chunk number expected next, `None` when no flow was started by a path chunk.
     next_chunk: Option<u8>,
+    /// Kind of the pending flow, `None` when no flow was started by a path chunk.
+    flow_kind: Option<TxKind>,
     review_finished: bool,
     pub home: NbglHomeAndSettings,
     /// Swap parameters if running in swap mode.
@@ -68,6 +134,7 @@ impl<'a> TxContext<'a> {
             raw_tx: Vec::new(),
             path: Default::default(),
             next_chunk: None,
+            flow_kind: None,
             review_finished: false,
             home: Default::default(),
             swap_params: None,
@@ -79,6 +146,7 @@ impl<'a> TxContext<'a> {
             raw_tx: Vec::new(),
             path: Default::default(),
             next_chunk: None,
+            flow_kind: None,
             review_finished: false,
             home: Default::default(),
             swap_params: Some(params),
@@ -97,16 +165,18 @@ impl<'a> TxContext<'a> {
         self.raw_tx.clear();
         self.path = Default::default();
         self.next_chunk = None;
+        self.flow_kind = None;
     }
 }
 
-/// Handler for the Sign Transaction APDU.
+/// Handler for the SIGN_TX and SIGN_TOKEN_TX APDUs.
 ///
 /// Receives transaction chunks, parses them, and signs the transaction.
 ///
 /// A flow starts with the path chunk (`P1=0`) and continues with strictly consecutive chunk
-/// numbers. Any other sequence is rejected with [`AppSW::BadState`], and the flow state is
-/// cleared after every final chunk and every error so that no stale path or data can be signed.
+/// numbers, all sent with the instruction of that path chunk. Any other sequence is rejected with
+/// [`AppSW::BadState`], and the flow state is cleared after every final chunk and every error so
+/// that no stale path or data can be signed.
 ///
 /// # Swap Mode
 ///
@@ -118,20 +188,21 @@ pub fn handler_sign_tx<'a>(
     command: Command<'a>,
     chunk: u8,
     more: bool,
+    kind: TxKind,
     ctx: &mut TxContext,
 ) -> Result<CommandResponse<'a>, AppSW> {
     log::debug!("=> handler_sign_tx");
     if chunk == P1_SIGN_TX_START {
-        return start_flow(command, ctx);
+        return start_flow(command, kind, ctx);
     }
 
-    if ctx.next_chunk != Some(chunk) {
-        log::error!("Unexpected SIGN_TX chunk");
+    if ctx.next_chunk != Some(chunk) || ctx.flow_kind != Some(kind) {
+        log::error!("Unexpected chunk, or INS other than the one of chunk 0");
         ctx.clear_flow();
         return Err(AppSW::BadState);
     }
 
-    let result = continue_flow(command, more, ctx);
+    let result = continue_flow(command, more, kind, ctx);
     if result.is_err() || !more {
         ctx.clear_flow();
     } else {
@@ -141,12 +212,17 @@ pub fn handler_sign_tx<'a>(
 }
 
 /// Starts a new flow from the chunk carrying the BIP32 path, discarding any previous one.
-fn start_flow<'a>(command: Command<'a>, ctx: &mut TxContext) -> Result<CommandResponse<'a>, AppSW> {
+fn start_flow<'a>(
+    command: Command<'a>,
+    kind: TxKind,
+    ctx: &mut TxContext,
+) -> Result<CommandResponse<'a>, AppSW> {
     log::debug!("Chunk 0: Path parsing");
     ctx.clear_flow();
     ctx.review_finished = false;
     ctx.path = command.get_data().try_into()?;
     ctx.next_chunk = Some(P1_SIGN_TX_START + 1);
+    ctx.flow_kind = Some(kind);
     Ok(command.into_response())
 }
 
@@ -154,6 +230,7 @@ fn start_flow<'a>(command: Command<'a>, ctx: &mut TxContext) -> Result<CommandRe
 fn continue_flow<'a>(
     command: Command<'a>,
     more: bool,
+    kind: TxKind,
     ctx: &mut TxContext,
 ) -> Result<CommandResponse<'a>, AppSW> {
     let data = command.get_data();
@@ -168,13 +245,17 @@ fn continue_flow<'a>(
 
     // --8<-- [start:ui_bypass]
     log::debug!("Last chunk received, parsing tx");
-    let tx = parse_tx(&ctx.raw_tx)?;
+    let tx = parse_tx(&ctx.raw_tx, kind)?;
     log::debug!("Tx parsed successfully");
 
     if let Some(params) = ctx.swap_params {
         ctx.review_finished = true;
         // --8<-- [start:SwapError_usage]
-        if let Err(error) = crate::swap::check_swap_params(params, &tx) {
+        let checked = tx
+            .into_transfer()
+            .ok_or_else(crate::swap::unsupported_asset_error)
+            .and_then(|transfer| crate::swap::check_swap_params(params, &transfer));
+        if let Err(error) = checked {
             // The swap validation failed and returned us the common format error defined by the SDK
             // Use SDK method to append error code and message in standard format
             let mut response = command.into_response();
@@ -186,15 +267,13 @@ fn continue_flow<'a>(
         }
         // --8<-- [end:SwapError_usage]
     } else {
-        // Without the trusted coin configuration that the Exchange app provides in swap mode,
-        // only the native coin is known well enough to be reviewed.
-        if tx.coin != NATIVE_TICKER {
-            log::error!("Unsupported coin");
+        let Some(transfer) = tx.into_transfer() else {
+            log::error!("Unsupported asset");
             return Err(AppSW::TxParsingFail);
-        }
+        };
         log::debug!("Normal mode, showing UI");
         let comm = command.into_comm();
-        let approved = ui_display_tx(comm, &tx, &ctx.path)?;
+        let approved = ui_display_tx(comm, &transfer, &ctx.path)?;
         ctx.review_finished = true;
         if approved {
             compute_signature_and_append(comm.begin_response(), ctx)
@@ -205,14 +284,27 @@ fn continue_flow<'a>(
     // --8<-- [end:ui_bypass]
 }
 
-/// Parses the accumulated transaction, requiring that every signed byte was consumed and that
-/// every text field can be displayed.
-fn parse_tx(raw_tx: &[u8]) -> Result<Tx<'_>, AppSW> {
-    let (tx, consumed): (Tx, usize) = from_slice(raw_tx).map_err(|_| AppSW::TxParsingFail)?;
-    if consumed != raw_tx.len() {
+/// Parses the accumulated transaction in the format of `kind`, requiring that every text field
+/// can be displayed.
+fn parse_tx(raw_tx: &[u8], kind: TxKind) -> Result<Tx<'_>, AppSW> {
+    let tx = match kind {
+        TxKind::Native => Tx::Native(deserialize_tx(raw_tx)?),
+        TxKind::Token => Tx::Token(deserialize_tx(raw_tx)?),
+    };
+    let displayable = match &tx {
+        Tx::Native(tx) => !tx.coin.is_empty() && is_displayable(tx.coin) && is_displayable(tx.memo),
+        Tx::Token(tx) => is_displayable(tx.memo),
+    };
+    if !displayable {
         return Err(AppSW::TxParsingFail);
     }
-    if tx.coin.is_empty() || !is_displayable(tx.coin) || !is_displayable(tx.memo) {
+    Ok(tx)
+}
+
+/// Deserializes a JSON transaction, requiring that every signed byte was consumed.
+fn deserialize_tx<'a, T: Deserialize<'a>>(raw_tx: &'a [u8]) -> Result<T, AppSW> {
+    let (tx, consumed) = from_slice(raw_tx).map_err(|_| AppSW::TxParsingFail)?;
+    if consumed != raw_tx.len() {
         return Err(AppSW::TxParsingFail);
     }
     Ok(tx)

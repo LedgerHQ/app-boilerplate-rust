@@ -32,12 +32,13 @@ mod handlers {
 
 mod settings;
 mod swap;
+mod token;
 
 use app_ui::menu::ui_menu_main;
 use handlers::{
     get_public_key::handler_get_public_key,
     get_version::handler_get_version,
-    sign_tx::{handler_sign_tx, TxContext},
+    sign_tx::{handler_sign_tx, TxContext, TxKind},
 };
 use ledger_device_sdk::io::{self, init_comm, ApduHeader, Comm, Command, Reply, StatusWords};
 use ledger_device_sdk::libcall::swap::CreateTxParams;
@@ -50,6 +51,12 @@ extern crate alloc;
 use ledger_device_sdk::nbgl::{NbglReviewStatus, StatusType};
 
 ledger_device_sdk::define_comm!(COMM);
+
+const INS_GET_VERSION: u8 = 0x03;
+const INS_GET_APP_NAME: u8 = 0x04;
+const INS_GET_PUBKEY: u8 = 0x05;
+const INS_SIGN_TX: u8 = 0x06;
+const INS_SIGN_TOKEN_TX: u8 = 0x07;
 
 // P2 for last APDU to receive.
 const P2_SIGN_TX_LAST: u8 = 0x00;
@@ -102,7 +109,16 @@ pub enum Instruction {
     GetVersion,
     GetAppName,
     GetPubkey { display: bool },
-    SignTx { chunk: u8, more: bool },
+    SignTx { kind: TxKind, chunk: u8, more: bool },
+}
+
+/// Whether P1 and P2 designate a chunk of a SIGN_TX or SIGN_TOKEN_TX flow.
+fn is_sign_tx_chunk(p1: u8, p2: u8) -> bool {
+    matches!(
+        (p1, p2),
+        (P1_SIGN_TX_START, P2_SIGN_TX_MORE)
+            | (1..=P1_SIGN_TX_MAX, P2_SIGN_TX_LAST | P2_SIGN_TX_MORE)
+    )
 }
 
 impl TryFrom<ApduHeader> for Instruction {
@@ -121,19 +137,22 @@ impl TryFrom<ApduHeader> for Instruction {
     /// [`sample_main`] to have this verification automatically performed by the SDK.
     fn try_from(value: ApduHeader) -> Result<Self, Self::Error> {
         match (value.ins, value.p1, value.p2) {
-            (3, 0, 0) => Ok(Instruction::GetVersion),
-            (4, 0, 0) => Ok(Instruction::GetAppName),
-            (5, 0 | 1, 0) => Ok(Instruction::GetPubkey {
+            (INS_GET_VERSION, 0, 0) => Ok(Instruction::GetVersion),
+            (INS_GET_APP_NAME, 0, 0) => Ok(Instruction::GetAppName),
+            (INS_GET_PUBKEY, 0 | 1, 0) => Ok(Instruction::GetPubkey {
                 display: value.p1 != 0,
             }),
-            (6, P1_SIGN_TX_START, P2_SIGN_TX_MORE)
-            | (6, 1..=P1_SIGN_TX_MAX, P2_SIGN_TX_LAST | P2_SIGN_TX_MORE) => {
-                Ok(Instruction::SignTx {
-                    chunk: value.p1,
-                    more: value.p2 == P2_SIGN_TX_MORE,
-                })
-            }
-            (3..=6, _, _) => Err(AppSW::WrongP1P2),
+            (INS_SIGN_TX, p1, p2) if is_sign_tx_chunk(p1, p2) => Ok(Instruction::SignTx {
+                kind: TxKind::Native,
+                chunk: p1,
+                more: p2 == P2_SIGN_TX_MORE,
+            }),
+            (INS_SIGN_TOKEN_TX, p1, p2) if is_sign_tx_chunk(p1, p2) => Ok(Instruction::SignTx {
+                kind: TxKind::Token,
+                chunk: p1,
+                more: p2 == P2_SIGN_TX_MORE,
+            }),
+            (INS_GET_VERSION..=INS_SIGN_TOKEN_TX, _, _) => Err(AppSW::WrongP1P2),
             (_, _, _) => Err(AppSW::InsNotSupported),
         }
     }
@@ -215,8 +234,8 @@ pub fn normal_main(swap_params: Option<&CreateTxParams>) -> bool {
     loop {
         let command = comm.next_command();
         let decoded = command.decode::<Instruction>();
-        // Any rejected command ends a pending SIGN_TX flow, so that no later chunk can be signed
-        // with the path or data sent before the error.
+        // Any rejected command ends a pending SIGN_TX or SIGN_TOKEN_TX flow, so that no later
+        // chunk can be signed with the path or data sent before the error.
         let Ok(ins) = decoded else {
             tx_ctx.clear_flow();
             let _ = comm.send(&[], decoded.unwrap_err());
@@ -256,6 +275,8 @@ fn handle_apdu<'a>(
         }
         Instruction::GetVersion => handler_get_version(command),
         Instruction::GetPubkey { display } => handler_get_public_key(command, *display),
-        Instruction::SignTx { chunk, more } => handler_sign_tx(command, *chunk, *more, ctx),
+        Instruction::SignTx { kind, chunk, more } => {
+            handler_sign_tx(command, *chunk, *more, *kind, ctx)
+        }
     }
 }

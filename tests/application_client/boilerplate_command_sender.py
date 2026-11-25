@@ -31,6 +31,7 @@ class InsType(IntEnum):
     GET_APP_NAME = 0x04
     GET_PUBLIC_KEY = 0x05
     SIGN_TX = 0x06
+    SIGN_TOKEN_TX = 0x07
 
 
 class Errors(IntEnum):
@@ -97,11 +98,12 @@ class BoilerplateCommandSender:
         ) as response:
             yield response
 
+    # Sends the path chunk then the transaction chunks of a SIGN_TX or SIGN_TOKEN_TX flow
     @contextmanager
-    def sign_tx(self, path: str, transaction: bytes) -> Generator[None, None, None]:
+    def _sign_transaction(self, ins: InsType, path: str, transaction: bytes) -> Generator[None, None, None]:
         self.backend.exchange(
             cla=CLA,
-            ins=InsType.SIGN_TX,
+            ins=ins,
             p1=P1.P1_START,
             p2=P2.P2_MORE,
             data=pack_derivation_path(path),
@@ -110,10 +112,20 @@ class BoilerplateCommandSender:
         idx: int = P1.P1_START + 1
 
         for msg in messages[:-1]:
-            self.backend.exchange(cla=CLA, ins=InsType.SIGN_TX, p1=idx, p2=P2.P2_MORE, data=msg)
+            self.backend.exchange(cla=CLA, ins=ins, p1=idx, p2=P2.P2_MORE, data=msg)
             idx += 1
 
-        with self.backend.exchange_async(cla=CLA, ins=InsType.SIGN_TX, p1=idx, p2=P2.P2_LAST, data=messages[-1]) as response:
+        with self.backend.exchange_async(cla=CLA, ins=ins, p1=idx, p2=P2.P2_LAST, data=messages[-1]) as response:
+            yield response
+
+    @contextmanager
+    def sign_tx(self, path: str, transaction: bytes) -> Generator[None, None, None]:
+        with self._sign_transaction(InsType.SIGN_TX, path, transaction) as response:
+            yield response
+
+    @contextmanager
+    def sign_token_tx(self, path: str, transaction: bytes) -> Generator[None, None, None]:
+        with self._sign_transaction(InsType.SIGN_TOKEN_TX, path, transaction) as response:
             yield response
 
     def get_async_response(self) -> RAPDU | None:
@@ -125,6 +137,13 @@ class BoilerplateCommandSender:
     # been approved in the SWAP flow)
     def sign_tx_sync(self, path: str, transaction: bytes) -> RAPDU | None:
         with self.sign_tx(path, transaction):
+            pass
+        rapdu = self.get_async_response()
+        assert isinstance(rapdu, RAPDU)
+        return rapdu
+
+    def sign_token_tx_sync(self, path: str, transaction: bytes) -> RAPDU | None:
+        with self.sign_token_tx(path, transaction):
             pass
         rapdu = self.get_async_response()
         assert isinstance(rapdu, RAPDU)

@@ -10,18 +10,41 @@ pub const NATIVE_TICKER: &str = "CRAB";
 /// Decimals of the coin handled natively by this app.
 pub const NATIVE_DECIMALS: u8 = 9;
 
-/// Formats an amount of native coin base units in coin units, e.g. `0.000000777` for 777.
-pub fn format_native_amount(value: u64) -> CustomString<79> {
+/// Bound on asset decimals, well within what the 79-byte output of `uint256_to_float` allows.
+pub const MAX_DECIMALS: u8 = 30;
+
+/// Longest string [`format_amount`] returns: `u64::MAX` has 20 digits, and an amount below one
+/// unit is written `0.` followed by all its decimals.
+pub const MAX_AMOUNT_LEN: usize = {
+    let integer_len = u64::MAX.ilog10() as usize + 1;
+    let with_point = integer_len + 1;
+    let below_one_unit = 2 + MAX_DECIMALS as usize;
+    if with_point > below_one_unit {
+        with_point
+    } else {
+        below_one_unit
+    }
+};
+
+/// Formats an amount of base units in asset units, e.g. `0.000000777` for 777 with 9 decimals.
+///
+/// Returns `None` if `decimals` exceeds [`MAX_DECIMALS`].
+pub fn format_amount(value: u64, decimals: u8) -> Option<CustomString<79>> {
+    if decimals > MAX_DECIMALS {
+        return None;
+    }
     let mut value_u256 = [0u8; 32];
     value_u256[32 - core::mem::size_of::<u64>()..].copy_from_slice(&value.to_be_bytes());
-    uint256_to_float(&value_u256, usize::from(NATIVE_DECIMALS))
+    Some(uint256_to_float(&value_u256, usize::from(decimals)))
 }
 
+/// SLIP-0044 coin type of this app, the testnet one shared by all coins.
+pub const SLIP44_COIN_TYPE: u32 = 1;
 /// Flag marking a hardened BIP32 path component.
 const HARDENED: u32 = 0x8000_0000;
 /// Prefix of every path this app derives keys under, `m/44'/1'`, matching the `path` declared in
 /// the `[package.metadata.ledger]` section of `Cargo.toml`.
-const ALLOWED_PATH_PREFIX: [u32; 2] = [44 | HARDENED, 1 | HARDENED];
+const ALLOWED_PATH_PREFIX: [u32; 2] = [44 | HARDENED, SLIP44_COIN_TYPE | HARDENED];
 /// Deepest path the OS derives (`MAX_BIP32_PATH` in the C SDK).
 pub const MAX_PATH_LEN: usize = 10;
 

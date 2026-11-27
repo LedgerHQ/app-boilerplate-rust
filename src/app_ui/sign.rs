@@ -71,11 +71,11 @@ pub fn ui_display_tx(comm: &mut Comm, tx: &Tx, path: &Bip32Path) -> Result<bool,
     // Create transaction review
 
     // Load glyph from file with include_gif macro. Creates an NBGL compatible glyph.
-    #[cfg(target_os = "apex_p")]
+    #[cfg(ledger_device = "apex_p")]
     const FERRIS: NbglGlyph = NbglGlyph::from_include(include_gif!("glyphs/crab_48x48.png", NBGL));
-    #[cfg(any(target_os = "stax", target_os = "flex"))]
+    #[cfg(any(ledger_device = "stax", ledger_device = "flex"))]
     const FERRIS: NbglGlyph = NbglGlyph::from_include(include_gif!("glyphs/crab_64x64.gif", NBGL));
-    #[cfg(any(target_os = "nanosplus", target_os = "nanox"))]
+    #[cfg(any(ledger_device = "nanosplus", ledger_device = "nanox"))]
     const FERRIS: NbglGlyph = NbglGlyph::from_include(include_gif!("icons/crab_14x14.gif", NBGL));
 
     // Create NBGL review. Maximum number of fields and string buffer length can be customised

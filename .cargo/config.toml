@@ -1,5 +1,22 @@
 [target.apex_p]
 runner = "speculos -m apex_p"
+rustflags = ['--cfg=ledger_device="apex_p"']
+
+# The `ledger_device` cfg for builds on the custom target specs that do not go
+# through `cargo ledger`, such as `cargo clippy --target <device>`. Builds with
+# `cargo ledger` use the built-in triples (see `builtin_target` in Cargo.toml),
+# which these sections do not match.
+[target.nanox]
+rustflags = ['--cfg=ledger_device="nanox"']
+
+[target.nanosplus]
+rustflags = ['--cfg=ledger_device="nanosplus"']
+
+[target.stax]
+rustflags = ['--cfg=ledger_device="stax"']
+
+[target.flex]
+rustflags = ['--cfg=ledger_device="flex"']
 
 [build]
 target = "apex_p"

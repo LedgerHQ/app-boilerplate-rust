@@ -28,7 +28,7 @@ This is a Rust application for Ledger hardware wallets (Nano X, S+, Stax, Flex, 
 **UI System**: NBGL (New Boilerplate Graphics Library) for all supported devices:
 - Home screen via `NbglHomeAndSettings` in `src/app_ui/menu.rs`
 - Transaction/address review via `NbglReview` with `Field` arrays
-- Device-specific glyphs loaded via `include_gif!()` macro with conditional compilation (`#[cfg(target_os = "stax")]`)
+- Device-specific glyphs loaded via `include_gif!()` macro with conditional compilation (`#[cfg(ledger_device = "stax")]`)
 
 ## Build & Test Workflow
 
@@ -66,7 +66,7 @@ speculos --apdu-port 9999 --api-port 5001 --model stax target/stax/release/app-b
 
 **Settings Storage**: NVM (non-volatile memory) via `AtomicStorage` in `src/settings.rs`. Linked to `.nvm_data` section. Settings integrate with `NbglHomeAndSettings` switch UI.
 
-**Device-Specific Code**: Pervasive use of `#[cfg(target_os = "...")]` for glyphs, icons, and UI differences between Nano (smaller screens) vs Stax/Flex (touch screens).
+**Device-Specific Code**: Pervasive use of `#[cfg(ledger_device = "...")]` for glyphs, icons, and UI differences between Nano (smaller screens) vs Stax/Flex (touch screens).
 
 ## Integration Points
 

@@ -64,7 +64,7 @@ The `Bip32Path` wrapper in `src/utils.rs` only accepts paths under `m/44'/1'` wi
 All supported devices use the New Bolos Graphics Library:
 - Home + settings: `NbglHomeAndSettings` constructed in `src/app_ui/menu.rs`. The same `home` handle is stored on `TxContext` and re-shown via `home.show_and_return()` after each review.
 - Address / transaction review: `NbglReview` + `Field` arrays in `src/app_ui/address.rs` and `src/app_ui/sign.rs`.
-- Glyphs are loaded with `include_gif!()` gated by `#[cfg(target_os = "...")]`. `build.rs` pre-processes `icons/crab_14x14.gif` + `icons/mask_14x14.gif` into `glyphs/home_nano_nbgl.png` at compile time.
+- Glyphs are loaded with `include_gif!()` gated by `#[cfg(ledger_device = "...")]`. `build.rs` pre-processes `icons/crab_14x14.gif` + `icons/mask_14x14.gif` into `glyphs/home_nano_nbgl.png` at compile time.
 
 ### Settings (NVM)
 
